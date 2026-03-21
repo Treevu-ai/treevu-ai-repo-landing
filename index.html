@@ -241,14 +241,18 @@ body {
   border-radius: 32px;
   padding: 16px;
   box-shadow: var(--shadow-lg);
-  max-width: 280px;
+  width: 260px;
+  height: 462px;
   margin: 0 auto;
   position: relative; z-index: 2;
+  display: flex; flex-direction: column;
 }
 .phone-screen {
   background: var(--white);
   border-radius: 22px;
   overflow: hidden;
+  flex: 1;
+  display: flex; flex-direction: column;
 }
 .phone-status {
   background: var(--neutral-900);
@@ -264,7 +268,7 @@ body {
 }
 .phone-header-title { font-family: var(--font-head); font-size: 0.8125rem; font-weight: 700; opacity: 0.8; }
 .phone-header-name { font-family: var(--font-head); font-size: 1.1rem; font-weight: 800; }
-.phone-body { padding: 16px; }
+.phone-body { padding: 16px; flex: 1; overflow: hidden; }
 .phone-available-label { font-size: 0.6875rem; color: var(--neutral-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
 .phone-amount { font-family: var(--font-head); font-size: 1.75rem; font-weight: 800; color: var(--neutral-900); margin-bottom: 14px; }
 .phone-btn {
