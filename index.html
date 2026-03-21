@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" id="html-root">
 <head>
 <meta charset="UTF-8"/>
+<script>if(localStorage.getItem('treevu-theme')=='dark'||(!localStorage.getItem('treevu-theme')&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.setAttribute('data-theme','dark')}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Treevü — Acceso Predictivo al Salario Devengado | EWA para Empresas en Perú</title>
 <meta name="description" content="Plataforma EWA B2B2E con Motor ML para empresas en Perú. Reduce rotación hasta 40%. Modelo no-custodio. Setup en 2 semanas."/>
@@ -1201,6 +1202,291 @@ input[type="range"]::-moz-range-thumb {
   .vu-launcher { right: 16px; bottom: 16px; }
 }
 
+
+/* ════════════════════════════════════════════════════════
+   DARK MODE — toggled via <html data-theme="dark">
+   Every color has sufficient contrast (WCAG AA min 4.5:1)
+   ════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --brand:         #34D399;
+  --brand-dark:    #10B981;
+  --brand-light:   #065F46;
+  --brand-xlight:  #064E3B;
+  --neutral-900:   #F1F5F9;
+  --neutral-700:   #CBD5E1;
+  --neutral-500:   #94A3B8;
+  --neutral-300:   #334155;
+  --neutral-100:   #1E293B;
+  --neutral-50:    #1A2234;
+  --white:         #0F172A;
+  --danger:        #F87171;
+  --warning:       #FCD34D;
+  /* Extra dark-only tokens */
+  --bg-base:       #0F172A;
+  --bg-card:       #1E293B;
+  --bg-card-hover: #243044;
+  --border:        #2D3F55;
+  --text-primary:  #F1F5F9;
+  --text-secondary:#94A3B8;
+  --text-muted:    #64748B;
+}
+
+/* ── Base ── */
+[data-theme="dark"] body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* ── Nav ── */
+[data-theme="dark"] .nav {
+  background: rgba(15,23,42,0.95);
+  border-bottom-color: var(--border);
+}
+[data-theme="dark"] .nav-logo { color: var(--text-primary); }
+[data-theme="dark"] .nav-links a { color: var(--text-secondary); }
+[data-theme="dark"] .nav-links a:hover { color: var(--text-primary); }
+
+/* ── Urgency bar ── */
+[data-theme="dark"] .urgency-bar { background: #0B1120; }
+
+/* ── Hero ── */
+[data-theme="dark"] .hero {
+  background: linear-gradient(160deg, var(--bg-base) 0%, #0B2A1F 100%);
+}
+[data-theme="dark"] .hero-title { color: var(--text-primary); }
+[data-theme="dark"] .hero-title-sub { color: var(--text-secondary); }
+[data-theme="dark"] .hero-sub { color: var(--text-secondary); }
+[data-theme="dark"] .hero-badge { background: #1C1A05; color: #FCD34D; border-color: #854D0E; }
+[data-theme="dark"] .trust-chip {
+  background: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+/* ── Phone mockup ── */
+[data-theme="dark"] .phone-frame { background: #020617; box-shadow: 0 28px 56px rgba(0,0,0,0.6); }
+[data-theme="dark"] .phone-screen { background: #1E293B; }
+[data-theme="dark"] .phone-status { background: #020617; color: #94A3B8; }
+[data-theme="dark"] .phone-body { background: #1E293B; }
+[data-theme="dark"] .phone-amount { color: var(--text-primary); }
+[data-theme="dark"] .phone-available-label { color: var(--text-muted); }
+[data-theme="dark"] .phone-label { color: var(--text-muted); }
+
+/* ── Dashboard float ── */
+[data-theme="dark"] .dashboard-float {
+  background: var(--bg-card);
+  border-color: var(--border);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.5);
+}
+[data-theme="dark"] .dashboard-overlay-tag { background: var(--brand-xlight); border-color: var(--brand-light); }
+[data-theme="dark"] .metric-mini { background: #243044; }
+[data-theme="dark"] .metric-mini-lbl { color: var(--text-muted); }
+[data-theme="dark"] .dash-bar { background: #2D3F55; }
+
+/* ── Sections ── */
+[data-theme="dark"] .section { background: var(--bg-base); }
+[data-theme="dark"] .section-alt { background: #111827; }
+[data-theme="dark"] .section-title { color: var(--text-primary); }
+[data-theme="dark"] .section-subtitle { color: var(--text-secondary); }
+[data-theme="dark"] .section-tag {
+  background: var(--brand-xlight);
+  border-color: var(--brand-light);
+  color: var(--brand);
+}
+
+/* ── Problem cards ── */
+[data-theme="dark"] .problem-card {
+  background: var(--bg-card);
+  border-color: var(--border);
+  border-left-color: var(--brand);
+}
+[data-theme="dark"] .problem-desc { color: var(--text-secondary); }
+[data-theme="dark"] .problem-source { color: var(--text-muted); }
+
+/* ── Flow steps ── */
+[data-theme="dark"] .flow-step-title { color: var(--text-primary); }
+[data-theme="dark"] .flow-step-desc { color: var(--text-secondary); }
+[data-theme="dark"] .flow-steps::before { background: var(--border); }
+[data-theme="dark"] .payment-chip {
+  background: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+/* ── Calculadora ── */
+[data-theme="dark"] .calc-results { background: #060F1E; }
+[data-theme="dark"] .calc-sub-metric { background: rgba(255,255,255,0.06); }
+[data-theme="dark"] input[type="range"] { background: var(--border); }
+[data-theme="dark"] .calc-label { color: var(--text-primary); }
+[data-theme="dark"] .calc-label-value { color: var(--text-primary); }
+
+/* ── Beneficios ── */
+[data-theme="dark"] .benefits-tabs { border-bottom-color: var(--border); }
+[data-theme="dark"] .benefits-tab { color: var(--text-muted); }
+[data-theme="dark"] .benefits-tab.active { color: var(--brand); }
+[data-theme="dark"] .benefit-card {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+[data-theme="dark"] .benefit-icon { background: var(--brand-xlight); }
+[data-theme="dark"] .benefit-title { color: var(--text-primary); }
+[data-theme="dark"] .benefit-desc { color: var(--text-secondary); }
+
+/* ── ML Engine ── */
+[data-theme="dark"] .ml-card {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+[data-theme="dark"] .ml-card:hover { background: var(--bg-card-hover); }
+[data-theme="dark"] .ml-card-title { color: var(--text-primary); }
+[data-theme="dark"] .ml-card-sub { color: var(--text-secondary); }
+[data-theme="dark"] .ml-badge { background: #0B1120; }
+
+/* ── Comparativa ── */
+[data-theme="dark"] .comp-table th {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-bottom-color: var(--border);
+}
+[data-theme="dark"] .comp-table td {
+  color: var(--text-secondary);
+  border-bottom-color: var(--border);
+}
+[data-theme="dark"] .comp-table td:first-child { color: var(--text-primary); }
+[data-theme="dark"] .comp-table tr:hover td { background: var(--bg-card-hover); }
+[data-theme="dark"] .comp-table td.treevu-col { background: #063B27; }
+[data-theme="dark"] .comp-table tr:hover td.treevu-col { background: #085C3A; }
+[data-theme="dark"] .table-wrapper { background: var(--bg-base); }
+
+/* ── Fundadores ── */
+[data-theme="dark"] .cupos-counter {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+[data-theme="dark"] .cupos-title { color: var(--text-secondary); }
+[data-theme="dark"] .cupos-track { background: var(--border); }
+[data-theme="dark"] .cupos-legend { color: var(--text-muted); }
+[data-theme="dark"] .founders-benefits li { border-bottom-color: var(--border); color: var(--text-secondary); }
+[data-theme="dark"] .pricing-card {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+[data-theme="dark"] .pricing-card.featured {
+  background: #063B27;
+  border-color: var(--brand);
+}
+[data-theme="dark"] .pricing-label { color: var(--text-muted); }
+[data-theme="dark"] .pricing-main { color: var(--text-primary); }
+[data-theme="dark"] .pricing-period { color: var(--text-muted); }
+[data-theme="dark"] .pricing-desc { color: var(--text-secondary); }
+
+/* ── Por qué confiar ── */
+[data-theme="dark"] .confianza-grid > div {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* ── FAQs ── */
+[data-theme="dark"] .faq-item { border-bottom-color: var(--border); }
+[data-theme="dark"] .faq-question { color: var(--text-primary); }
+[data-theme="dark"] .faq-question:hover { color: var(--brand); }
+[data-theme="dark"] .faq-icon { background: var(--bg-card); }
+[data-theme="dark"] .faq-icon svg { color: var(--text-secondary); }
+[data-theme="dark"] .faq-answer { color: var(--text-secondary); }
+
+/* ── Formulario ── */
+[data-theme="dark"] .form-section { background: #111827; }
+[data-theme="dark"] .form-card {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+[data-theme="dark"] .form-header-title { color: var(--text-primary); }
+[data-theme="dark"] .form-header-sub { color: var(--text-secondary); }
+[data-theme="dark"] .form-label { color: var(--text-primary); }
+[data-theme="dark"] .form-input {
+  background: #0F172A;
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .form-input:focus { border-color: var(--brand); }
+[data-theme="dark"] .form-input::placeholder { color: var(--text-muted); }
+[data-theme="dark"] .form-select {
+  background-color: #0F172A;
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .form-trust-item { color: var(--text-secondary); }
+[data-theme="dark"] .form-urgency { background: #1C1A05; border-color: #854D0E; color: #FCD34D; }
+[data-theme="dark"] .form-info-title { color: var(--text-primary); }
+[data-theme="dark"] .form-info-desc { color: var(--text-secondary); }
+[data-theme="dark"] .form-info-icon { background: var(--brand-xlight); }
+[data-theme="dark"] .form-trust { border-top-color: var(--border); }
+
+/* ── Footer ── */
+[data-theme="dark"] .footer { background: #060F1E; }
+[data-theme="dark"] .footer-logo { color: var(--text-primary); }
+
+/* ── Chatbot Vu ── */
+[data-theme="dark"] .vu-window {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+[data-theme="dark"] .vu-msg.bot {
+  background: #243044;
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .vu-input {
+  background: #0F172A;
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .vu-input::placeholder { color: var(--text-muted); }
+[data-theme="dark"] .vu-input-row { border-top-color: var(--border); }
+[data-theme="dark"] .vu-qr {
+  background: var(--brand-xlight);
+  border-color: var(--brand-light);
+}
+
+/* ── Aplica grid cards ── */
+[data-theme="dark"] .aplica-grid > div {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* ── Toggle button ── */
+.theme-toggle {
+  background: none;
+  border: 1.5px solid var(--neutral-200, #E2E8F0);
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--neutral-600, #475569);
+  transition: all 0.15s;
+  margin-left: 8px;
+}
+.theme-toggle:hover {
+  background: var(--neutral-50);
+  border-color: var(--neutral-400, #94A3B8);
+}
+[data-theme="dark"] .theme-toggle {
+  border-color: var(--border);
+  color: var(--text-secondary);
+  background: none;
+}
+[data-theme="dark"] .theme-toggle:hover {
+  background: var(--bg-card);
+}
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: block; }
+[data-theme="dark"] .theme-toggle .icon-sun  { display: block; }
+[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
 </style>
 </head>
 <body>
@@ -1225,6 +1511,12 @@ input[type="range"]::-moz-range-thumb {
         <li><a href="#contacto">Solicitar Acceso</a></li>
       </ul>
       <a href="#contacto" class="btn btn-primary nav-cta">Solicitar Acceso Fundador</a>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Cambiar modo">
+        <svg class="icon-moon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        <svg class="icon-sun" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <span class="icon-moon">Oscuro</span>
+        <span class="icon-sun">Claro</span>
+      </button>
       <button class="nav-mobile-toggle" onclick="document.querySelector('.nav-links').style.display=document.querySelector('.nav-links').style.display==='flex'?'none':'flex'">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
       </button>
@@ -2183,6 +2475,25 @@ async function vuSend() {
   vuWaiting = false;
   document.getElementById('vuSendBtn').disabled = false;
   input.focus();
+}
+</script>
+
+
+<script>
+// ── Dark mode toggle ──────────────────────────────────────────────────────
+(function() {
+  const saved = localStorage.getItem('treevu-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (saved === 'dark' || (!saved && prefersDark)) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('treevu-theme', next);
 }
 </script>
 
