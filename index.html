@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Treevü — Acceso Predictivo al Salario Devengado | EWA para Empresas en Perú</title>
+<meta name="description" content="Plataforma EWA B2B2E con Motor ML para empresas en Perú. Reduce rotación hasta 40%. Modelo no-custodio. Setup en 2 semanas."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --brand:        #059669;
+  --brand-dark:   #047857;
+  --brand-light:  #D1FAE5;
+  --brand-xlight: #ECFDF5;
+  --danger:       #DC2626;
+  --warning:      #F59E0B;
+  --neutral-900:  #0F172A;
+  --neutral-700:  #334155;
+  --neutral-500:  #64748B;
+  --neutral-300:  #CBD5E1;
+  --neutral-100:  #F1F5F9;
+  --neutral-50:   #F8FAFC;
+  --white:        #FFFFFF;
+  --font-head:    'Sora', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --radius-sm:    6px;
+  --radius-md:    10px;
+  --radius-lg:    16px;
+  --radius-xl:    24px;
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:    0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:    0 20px 60px rgba(0,0,0,0.10), 0 8px 20px rgba(0,0,0,0.06);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--neutral-700);
+  background: var(--white);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── UTILS ─── */
+.container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+.section { padding: 96px 0; }
+.section-alt { background: var(--neutral-50); }
+.section-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-body); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--brand); background: var(--brand-xlight);
+  border: 1px solid var(--brand-light);
+  padding: 5px 12px; border-radius: 999px;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: var(--font-head);
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 800;
+  color: var(--neutral-900);
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+.section-subtitle {
+  font-size: 1.0625rem;
+  color: var(--neutral-500);
+  max-width: 580px;
+  line-height: 1.65;
+}
+.text-center { text-align: center; }
+.text-center .section-subtitle { margin: 0 auto; }
+
+/* ─── BUTTONS ─── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-body); font-size: 0.9375rem; font-weight: 600;
+  padding: 13px 26px; border-radius: var(--radius-sm);
+  border: 1.5px solid transparent;
+  cursor: pointer; text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--brand); color: var(--white);
+  border-color: var(--brand);
+}
+.btn-primary:hover {
+  background: var(--brand-dark); border-color: var(--brand-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(5,150,105,0.28);
+}
+.btn-outline {
+  background: transparent; color: var(--brand);
+  border-color: var(--brand);
+}
+.btn-outline:hover {
+  background: var(--brand-xlight);
+  transform: translateY(-1px);
+}
+.btn-lg { padding: 16px 32px; font-size: 1rem; }
+.btn-full { width: 100%; justify-content: center; }
+
+/* ─── NAV ─── */
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--neutral-100);
+}
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px;
+}
+.nav-logo {
+  font-family: var(--font-head); font-size: 1.25rem; font-weight: 800;
+  color: var(--neutral-900); text-decoration: none;
+}
+.nav-logo span { color: var(--brand); }
+.nav-links {
+  display: flex; align-items: center; gap: 28px;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 0.875rem; font-weight: 500;
+  color: var(--neutral-500); text-decoration: none;
+  transition: color 0.12s;
+}
+.nav-links a:hover { color: var(--neutral-900); }
+.nav-cta { margin-left: 8px; }
+.nav-mobile-toggle {
+  display: none; background: none; border: none; cursor: pointer;
+  padding: 4px; color: var(--neutral-700);
+}
+@media (max-width: 860px) {
+  .nav-links { display: none; }
+  .nav-mobile-toggle { display: block; }
+  .nav-cta { display: none; }
+}
+
+/* ─── URGENCY BAR ─── */
+.urgency-bar {
+  background: var(--neutral-900);
+  padding: 10px 24px;
+  text-align: center;
+  font-size: 0.8125rem; font-weight: 500;
+  color: rgba(255,255,255,0.85);
+}
+.urgency-bar strong { color: var(--white); }
+.urgency-bar .pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--brand); color: var(--white);
+  padding: 2px 10px; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 700;
+  margin-left: 8px; vertical-align: middle;
+}
+
+/* ─── HERO ─── */
+.hero {
+  padding: 80px 0 96px;
+  background: linear-gradient(160deg, var(--white) 0%, var(--brand-xlight) 100%);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; top: -120px; right: -120px;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(5,150,105,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 64px; align-items: center;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #FEF3C7; color: #92400E;
+  border: 1px solid #FDE68A;
+  padding: 6px 14px; border-radius: 999px;
+  font-size: 0.8125rem; font-weight: 700;
+  margin-bottom: 20px;
+}
+.hero-badge-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #F59E0B;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.8); }
+}
+.hero-title {
+  font-family: var(--font-head);
+  font-size: clamp(2.25rem, 4.5vw, 3.25rem);
+  font-weight: 800;
+  color: var(--neutral-900);
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+.hero-title .accent { color: var(--brand); }
+.hero-title-sub {
+  font-family: var(--font-head);
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 400;
+  color: var(--neutral-500);
+  line-height: 1.2;
+  margin-bottom: 24px;
+}
+.hero-sub {
+  font-size: 1.0625rem; color: var(--neutral-500);
+  line-height: 1.65; margin-bottom: 36px;
+  max-width: 460px;
+}
+.hero-ctas {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 40px;
+}
+.trust-bar {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.trust-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--white); border: 1px solid var(--neutral-200, #E2E8F0);
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 500; color: var(--neutral-600, #475569);
+  box-shadow: var(--shadow-sm);
+}
+.trust-chip svg { flex-shrink: 0; color: var(--brand); }
+
+/* ─── HERO VISUAL ─── */
+.hero-visual { position: relative; }
+.phone-frame {
+  background: var(--neutral-900);
+  border-radius: 32px;
+  padding: 16px;
+  box-shadow: var(--shadow-lg);
+  max-width: 280px;
+  margin: 0 auto;
+  position: relative; z-index: 2;
+}
+.phone-screen {
+  background: var(--white);
+  border-radius: 22px;
+  overflow: hidden;
+}
+.phone-status {
+  background: var(--neutral-900);
+  color: var(--white);
+  font-size: 10px; font-weight: 600;
+  padding: 8px 16px 6px;
+  display: flex; justify-content: space-between;
+}
+.phone-header {
+  background: var(--brand);
+  padding: 16px;
+  color: var(--white);
+}
+.phone-header-title { font-family: var(--font-head); font-size: 0.8125rem; font-weight: 700; opacity: 0.8; }
+.phone-header-name { font-family: var(--font-head); font-size: 1.1rem; font-weight: 800; }
+.phone-body { padding: 16px; }
+.phone-available-label { font-size: 0.6875rem; color: var(--neutral-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.phone-amount { font-family: var(--font-head); font-size: 1.75rem; font-weight: 800; color: var(--neutral-900); margin-bottom: 14px; }
+.phone-btn {
+  width: 100%; background: var(--brand); color: var(--white);
+  border: none; border-radius: 8px; padding: 11px;
+  font-family: var(--font-body); font-size: 0.875rem; font-weight: 700;
+  cursor: pointer; margin-bottom: 16px;
+}
+.phone-label { font-size: 0.6875rem; color: var(--neutral-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.collab-tag {
+  display: inline-block; font-size: 0.625rem; font-weight: 700;
+  background: var(--brand-xlight); color: var(--brand);
+  border: 1px solid var(--brand-light);
+  padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
+}
+.dashboard-float {
+  position: absolute; right: -24px; bottom: 40px;
+  background: var(--white); border-radius: var(--radius-lg);
+  padding: 16px 20px; box-shadow: var(--shadow-lg);
+  min-width: 200px; z-index: 3;
+  border: 1px solid var(--neutral-100);
+}
+.dashboard-float-label {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 12px;
+  font-size: 0.6875rem; font-weight: 700; color: var(--neutral-500);
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.hr-tag {
+  display: inline-block; font-size: 0.6rem; font-weight: 700;
+  background: var(--neutral-100); color: var(--neutral-600, #475569);
+  padding: 2px 6px; border-radius: 4px;
+}
+.metric-row { display: flex; gap: 12px; }
+.metric-mini {
+  flex: 1; background: var(--neutral-50);
+  border-radius: 8px; padding: 10px;
+  text-align: center;
+}
+.metric-mini-num {
+  font-family: var(--font-head); font-size: 1.25rem; font-weight: 800;
+  line-height: 1;
+}
+.metric-mini-lbl { font-size: 0.625rem; color: var(--neutral-500); font-weight: 500; margin-top: 3px; }
+.metric-green { color: var(--brand); }
+.metric-blue { color: #2563EB; }
+.metric-amber { color: #D97706; }
+
+@media (max-width: 820px) {
+  .hero-inner { grid-template-columns: 1fr; gap: 48px; }
+  .hero-visual { order: -1; }
+  .dashboard-float { right: 0; }
+}
+
+/* ─── PROBLEMA ─── */
+.problem-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 24px; margin-top: 48px;
+}
+.problem-card {
+  background: var(--white);
+  border: 1px solid var(--neutral-100);
+  border-left: 4px solid var(--brand);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: 28px 24px;
+  box-shadow: var(--shadow-sm);
+}
+.problem-num {
+  font-family: var(--font-head);
+  font-size: 3rem; font-weight: 900;
+  color: var(--brand);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.problem-desc {
+  font-size: 0.9375rem; font-weight: 500;
+  color: var(--neutral-700);
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+.problem-source {
+  font-size: 0.75rem; color: var(--neutral-400, #94A3B8);
+  font-style: italic;
+}
+@media (max-width: 720px) {
+  .problem-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── COMO FUNCIONA ─── */
+.flow-steps {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 0; margin-top: 48px; position: relative;
+}
+.flow-steps::before {
+  content: '';
+  position: absolute; top: 28px; left: 15%;  right: 15%;
+  height: 1px; background: var(--neutral-200, #E2E8F0);
+  z-index: 0;
+}
+.flow-step { text-align: center; padding: 0 16px; position: relative; z-index: 1; }
+.flow-step-num {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--brand); color: var(--white);
+  font-family: var(--font-head); font-size: 1.25rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 0 0 6px var(--brand-xlight);
+}
+.flow-step-title {
+  font-family: var(--font-head); font-size: 1rem; font-weight: 700;
+  color: var(--neutral-900); margin-bottom: 10px;
+}
+.flow-step-desc { font-size: 0.875rem; color: var(--neutral-500); line-height: 1.55; }
+.flow-step-highlight {
+  display: inline-block; margin-top: 10px;
+  font-size: 0.75rem; font-weight: 700; color: var(--brand);
+  background: var(--brand-xlight); padding: 3px 10px; border-radius: 999px;
+}
+.payment-chips {
+  display: flex; justify-content: center; gap: 8px; margin-top: 40px; flex-wrap: wrap;
+}
+.payment-chip {
+  background: var(--white); border: 1px solid var(--neutral-200, #E2E8F0);
+  padding: 6px 14px; border-radius: 999px;
+  font-size: 0.8125rem; font-weight: 600; color: var(--neutral-600, #475569);
+  box-shadow: var(--shadow-sm);
+}
+@media (max-width: 720px) {
+  .flow-steps { grid-template-columns: 1fr 1fr; gap: 32px; }
+  .flow-steps::before { display: none; }
+}
+
+/* ─── CALCULADORA ─── */
+.calc-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 48px; align-items: start;
+  margin-top: 48px;
+}
+.calc-inputs { }
+.calc-field { margin-bottom: 28px; }
+.calc-label {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.875rem; font-weight: 600; color: var(--neutral-700);
+  margin-bottom: 10px;
+}
+.calc-label-value {
+  font-family: var(--font-head); font-size: 1rem; font-weight: 800;
+  color: var(--neutral-900);
+}
+input[type="range"] {
+  width: 100%; height: 6px;
+  -webkit-appearance: none; appearance: none;
+  background: var(--neutral-200, #E2E8F0);
+  border-radius: 999px; outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--brand);
+  border: 3px solid var(--white);
+  box-shadow: 0 0 0 2px var(--brand), var(--shadow-sm);
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--brand); border: 3px solid var(--white);
+  box-shadow: 0 0 0 2px var(--brand);
+  cursor: pointer;
+}
+.calc-results {
+  background: var(--neutral-900);
+  border-radius: var(--radius-xl);
+  padding: 36px 32px;
+  position: sticky; top: 88px;
+}
+.calc-results-title {
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.5);
+  margin-bottom: 24px;
+}
+.calc-main-metric { margin-bottom: 28px; }
+.calc-main-label { font-size: 0.8125rem; color: rgba(255,255,255,0.6); margin-bottom: 6px; }
+.calc-main-value {
+  font-family: var(--font-head); font-size: 2.75rem; font-weight: 900;
+  color: #34D399; line-height: 1;
+}
+.calc-sub-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+.calc-sub-metric {
+  background: rgba(255,255,255,0.07);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+.calc-sub-label { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-bottom: 6px; line-height: 1.4; }
+.calc-sub-value {
+  font-family: var(--font-head); font-size: 1.25rem; font-weight: 800;
+  color: var(--white);
+}
+.calc-cta-text {
+  font-size: 0.75rem; color: rgba(255,255,255,0.4);
+  text-align: center; margin-top: 10px;
+}
+.calc-disclaimer {
+  font-size: 0.6875rem; color: rgba(255,255,255,0.3);
+  line-height: 1.5; margin-top: 20px; font-style: italic;
+}
+@media (max-width: 820px) {
+  .calc-grid { grid-template-columns: 1fr; }
+  .calc-results { position: static; }
+}
+
+/* ─── BENEFICIOS ─── */
+.benefits-tabs {
+  display: flex; gap: 8px; margin-bottom: 36px;
+  border-bottom: 2px solid var(--neutral-100);
+  padding-bottom: 0;
+}
+.benefits-tab {
+  font-family: var(--font-body); font-size: 0.9375rem; font-weight: 600;
+  color: var(--neutral-500); background: none; border: none;
+  padding: 12px 20px 14px; cursor: pointer;
+  position: relative; bottom: -2px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.benefits-tab.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+.benefits-tab:hover:not(.active) { color: var(--neutral-700); }
+.benefits-panel { display: none; }
+.benefits-panel.active { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.benefit-card {
+  background: var(--white);
+  border: 1px solid var(--neutral-100);
+  border-radius: var(--radius-md);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  display: flex; gap: 14px;
+}
+.benefit-icon {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  background: var(--brand-xlight);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.benefit-icon svg { color: var(--brand); }
+.benefit-title {
+  font-size: 0.9375rem; font-weight: 700; color: var(--neutral-900);
+  margin-bottom: 4px;
+}
+.benefit-desc { font-size: 0.875rem; color: var(--neutral-500); line-height: 1.5; }
+@media (max-width: 640px) {
+  .benefits-panel.active { grid-template-columns: 1fr; }
+  .benefits-tabs { overflow-x: auto; }
+}
+
+/* ─── ML ENGINE ─── */
+.ml-header {
+  display: flex; gap: 48px; align-items: flex-start;
+  margin-bottom: 48px;
+}
+.ml-header-left { flex: 1; }
+.ml-badge-stack {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin-top: 20px;
+}
+.ml-badge {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--neutral-900); color: var(--white);
+  padding: 8px 14px; border-radius: var(--radius-sm);
+  font-size: 0.8125rem; font-weight: 600;
+}
+.ml-badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+.ml-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+.ml-card {
+  background: var(--white);
+  border: 1px solid var(--neutral-100);
+  border-radius: var(--radius-md);
+  padding: 20px 18px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.ml-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.ml-num {
+  font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.1em;
+  color: var(--brand); margin-bottom: 12px;
+  font-family: var(--font-head);
+}
+.ml-card-title {
+  font-family: var(--font-head); font-size: 0.9375rem; font-weight: 700;
+  color: var(--neutral-900); margin-bottom: 6px; line-height: 1.3;
+}
+.ml-card-sub { font-size: 0.8rem; color: var(--neutral-500); margin-bottom: 12px; line-height: 1.45; }
+.ml-card-target {
+  font-size: 0.75rem; font-weight: 700; color: var(--brand);
+  background: var(--brand-xlight);
+  padding: 3px 9px; border-radius: 999px;
+  display: inline-block;
+}
+@media (max-width: 900px) {
+  .ml-grid { grid-template-columns: repeat(2, 1fr); }
+  .ml-header { flex-direction: column; gap: 24px; }
+}
+@media (max-width: 480px) {
+  .ml-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── COMPARATIVA ─── */
+.table-wrapper { overflow-x: auto; margin-top: 48px; }
+.table-scroll-hint {
+  text-align: center; font-size: 0.8125rem; color: var(--neutral-500);
+  margin-bottom: 12px; display: none;
+}
+@media (max-width: 640px) { .table-scroll-hint { display: block; } }
+.comp-table {
+  width: 100%; border-collapse: collapse;
+  min-width: 560px;
+}
+.comp-table th {
+  padding: 14px 16px; font-size: 0.875rem; font-weight: 700;
+  text-align: center; border-bottom: 2px solid var(--neutral-100);
+  background: var(--white);
+}
+.comp-table th.treevu-col {
+  background: var(--brand);
+  color: var(--white);
+  border-radius: 10px 10px 0 0;
+  position: relative;
+}
+.comp-table th.treevu-col .recommended-badge {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  background: #F59E0B; color: var(--white);
+  font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px; border-radius: 999px;
+  white-space: nowrap;
+}
+.comp-table th:first-child { text-align: left; color: var(--neutral-500); font-weight: 600; }
+.comp-table td {
+  padding: 14px 16px; font-size: 0.875rem;
+  text-align: center; border-bottom: 1px solid var(--neutral-50);
+  color: var(--neutral-700);
+}
+.comp-table td:first-child {
+  text-align: left; font-weight: 600; color: var(--neutral-700);
+}
+.comp-table td.treevu-col {
+  background: var(--brand-xlight);
+  font-weight: 700;
+}
+.comp-table tr:last-child td { border-bottom: none; }
+.comp-table tr:hover td { background: var(--neutral-50); }
+.comp-table tr:hover td.treevu-col { background: #C6F6E4; }
+.icon-yes { color: var(--brand); font-size: 1.125rem; font-weight: 800; }
+.icon-no { color: var(--danger); font-size: 1.125rem; }
+.icon-partial { color: var(--warning); font-size: 1.125rem; }
+
+/* ─── FUNDADORES ─── */
+.founders-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 64px; align-items: start;
+  margin-top: 48px;
+}
+.founders-info {}
+.cupos-counter {
+  background: var(--white);
+  border: 1px solid var(--neutral-100);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 24px;
+}
+.cupos-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 12px;
+}
+.cupos-title { font-family: var(--font-head); font-size: 0.875rem; font-weight: 700; color: var(--neutral-700); }
+.cupos-count {
+  font-family: var(--font-head); font-size: 1.5rem; font-weight: 900;
+  color: var(--danger);
+}
+.cupos-track {
+  width: 100%; height: 10px; background: var(--neutral-100);
+  border-radius: 999px; overflow: hidden; margin-bottom: 10px;
+}
+.cupos-fill {
+  height: 100%; background: linear-gradient(90deg, var(--brand), #34D399);
+  border-radius: 999px;
+  transition: width 1s ease;
+}
+.cupos-legend {
+  display: flex; justify-content: space-between;
+  font-size: 0.75rem; color: var(--neutral-500);
+}
+.cupos-legend span:last-child { font-weight: 700; color: var(--danger); }
+.founders-benefits { list-style: none; margin-top: 24px; }
+.founders-benefits li {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 0; border-bottom: 1px solid var(--neutral-100);
+  font-size: 0.9375rem; color: var(--neutral-700);
+}
+.founders-benefits li:last-child { border-bottom: none; }
+.founders-benefits li .check { color: var(--brand); flex-shrink: 0; margin-top: 2px; }
+
+.pricing-cards {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.pricing-card {
+  background: var(--white);
+  border: 1.5px solid var(--neutral-200, #E2E8F0);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+  position: relative;
+}
+.pricing-card.featured {
+  border-color: var(--brand);
+  border-width: 2px;
+  background: var(--brand-xlight);
+}
+.pricing-label {
+  font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--neutral-500);
+  margin-bottom: 12px;
+}
+.pricing-card.featured .pricing-label { color: var(--brand); }
+.pricing-price-wrapper { margin-bottom: 16px; }
+.pricing-old {
+  font-size: 0.875rem; color: var(--neutral-400, #94A3B8);
+  text-decoration: line-through; margin-bottom: 4px;
+}
+.pricing-main {
+  font-family: var(--font-head); font-size: 2rem; font-weight: 900;
+  color: var(--neutral-900); line-height: 1;
+}
+.pricing-card.featured .pricing-main { color: var(--brand-dark); }
+.pricing-period { font-size: 0.875rem; color: var(--neutral-500); }
+.pricing-desc {
+  font-size: 0.875rem; color: var(--neutral-600, #475569); line-height: 1.5;
+}
+.pricing-frozen {
+  display: inline-block; margin-top: 10px;
+  font-size: 0.75rem; font-weight: 700; color: var(--brand);
+  background: var(--brand-light); padding: 3px 10px; border-radius: 999px;
+}
+.pricing-ribbon {
+  position: absolute; top: -10px; right: 16px;
+  background: var(--brand); color: var(--white);
+  font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 12px; border-radius: 999px;
+}
+.founders-cta-block { margin-top: 32px; }
+.founders-cta-sub {
+  text-align: center; font-size: 0.8125rem; color: var(--neutral-500);
+  margin-top: 10px;
+}
+@media (max-width: 860px) {
+  .founders-inner { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .pricing-cards { grid-template-columns: 1fr; }
+}
+
+/* ─── FAQS ─── */
+.faq-list { margin-top: 48px; max-width: 740px; margin-left: auto; margin-right: auto; }
+.faq-item {
+  border-bottom: 1px solid var(--neutral-100);
+}
+.faq-question {
+  width: 100%; background: none; border: none;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 0;
+  font-family: var(--font-body); font-size: 1rem; font-weight: 600;
+  color: var(--neutral-900); text-align: left;
+  cursor: pointer;
+  gap: 16px;
+}
+.faq-question:hover { color: var(--brand); }
+.faq-icon {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--neutral-100); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.faq-item.open .faq-icon {
+  background: var(--brand); transform: rotate(45deg);
+}
+.faq-icon svg { color: var(--neutral-600, #475569); }
+.faq-item.open .faq-icon svg { color: var(--white); }
+.faq-answer {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  font-size: 0.9375rem; color: var(--neutral-500); line-height: 1.65;
+}
+.faq-item.open .faq-answer { max-height: 300px; padding-bottom: 20px; }
+
+/* ─── CTA SECTION ─── */
+.cta-section {
+  background: var(--neutral-900);
+  padding: 80px 0;
+  text-align: center;
+}
+.cta-section .section-title { color: var(--white); }
+.cta-section .section-subtitle { color: rgba(255,255,255,0.6); margin: 0 auto 32px; }
+.cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn-white {
+  background: var(--white); color: var(--neutral-900);
+  border-color: var(--white);
+}
+.btn-white:hover { background: var(--neutral-100); }
+.btn-ghost-white {
+  background: transparent; color: var(--white);
+  border-color: rgba(255,255,255,0.3);
+}
+.btn-ghost-white:hover { border-color: var(--white); background: rgba(255,255,255,0.08); }
+
+/* ─── FORMULARIO ─── */
+.form-section {
+  background: var(--neutral-50);
+  padding: 96px 0;
+}
+.form-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 80px; align-items: center;
+}
+.form-info {}
+.form-info .section-title { margin-bottom: 24px; }
+.form-info-item {
+  display: flex; gap: 14px; align-items: flex-start;
+  margin-bottom: 20px;
+}
+.form-info-icon {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  background: var(--brand-xlight);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 2px;
+}
+.form-info-icon svg { color: var(--brand); }
+.form-info-title { font-weight: 700; color: var(--neutral-900); font-size: 0.9375rem; margin-bottom: 2px; }
+.form-info-desc { font-size: 0.875rem; color: var(--neutral-500); }
+.form-card {
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  padding: 40px 36px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--neutral-100);
+}
+.form-header { margin-bottom: 28px; }
+.form-header-title {
+  font-family: var(--font-head); font-size: 1.25rem; font-weight: 800;
+  color: var(--neutral-900); margin-bottom: 6px;
+}
+.form-header-sub { font-size: 0.875rem; color: var(--neutral-500); }
+.form-urgency {
+  display: flex; align-items: center; gap: 8px;
+  background: #FEF3C7; border: 1px solid #FDE68A;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px; margin-bottom: 24px;
+  font-size: 0.8125rem; font-weight: 700; color: #92400E;
+}
+.form-group { margin-bottom: 18px; }
+.form-label {
+  display: block; font-size: 0.875rem; font-weight: 600;
+  color: var(--neutral-700); margin-bottom: 7px;
+}
+.form-input {
+  width: 100%; padding: 11px 14px;
+  border: 1.5px solid var(--neutral-200, #E2E8F0);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body); font-size: 0.9375rem; color: var(--neutral-900);
+  background: var(--white);
+  transition: border-color 0.15s;
+  outline: none;
+}
+.form-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(5,150,105,0.1); }
+.form-input::placeholder { color: var(--neutral-400, #94A3B8); }
+.form-select {
+  width: 100%; padding: 11px 14px;
+  border: 1.5px solid var(--neutral-200, #E2E8F0);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body); font-size: 0.9375rem; color: var(--neutral-900);
+  background: var(--white); cursor: pointer;
+  outline: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%2364748B' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 40px;
+}
+.form-select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(5,150,105,0.1); }
+.form-submit {
+  width: 100%; padding: 16px;
+  background: var(--brand); color: var(--white);
+  border: none; border-radius: var(--radius-sm);
+  font-family: var(--font-head); font-size: 1rem; font-weight: 700;
+  cursor: pointer; margin-top: 8px;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.form-submit:hover {
+  background: var(--brand-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(5,150,105,0.3);
+}
+.form-trust {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 18px; padding-top: 18px;
+  border-top: 1px solid var(--neutral-100);
+}
+.form-trust-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.8rem; color: var(--neutral-500);
+}
+.form-trust-item svg { color: var(--brand); flex-shrink: 0; }
+.form-success {
+  display: none; text-align: center; padding: 24px 0;
+}
+.form-success-icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--brand-xlight);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+}
+.form-success-icon svg { color: var(--brand); }
+.form-success-title {
+  font-family: var(--font-head); font-size: 1.25rem; font-weight: 800;
+  color: var(--neutral-900); margin-bottom: 8px;
+}
+.form-success-desc { font-size: 0.9375rem; color: var(--neutral-500); }
+@media (max-width: 820px) {
+  .form-inner { grid-template-columns: 1fr; gap: 48px; }
+  .form-card { padding: 28px 24px; }
+}
+
+/* ─── FOOTER ─── */
+.footer {
+  background: var(--neutral-900);
+  padding: 40px 0;
+}
+.footer-inner {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 16px;
+}
+.footer-logo {
+  font-family: var(--font-head); font-size: 1.125rem; font-weight: 800;
+  color: var(--white); text-decoration: none;
+}
+.footer-logo span { color: var(--brand); }
+.footer-links {
+  display: flex; gap: 24px; list-style: none;
+}
+.footer-links a {
+  font-size: 0.875rem; color: rgba(255,255,255,0.5);
+  text-decoration: none; transition: color 0.12s;
+}
+.footer-links a:hover { color: var(--white); }
+.footer-copy { font-size: 0.8125rem; color: rgba(255,255,255,0.3); }
+
+/* ─── SCROLL ANIMATIONS ─── */
+.fade-up {
+  opacity: 0; transform: translateY(24px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.fade-up.visible {
+  opacity: 1; transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<!-- URGENCY BAR -->
+<div class="urgency-bar">
+  <strong>Programa Fundadores 2026</strong> — Fee preferencial bloqueado de por vida.
+  <span class="pill">⏳ 4 cupos disponibles</span>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#top" class="nav-logo">Tree<span>vü</span></a>
+      <ul class="nav-links">
+        <li><a href="#solucion">Solución</a></li>
+        <li><a href="#calculadora">Calculadora</a></li>
+        <li><a href="#ml-engine">Motor ML</a></li>
+        <li><a href="#piloto">Programa Fundadores</a></li>
+        <li><a href="#contacto">Solicitar Acceso</a></li>
+      </ul>
+      <a href="#contacto" class="btn btn-primary nav-cta">Solicitar Acceso Fundador</a>
+      <button class="nav-mobile-toggle" onclick="document.querySelector('.nav-links').style.display=document.querySelector('.nav-links').style.display==='flex'?'none':'flex'">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="container">
+    <div class="hero-inner">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <div class="hero-badge-dot"></div>
+          Solo 4 cupos · Programa Fundadores Q2 2026
+        </div>
+        <h1 class="hero-title">
+          Reduce rotación<br/><span class="accent">hasta 40%.</span>
+        </h1>
+        <p class="hero-title-sub">Tu equipo cobra lo que<br/>ya ganó — hoy.</p>
+        <p class="hero-sub">El beneficio laboral que paga solo: cero costo para el colaborador, cero riesgo para la empresa. Motor ML predictivo incluido.</p>
+        <div class="hero-ctas">
+          <a href="#contacto" class="btn btn-primary btn-lg">Solicitar Acceso Fundador</a>
+          <a href="#calculadora" class="btn btn-outline btn-lg">Calcular mi ahorro →</a>
+        </div>
+        <div class="trust-bar">
+          <span class="trust-chip">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            No-Custodio · Cero riesgo
+          </span>
+          <span class="trust-chip">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            D.L. N° 1499
+          </span>
+          <span class="trust-chip">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Setup en 2 semanas
+          </span>
+          <span class="trust-chip">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            Yape · Plin · CCE
+          </span>
+        </div>
+      </div>
+      <div class="hero-visual fade-up">
+        <div style="position:relative">
+          <div class="phone-frame">
+            <div class="phone-screen">
+              <div class="phone-status">
+                <span>9:41</span><span>●●●●</span>
+              </div>
+              <div class="phone-header">
+                <div class="phone-header-title">Treevü</div>
+                <div class="phone-header-name">María García</div>
+              </div>
+              <div class="phone-body">
+                <span class="collab-tag">Vista colaborador</span>
+                <div class="phone-available-label">Disponible para adelanto</div>
+                <div class="phone-amount">S/ 1,250.00</div>
+                <button class="phone-btn">Solicitar Adelanto</button>
+                <div class="phone-label">Historial — últimos 7 días</div>
+                <div style="display:flex;gap:6px">
+                  <div style="flex:1;background:var(--brand-xlight);border-radius:6px;height:28px;"></div>
+                  <div style="flex:2;background:var(--brand-xlight);border-radius:6px;height:28px;opacity:.6"></div>
+                  <div style="flex:1;background:var(--brand-xlight);border-radius:6px;height:28px;opacity:.3"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="dashboard-float">
+            <div class="dashboard-float-label">
+              Panel HR <span class="hr-tag">Dashboard</span>
+            </div>
+            <div class="metric-row">
+              <div class="metric-mini">
+                <div class="metric-mini-num metric-green">-28%</div>
+                <div class="metric-mini-lbl">Rotación</div>
+              </div>
+              <div class="metric-mini">
+                <div class="metric-mini-num metric-blue">+15%</div>
+                <div class="metric-mini-lbl">Productividad</div>
+              </div>
+              <div class="metric-mini">
+                <div class="metric-mini-num metric-amber">92%</div>
+                <div class="metric-mini-lbl">Satisfacción</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEMA -->
+<section class="section section-alt" id="problema">
+  <div class="container">
+    <div class="fade-up">
+      <div class="section-tag">El Problema</div>
+      <h2 class="section-title">El estrés financiero de tus<br/>colaboradores te cuesta más de lo que crees.</h2>
+      <p class="section-subtitle">El 78% de trabajadores en Latinoamérica vive al día. Esto impacta directamente la productividad, retención y clima laboral.</p>
+    </div>
+    <div class="problem-grid">
+      <div class="problem-card fade-up">
+        <div class="problem-num">2–3 hrs</div>
+        <div class="problem-desc">por semana perdidas en gestiones financieras personales</div>
+        <div class="problem-source">PwC Employee Financial Wellness Survey, 2023</div>
+      </div>
+      <div class="problem-card fade-up">
+        <div class="problem-num">+40%</div>
+        <div class="problem-desc">mayor rotación en colaboradores con estrés financiero</div>
+        <div class="problem-source">SHRM Employee Benefits Survey, 2023</div>
+      </div>
+      <div class="problem-card fade-up">
+        <div class="problem-num">S/ 8,000+</div>
+        <div class="problem-desc">costo promedio de reemplazo por colaborador en Perú</div>
+        <div class="problem-source">Deloitte Perú — Estudio de Rotación Laboral</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CÓMO FUNCIONA -->
+<section class="section" id="solucion">
+  <div class="container">
+    <div class="fade-up text-center">
+      <div class="section-tag">Cómo Funciona</div>
+      <h2 class="section-title">Flujo simple. Pago directo.<br/>Sin intermediarios.</h2>
+      <p class="section-subtitle">Treevü solo orquesta. El dinero fluye directamente del empleador al colaborador.</p>
+    </div>
+    <div class="flow-steps fade-up">
+      <div class="flow-step">
+        <div class="flow-step-num">1</div>
+        <div class="flow-step-title">Colaborador solicita</div>
+        <div class="flow-step-desc">El colaborador solicita un anticipo de su salario devengado desde la app o Telegram.</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">2</div>
+        <div class="flow-step-title">Treevü valida</div>
+        <div class="flow-step-desc">Verificamos elegibilidad en tiempo real: días trabajados, límite disponible y políticas de la empresa.</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">3</div>
+        <div class="flow-step-title">Pago directo</div>
+        <div class="flow-step-desc">El empleador o fondeador transfiere directamente al colaborador.</div>
+        <span class="flow-step-highlight">Treevü no toca el dinero</span>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">4</div>
+        <div class="flow-step-title">Deducción registrada</div>
+        <div class="flow-step-desc">Se registra automáticamente la deducción en la planilla para el siguiente ciclo de pago.</div>
+      </div>
+    </div>
+    <div class="payment-chips fade-up">
+      <span class="payment-chip">Yape (~16M usuarios)</span>
+      <span class="payment-chip">Plin</span>
+      <span class="payment-chip">Transferencia bancaria (CCE BCRP)</span>
+    </div>
+  </div>
+</section>
+
+<!-- CALCULADORA -->
+<section class="section section-alt" id="calculadora">
+  <div class="container">
+    <div class="fade-up">
+      <div class="section-tag">Calculadora de Ahorro</div>
+      <h2 class="section-title">Calcula el impacto de Treevü<br/>en tu empresa.</h2>
+      <p class="section-subtitle">Ajusta los valores y ve en tiempo real cuánto podrías ahorrar con acceso al salario devengado.</p>
+    </div>
+    <div class="calc-grid">
+      <div class="calc-inputs fade-up">
+        <div class="calc-field">
+          <div class="calc-label">
+            Número de colaboradores
+            <span class="calc-label-value" id="val-colab">500</span>
+          </div>
+          <input type="range" id="colab" min="50" max="5000" step="50" value="500" oninput="calcUpdate()"/>
+        </div>
+        <div class="calc-field">
+          <div class="calc-label">
+            Salario promedio mensual
+            <span class="calc-label-value" id="val-salary">S/ 2,500</span>
+          </div>
+          <input type="range" id="salary" min="1000" max="8000" step="100" value="2500" oninput="calcUpdate()"/>
+        </div>
+        <div class="calc-field">
+          <div class="calc-label">
+            Rotación actual anual
+            <span class="calc-label-value" id="val-rot">20%</span>
+          </div>
+          <input type="range" id="rot" min="5" max="60" step="1" value="20" oninput="calcUpdate()"/>
+        </div>
+      </div>
+      <div class="calc-results fade-up">
+        <div class="calc-results-title">Resultados estimados</div>
+        <div class="calc-main-metric">
+          <div class="calc-main-label">Ahorro anual estimado por menor rotación</div>
+          <div class="calc-main-value" id="res-saving">S/ 2,500,000</div>
+        </div>
+        <div class="calc-sub-metrics">
+          <div class="calc-sub-metric">
+            <div class="calc-sub-label">Horas de productividad recuperadas al año</div>
+            <div class="calc-sub-value" id="res-hours">9,375 hrs</div>
+          </div>
+          <div class="calc-sub-metric">
+            <div class="calc-sub-label">Costo equivalente por colaborador / mes</div>
+            <div class="calc-sub-value" id="res-per-collab">S/ 416</div>
+          </div>
+        </div>
+        <a href="#contacto" class="btn btn-primary btn-full" id="calc-cta">
+          Solicitar acceso — ver mi ahorro real
+        </a>
+        <div class="calc-cta-text">Sin compromiso · Respondemos en &lt; 24 horas</div>
+        <div class="calc-disclaimer">Estimación basada en estudios SHRM y Deloitte Perú. Resultados reales pueden variar según industria, tamaño y contexto de cada empresa.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFICIOS -->
+<section class="section" id="beneficios">
+  <div class="container">
+    <div class="fade-up text-center">
+      <div class="section-tag">Beneficios</div>
+      <h2 class="section-title">Impacto medible para<br/>cada área de tu empresa.</h2>
+    </div>
+    <div class="fade-up">
+      <div class="benefits-tabs">
+        <button class="benefits-tab active" onclick="showTab('rrhh', this)">RRHH</button>
+        <button class="benefits-tab" onclick="showTab('finanzas', this)">Finanzas</button>
+        <button class="benefits-tab" onclick="showTab('operaciones', this)">Operaciones</button>
+      </div>
+      <div id="tab-rrhh" class="benefits-panel active">
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg></div><div><div class="benefit-title">Reduce rotación entre 12% y 40%</div><div class="benefit-desc">Colaboradores con acceso a su salario devengado reportan menor necesidad de buscar opciones informales o cambiar de empleo.</div></div></div>
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div><div class="benefit-title">Mayor engagement y satisfacción</div><div class="benefit-desc">El bienestar financiero es el factor #1 de satisfacción laboral en encuestas de trabajadores en Perú y LATAM.</div></div></div>
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div><div><div class="benefit-title">Alertas tempranas de riesgo de rotación</div><div class="benefit-desc">El motor ML detecta patrones de uso que predicen intención de salida con semanas de anticipación.</div></div></div>
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg></div><div><div class="benefit-title">Beneficio diferenciador para talento</div><div class="benefit-desc">Posiciona a tu empresa como empleador de bienestar financiero en ofertas laborales y cultura interna.</div></div></div>
+      </div>
+      <div id="tab-finanzas" class="benefits-panel">
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div><div><div class="benefit-title">Predicción de demanda a 30 días</div><div class="benefit-desc">El CFO puede planificar la liquidez necesaria para EWA con 30 días de anticipación gracias al motor ML.</div></div></div>
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div><div class="benefit-title">Optimización de capital reservado</div><div class="benefit-desc">Libera capital inmovilizado sin comprometer cobertura. El modelo calcula el mínimo reserva óptimo.</div></div></div>
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div><div class="benefit-title">Sin custodia: cero riesgo financiero</div><div class="benefit-desc">Treevü no toca el dinero. El modelo no-custodio elimina el riesgo regulatorio y financiero para la empresa.</div></div></div>
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></div><div><div class="benefit-title">Visibilidad de flujo de caja operativo</div><div class="benefit-desc">Dashboard en tiempo real del flujo EWA, deducciones pendientes y proyecciones para el próximo período.</div></div></div>
+      </div>
+      <div id="tab-operaciones" class="benefits-panel">
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg></div><div><div class="benefit-title">Integración vía API con nómina</div><div class="benefit-desc">Compatibilidad inicial con Mandü y Buk. Adaptadores para otros sistemas evaluados durante la implementación.</div></div></div>
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div><div><div class="benefit-title">Setup en 2 semanas o menos</div><div class="benefit-desc">Desde la firma hasta colaboradores activos en la plataforma, sin interrupciones al proceso de nómina.</div></div></div>
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div><div><div class="benefit-title">Dashboard de control en tiempo real</div><div class="benefit-desc">Monitoreo de solicitudes, deducciones y alertas operativas desde un panel centralizado para el área de RRHH.</div></div></div>
+        <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></div><div><div class="benefit-title">Deducción automática en planilla</div><div class="benefit-desc">El sistema registra y concilia automáticamente los adelantos con el siguiente ciclo de pago, sin trabajo manual adicional.</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ML ENGINE -->
+<section class="section section-alt" id="ml-engine">
+  <div class="container">
+    <div class="ml-header fade-up">
+      <div class="ml-header-left">
+        <div class="section-tag">Motor de Machine Learning</div>
+        <h2 class="section-title">5 predicciones que transforman<br/>la gestión de tu empresa.</h2>
+        <p class="section-subtitle">Modelo híbrido LightGBM + Temporal Fusion Transformer que genera inteligencia accionable para cada área de la organización.</p>
+      </div>
+      <div>
+        <div class="ml-badge-stack">
+          <div class="ml-badge"><div class="ml-badge-dot"></div> LightGBM</div>
+          <div class="ml-badge"><div class="ml-badge-dot"></div> Temporal Fusion Transformer</div>
+        </div>
+      </div>
+    </div>
+    <div class="ml-grid fade-up">
+      <div class="ml-card">
+        <div class="ml-num">PRED 01</div>
+        <div class="ml-card-title">Pronóstico de Demanda</div>
+        <div class="ml-card-sub">Proyección de demanda de retiros a 30 días. Planifica liquidez y reduce incertidumbre financiera.</div>
+        <span class="ml-card-target">→ CFO / Finanzas</span>
+      </div>
+      <div class="ml-card">
+        <div class="ml-num">PRED 02</div>
+        <div class="ml-card-title">Scoring de Retiro</div>
+        <div class="ml-card-sub">Score de probabilidad de retiro por colaborador. Identifica patrones y necesidades antes de que escalen.</div>
+        <span class="ml-card-target">→ RRHH</span>
+      </div>
+      <div class="ml-card">
+        <div class="ml-num">PRED 03</div>
+        <div class="ml-card-title">Riesgo de Rotación</div>
+        <div class="ml-card-sub">Índice de riesgo de rotación individual y grupal. Intervenciones tempranas, retención proactiva.</div>
+        <span class="ml-card-target">→ RRHH / Gerencia</span>
+      </div>
+      <div class="ml-card">
+        <div class="ml-num">PRED 04</div>
+        <div class="ml-card-title">Optimización de Capital</div>
+        <div class="ml-card-sub">Optimización del capital reservado para EWA. Libera recursos sin comprometer cobertura.</div>
+        <span class="ml-card-target">→ Finanzas / Tesorería</span>
+      </div>
+      <div class="ml-card">
+        <div class="ml-num">PRED 05</div>
+        <div class="ml-card-title">Índice de Engagement</div>
+        <div class="ml-card-sub">Índice de engagement financiero y productivo. Mide el impacto real del beneficio en tu organización.</div>
+        <span class="ml-card-target">→ Gerencia General</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARATIVA -->
+<section class="section" id="comparativa">
+  <div class="container">
+    <div class="fade-up text-center">
+      <div class="section-tag">Comparativa</div>
+      <h2 class="section-title">¿Por qué Treevü y no<br/>otra alternativa?</h2>
+      <p class="section-subtitle">Compara las opciones disponibles y descubre por qué el modelo Treevü es superior para tu empresa.</p>
+    </div>
+    <div class="table-wrapper fade-up">
+      <div class="table-scroll-hint">← Desliza para comparar →</div>
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th class="treevu-col">
+              <span class="recommended-badge">Recomendado</span>
+              Treevü
+            </th>
+            <th>Préstamos de nómina</th>
+            <th>Adelantos informales</th>
+            <th>Otros EWA (sin ML)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Costo para el empleado</td>
+            <td class="treevu-col"><span class="icon-yes">✓</span> S/ 0</td>
+            <td><span class="icon-no">✗</span> 15–80% TEA</td>
+            <td><span class="icon-partial">~</span> Variable</td>
+            <td><span class="icon-partial">~</span> Comisiones</td>
+          </tr>
+          <tr>
+            <td>Riesgo para la empresa</td>
+            <td class="treevu-col"><span class="icon-yes">✓</span> Cero</td>
+            <td><span class="icon-partial">~</span> Medio</td>
+            <td><span class="icon-no">✗</span> Alto</td>
+            <td><span class="icon-partial">~</span> Variable</td>
+          </tr>
+          <tr>
+            <td>Inteligencia predictiva</td>
+            <td class="treevu-col"><span class="icon-yes">✓</span> 5 modelos ML</td>
+            <td><span class="icon-no">✗</span> No</td>
+            <td><span class="icon-no">✗</span> No</td>
+            <td><span class="icon-no">✗</span> No</td>
+          </tr>
+          <tr>
+            <td>Tiempo de implementación</td>
+            <td class="treevu-col"><span class="icon-yes">✓</span> 2 semanas</td>
+            <td><span class="icon-partial">~</span> 1–3 meses</td>
+            <td><span class="icon-yes">✓</span> Inmediato</td>
+            <td><span class="icon-partial">~</span> 4–8 semanas</td>
+          </tr>
+          <tr>
+            <td>Custodia de dinero</td>
+            <td class="treevu-col"><span class="icon-yes">✓</span> No custodio</td>
+            <td><span class="icon-no">✗</span> Sí custodia</td>
+            <td><span class="icon-no">✗</span> Sí custodia</td>
+            <td><span class="icon-no">✗</span> Sí custodia</td>
+          </tr>
+          <tr>
+            <td>Integración con nómina</td>
+            <td class="treevu-col"><span class="icon-yes">✓</span> API nativa</td>
+            <td><span class="icon-partial">~</span> Manual</td>
+            <td><span class="icon-no">✗</span> No</td>
+            <td><span class="icon-partial">~</span> Limitada</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- PROGRAMA FUNDADORES -->
+<section class="section section-alt" id="piloto">
+  <div class="container">
+    <div class="fade-up text-center">
+      <div class="section-tag">Programa Fundadores</div>
+      <h2 class="section-title">Sé parte de las empresas que están<br/>redefiniendo el bienestar laboral en Perú.</h2>
+      <p class="section-subtitle">Las empresas fundadoras no solo acceden a Treevü primero — ayudan a construir el producto que toda empresa en Perú necesitará.</p>
+    </div>
+    <div class="founders-inner">
+      <div class="founders-info fade-up">
+        <div class="cupos-counter">
+          <div class="cupos-header">
+            <div class="cupos-title">Cupos del programa Q2 2026</div>
+            <div class="cupos-count">Solo 4 quedan</div>
+          </div>
+          <div class="cupos-track">
+            <div class="cupos-fill" id="cupos-bar" style="width: 60%"></div>
+          </div>
+          <div class="cupos-legend">
+            <span>6 de 10 cupos ocupados</span>
+            <span>El programa cierra al completarse</span>
+          </div>
+        </div>
+        <ul class="founders-benefits">
+          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>100–300 colaboradores</strong> — Grupo controlado para medir impacto real en rotación y productividad.</span></li>
+          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>3 meses de duración</strong> — Tiempo suficiente para generar datos significativos y entrenar modelos ML.</span></li>
+          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Sin costo de setup</strong> — La implementación del programa no tiene costo adicional.</span></li>
+          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Acceso prioritario</strong> — Siempre los primeros en probar y moldear el producto.</span></li>
+        </ul>
+      </div>
+      <div class="fade-up">
+        <div class="pricing-cards">
+          <div class="pricing-card">
+            <div class="pricing-label">Precio de Lista</div>
+            <div class="pricing-price-wrapper">
+              <div class="pricing-main">Fee estándar</div>
+            </div>
+            <div class="pricing-desc">El que pagarán las empresas que lleguen después. Sin acceso fundador ni condiciones preferenciales.</div>
+          </div>
+          <div class="pricing-card featured">
+            <div class="pricing-ribbon">FUNDADOR</div>
+            <div class="pricing-label">Precio Fundador</div>
+            <div class="pricing-price-wrapper">
+              <div class="pricing-main">~40% off</div>
+              <div class="pricing-period">vs. precio de lista</div>
+            </div>
+            <div class="pricing-desc">Fee preferencial bloqueado de por vida. Nunca subirá para ti.</div>
+            <span class="pricing-frozen">🔒 Congelado al firmar</span>
+          </div>
+        </div>
+        <div class="founders-cta-block">
+          <a href="#contacto" class="btn btn-primary btn-lg btn-full" style="margin-bottom:10px">Solicitar mi Cupo Fundador</a>
+          <div class="founders-cta-sub">Sin compromiso — respondemos en &lt; 24 horas</div>
+        </div>
+        <div style="margin-top:24px;padding:20px;background:var(--white);border-radius:var(--radius-md);border:1px solid var(--neutral-100);">
+          <div style="font-size:0.8125rem;color:var(--neutral-500);line-height:1.6;font-style:italic;">
+            "Tu fee de hoy se congela en el momento que firmas. Es la única vez que ofreceremos estas condiciones."
+          </div>
+          <div style="margin-top:12px;font-size:0.8125rem;font-weight:700;color:var(--neutral-700);">— Equipo Treevü, Trujillo, Perú</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQS -->
+<section class="section" id="faqs">
+  <div class="container">
+    <div class="fade-up text-center">
+      <div class="section-tag">Preguntas Frecuentes</div>
+      <h2 class="section-title">Resuelve tus dudas<br/>antes de solicitar acceso.</h2>
+    </div>
+    <div class="faq-list fade-up">
+      <div class="faq-item open">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          ¿Treevü es un préstamo?
+          <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        </button>
+        <div class="faq-answer">No. Treevü es acceso al salario ya trabajado. El colaborador recibe dinero que ya devengó — sin intereses, sin deuda, sin comisiones ocultas. Es un beneficio laboral, no un producto crediticio.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          ¿Necesitan licencia de la SBS?
+          <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        </button>
+        <div class="faq-answer">Nuestro modelo no-custodio no requiere licencia financiera. No custodiamos dinero. Operamos al amparo del D.L. N° 1499 y el sandbox regulatorio SBS Res. N° 2429-2021.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          ¿Cuánto cuesta implementar?
+          <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        </button>
+        <div class="faq-answer">El programa fundadores no tiene costo de setup. El modelo de negocio es SaaS + fee por usuario activo. Las empresas fundadoras acceden a condiciones preferenciales de por vida. Escríbenos a hello@gettreevu.com para un presupuesto personalizado.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          ¿Funciona con mi sistema de nómina?
+          <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        </button>
+        <div class="faq-answer">Nos integramos vía API. Compatibilidad inicial con Mandü y Buk, con adaptadores para otros sistemas. El equipo técnico evalúa la integración durante el proceso de implementación.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          ¿Qué pasa si un empleado se va antes de fin de mes?
+          <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        </button>
+        <div class="faq-answer">La deducción se registra en la planilla automáticamente. El riesgo de no-pago es del empleador, no de Treevü (modelo no-custodio). Los límites de adelanto están diseñados para minimizar este riesgo.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          ¿Cuánto tarda la implementación?
+          <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        </button>
+        <div class="faq-answer">El programa se configura en 2 semanas o menos. Incluye integración con nómina, capacitación del equipo y configuración de reglas de la empresa.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA SECTION -->
+<div class="cta-section">
+  <div class="container">
+    <h2 class="section-title">El bienestar financiero no es<br/>un beneficio opcional.</h2>
+    <p class="section-subtitle">Las empresas que cuidan el bolsillo de sus colaboradores retienen el talento que otras pierden. Sé parte del cambio.</p>
+    <div class="cta-btns">
+      <a href="#contacto" class="btn btn-lg btn-white">Solicitar Acceso Fundador</a>
+      <a href="https://t.me/+51902126765" target="_blank" class="btn btn-lg btn-ghost-white">Hablar por Telegram →</a>
+    </div>
+  </div>
+</div>
+
+<!-- FORMULARIO -->
+<section class="form-section" id="contacto">
+  <div class="container">
+    <div class="form-inner">
+      <div class="form-info fade-up">
+        <div class="section-tag">Solicitar Acceso</div>
+        <h2 class="section-title">¿El cupo es tuyo?</h2>
+        <p class="section-subtitle" style="margin-bottom:36px">Evaluamos cada solicitud personalmente y respondemos en menos de 24 horas. No hay formularios genéricos.</p>
+        <div class="form-info-item">
+          <div class="form-info-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+          <div><div class="form-info-title">Respuesta en &lt; 24 horas</div><div class="form-info-desc">Revisamos cada solicitud de forma personal, no automática.</div></div>
+        </div>
+        <div class="form-info-item">
+          <div class="form-info-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></div>
+          <div><div class="form-info-title">Equipo local en Trujillo, Perú</div><div class="form-info-desc">Puedes escribirnos por Telegram o al correo hello@gettreevu.com.</div></div>
+        </div>
+        <div class="form-info-item">
+          <div class="form-info-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div>
+          <div><div class="form-info-title">Regulación D.L. N° 1499 · SBS Sandbox</div><div class="form-info-desc">Marco legal claro para operar sin riesgo regulatorio en Perú.</div></div>
+        </div>
+      </div>
+      <div class="form-card fade-up" id="form-card">
+        <div class="form-header">
+          <div class="form-header-title">Acceso Fundador</div>
+          <div class="form-header-sub">Solicita tu cupo ahora</div>
+        </div>
+        <div class="form-urgency">
+          <span>⏳</span> Quedan <strong>4 cupos disponibles</strong> — revisamos cada solicitud en 24 hrs.
+        </div>
+        <div id="form-body">
+          <div class="form-group">
+            <label class="form-label" for="f-name">Nombre y cargo</label>
+            <input class="form-input" type="text" id="f-name" placeholder="Ricardo Cuba — Director RRHH"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="f-email">Correo corporativo</label>
+            <input class="form-input" type="email" id="f-email" placeholder="correo@tuempresa.com.pe"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="f-company">Empresa</label>
+            <input class="form-input" type="text" id="f-company" placeholder="Nombre de tu empresa"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="f-size">Número de colaboradores</label>
+            <select class="form-select" id="f-size">
+              <option value="">¿Cuántos colaboradores tiene tu empresa?</option>
+              <option value="50-200">50 – 200</option>
+              <option value="200-500">200 – 500</option>
+              <option value="500-1000">500 – 1,000</option>
+              <option value="1000-5000">1,000 – 5,000</option>
+              <option value="5000+">5,000+</option>
+            </select>
+          </div>
+          <button class="form-submit" onclick="submitForm()">
+            Solicitar Acceso Fundador →
+          </button>
+          <div class="form-trust">
+            <div class="form-trust-item"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg> Sin spam. Sin ventas agresivas.</div>
+            <div class="form-trust-item"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Te contactamos en menos de 24 horas.</div>
+            <div class="form-trust-item"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Equipo local en Trujillo, Perú.</div>
+          </div>
+        </div>
+        <div class="form-success" id="form-success">
+          <div class="form-success-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <div class="form-success-title">¡Solicitud recibida!</div>
+          <div class="form-success-desc" id="form-success-msg">Ricardo o alguien del equipo Treevü te escribirá antes de 24 horas al correo indicado. ¡Gracias por ser parte del cambio en el bienestar laboral en Perú!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-inner">
+      <a href="#top" class="footer-logo">Tree<span>vü</span></a>
+      <ul class="footer-links">
+        <li><a href="#solucion">Solución</a></li>
+        <li><a href="#calculadora">Calculadora</a></li>
+        <li><a href="#piloto">Programa Fundadores</a></li>
+        <li><a href="mailto:hello@gettreevu.com">hello@gettreevu.com</a></li>
+        <li><a href="https://t.me/+51902126765" target="_blank">Telegram</a></li>
+      </ul>
+      <div class="footer-copy">© 2026 Treevü · Trujillo, Perú · D.L. N° 1499 · SBS Sandbox Res. N° 2429-2021</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+function calcUpdate() {
+  const colab = parseInt(document.getElementById('colab').value);
+  const salary = parseInt(document.getElementById('salary').value);
+  const rot = parseInt(document.getElementById('rot').value);
+
+  document.getElementById('val-colab').textContent = colab.toLocaleString('es-PE');
+  document.getElementById('val-salary').textContent = 'S/ ' + salary.toLocaleString('es-PE');
+  document.getElementById('val-rot').textContent = rot + '%';
+
+  const replacementCost = salary * 3;
+  const turnoverPeople = Math.round(colab * (rot / 100));
+  const reducedTurnover = Math.round(turnoverPeople * 0.28);
+  const saving = reducedTurnover * replacementCost;
+  const hours = Math.round(colab * 2.5 * 0.75 * 10);
+  const perCollab = Math.round(saving / colab / 12);
+
+  document.getElementById('res-saving').textContent = 'S/ ' + saving.toLocaleString('es-PE');
+  document.getElementById('res-hours').textContent = hours.toLocaleString('es-PE') + ' hrs';
+  document.getElementById('res-per-collab').textContent = 'S/ ' + perCollab.toLocaleString('es-PE');
+
+  const savingFmt = 'S/ ' + saving.toLocaleString('es-PE');
+  document.getElementById('calc-cta').textContent = 'Solicitar acceso — mi empresa puede ahorrar ' + savingFmt;
+}
+
+function showTab(tab, btn) {
+  document.querySelectorAll('.benefits-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.benefits-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+function toggleFaq(btn) {
+  const item = btn.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+}
+
+function submitForm() {
+  const name = document.getElementById('f-name').value;
+  const email = document.getElementById('f-email').value;
+  const company = document.getElementById('f-company').value;
+  const size = document.getElementById('f-size').value;
+  if (!name || !email || !company || !size) {
+    alert('Por favor completa todos los campos.');
+    return;
+  }
+  document.getElementById('form-body').style.display = 'none';
+  const successEl = document.getElementById('form-success');
+  const firstName = name.split(' ')[0];
+  document.getElementById('form-success-msg').textContent =
+    firstName + ', el equipo Treevü te escribirá antes de 24 horas al correo ' + email + '. ¡Gracias por ser parte del cambio en el bienestar laboral en Perú!';
+  successEl.style.display = 'block';
+}
+
+// Scroll animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+// Stagger children of grids
+document.querySelectorAll('.problem-grid, .flow-steps, .ml-grid').forEach(grid => {
+  grid.querySelectorAll('.fade-up').forEach((el, i) => {
+    el.style.transitionDelay = (i * 0.08) + 's';
+  });
+});
+
+// Animate cupos bar on visible
+const cuposBar = document.getElementById('cupos-bar');
+const cuposObserver = new IntersectionObserver((entries) => {
+  if (entries[0].isIntersecting) {
+    setTimeout(() => { cuposBar.style.width = '60%'; }, 200);
+    cuposObserver.disconnect();
+  }
+}, { threshold: 0.5 });
+cuposObserver.observe(cuposBar);
+
+calcUpdate();
+</script>
+</body>
+</html>
