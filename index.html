@@ -897,8 +897,8 @@ input[type="range"]::-moz-range-thumb {
   padding: 80px 0;
   text-align: center;
 }
-.cta-section .section-title { color: var(--white); }
-.cta-section .section-subtitle { color: rgba(255,255,255,0.6); margin: 0 auto 32px; }
+.cta-section .section-title { color: #F1F5F9 !important; }
+.cta-section .section-subtitle { color: rgba(241,245,249,0.7); margin: 0 auto 32px; }
 .cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .btn-white {
   background: var(--white); color: var(--neutral-900);
@@ -1290,7 +1290,7 @@ input[type="range"]::-moz-range-thumb {
 /* ── Sections ── */
 [data-theme="dark"] .section { background: var(--bg-base); }
 [data-theme="dark"] .section-alt { background: #111827; }
-[data-theme="dark"] .section-title { color: var(--text-primary); }
+
 [data-theme="dark"] .section-subtitle { color: var(--text-secondary); }
 [data-theme="dark"] .section-tag {
   background: var(--brand-xlight);
@@ -1491,6 +1491,11 @@ input[type="range"]::-moz-range-thumb {
 [data-theme="dark"] .theme-toggle .icon-sun  { display: block; }
 [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
+
+/* ── CTA Section — always dark bg, always light text ── */
+[data-theme="dark"] .cta-section { background: var(--neutral-900); }
+[data-theme="dark"] .cta-section .section-title { color: #F1F5F9 !important; }
+[data-theme="dark"] .cta-section .section-subtitle { color: rgba(241,245,249,0.7); }
 </style>
 </head>
 <body>
