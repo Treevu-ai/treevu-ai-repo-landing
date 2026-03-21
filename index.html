@@ -699,7 +699,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ─── COMPARATIVA ─── */
-.table-wrapper { overflow-x: auto; margin-top: 48px; }
+.table-wrapper { overflow-x: auto; margin-top: 48px; padding-top: 4px; }
 .table-scroll-hint {
   text-align: center; font-size: 0.8125rem; color: var(--neutral-500);
   margin-bottom: 12px; display: none;
@@ -718,15 +718,19 @@ input[type="range"]::-moz-range-thumb {
   background: var(--brand);
   color: var(--white);
   border-radius: 10px 10px 0 0;
-  position: relative;
 }
 .comp-table th.treevu-col .recommended-badge {
-  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  display: block;
   background: #F59E0B; color: var(--white);
   font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 3px 10px; border-radius: 999px;
   white-space: nowrap;
+  margin: 0 auto 6px;
+  width: fit-content;
+}
+.comp-table th.treevu-col {
+  padding-top: 12px;
 }
 .comp-table th:first-child { text-align: left; color: var(--neutral-500); font-weight: 600; }
 .comp-table td {
