@@ -945,6 +945,147 @@ input[type="range"]::-moz-range-thumb {
 .footer-links a:hover { color: var(--white); }
 .footer-copy { font-size: 0.8125rem; color: rgba(255,255,255,0.3); }
 
+
+/* ─── CHATBOT VÜ ─── */
+.vu-launcher {
+  position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--brand); color: var(--white);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(5,150,105,0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.vu-launcher:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(5,150,105,0.5); }
+.vu-launcher svg { transition: transform 0.2s; }
+.vu-launcher.open svg.icon-chat { display: none; }
+.vu-launcher.open svg.icon-close { display: block !important; }
+
+.vu-window {
+  position: fixed; bottom: 96px; right: 28px; z-index: 9998;
+  width: 360px; max-height: 520px;
+  background: var(--white); border-radius: var(--radius-xl);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.14), 0 4px 16px rgba(0,0,0,0.08);
+  border: 1px solid var(--neutral-100);
+  display: flex; flex-direction: column;
+  transform: scale(0.92) translateY(12px);
+  opacity: 0; pointer-events: none;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), opacity 0.18s ease;
+  overflow: hidden;
+}
+.vu-window.open {
+  transform: scale(1) translateY(0);
+  opacity: 1; pointer-events: all;
+}
+.vu-header {
+  background: var(--brand);
+  padding: 16px 18px;
+  display: flex; align-items: center; gap: 10px;
+}
+.vu-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head); font-size: 0.9rem; font-weight: 800;
+  color: var(--white);
+}
+.vu-header-info {}
+.vu-header-name {
+  font-family: var(--font-head); font-size: 0.9375rem; font-weight: 700;
+  color: var(--white); line-height: 1;
+}
+.vu-header-status {
+  font-size: 0.75rem; color: rgba(255,255,255,0.75); margin-top: 2px;
+  display: flex; align-items: center; gap: 4px;
+}
+.vu-status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #34D399;
+}
+.vu-messages {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+  scroll-behavior: smooth;
+}
+.vu-messages::-webkit-scrollbar { width: 4px; }
+.vu-messages::-webkit-scrollbar-thumb { background: var(--neutral-200, #E2E8F0); border-radius: 2px; }
+.vu-msg {
+  max-width: 85%; font-size: 0.875rem; line-height: 1.55;
+}
+.vu-msg.bot {
+  align-self: flex-start;
+  background: var(--neutral-50); color: var(--neutral-900);
+  border-radius: 4px 14px 14px 14px;
+  padding: 10px 13px;
+  border: 1px solid var(--neutral-100);
+}
+.vu-msg.user {
+  align-self: flex-end;
+  background: var(--brand); color: var(--white);
+  border-radius: 14px 4px 14px 14px;
+  padding: 10px 13px;
+}
+.vu-typing {
+  align-self: flex-start;
+  background: var(--neutral-50); border: 1px solid var(--neutral-100);
+  border-radius: 4px 14px 14px 14px;
+  padding: 12px 16px; display: none; align-items: center; gap: 4px;
+}
+.vu-typing.visible { display: flex; }
+.vu-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--neutral-400, #94A3B8);
+  animation: vu-bounce 1.2s ease-in-out infinite;
+}
+.vu-dot:nth-child(2) { animation-delay: 0.2s; }
+.vu-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes vu-bounce {
+  0%,60%,100% { transform: translateY(0); }
+  30% { transform: translateY(-5px); }
+}
+.vu-input-row {
+  padding: 12px 14px;
+  border-top: 1px solid var(--neutral-100);
+  display: flex; gap: 8px; align-items: center;
+}
+.vu-input {
+  flex: 1; border: 1.5px solid var(--neutral-200, #E2E8F0);
+  border-radius: 999px; padding: 9px 14px;
+  font-family: var(--font-body); font-size: 0.875rem;
+  color: var(--neutral-900); outline: none;
+  transition: border-color 0.15s;
+  background: var(--white);
+}
+.vu-input:focus { border-color: var(--brand); }
+.vu-input::placeholder { color: var(--neutral-400, #94A3B8); }
+.vu-send {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--brand); color: var(--white);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+.vu-send:hover { background: var(--brand-dark); transform: scale(1.06); }
+.vu-send:disabled { background: var(--neutral-300); cursor: not-allowed; transform: none; }
+.vu-quick-replies {
+  padding: 0 14px 10px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.vu-qr {
+  font-size: 0.75rem; font-weight: 600;
+  color: var(--brand); background: var(--brand-xlight);
+  border: 1px solid var(--brand-light);
+  padding: 5px 11px; border-radius: 999px;
+  cursor: pointer; white-space: nowrap;
+  transition: background 0.12s;
+}
+.vu-qr:hover { background: var(--brand-light); }
+@media (max-width: 480px) {
+  .vu-window { width: calc(100vw - 24px); right: 12px; bottom: 84px; }
+  .vu-launcher { right: 16px; bottom: 16px; }
+}
+
 /* ─── SCROLL ANIMATIONS ─── */
 .fade-up {
   opacity: 0; transform: translateY(24px);
@@ -1700,5 +1841,155 @@ cuposObserver.observe(cuposBar);
 
 calcUpdate();
 </script>
+
+<!-- CHATBOT VÜ -->
+<button class="vu-launcher" id="vuLauncher" onclick="toggleVu()" aria-label="Abrir chat con Vü">
+  <svg class="icon-chat" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+  <svg class="icon-close" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="display:none"><path d="M6 18L18 6M6 6l12 12"/></svg>
+</button>
+
+<div class="vu-window" id="vuWindow">
+  <div class="vu-header">
+    <div class="vu-avatar">Vü</div>
+    <div class="vu-header-info">
+      <div class="vu-header-name">Vü — Asistente Treevü</div>
+      <div class="vu-header-status"><div class="vu-status-dot"></div> En línea ahora</div>
+    </div>
+  </div>
+  <div class="vu-messages" id="vuMessages">
+    <div class="vu-msg bot">Hola. Soy Vü, el asistente de Treevü. ¿Tienes alguna duda sobre el Programa Fundadores o quieres saber si tu empresa califica?</div>
+  </div>
+  <div class="vu-typing" id="vuTyping">
+    <div class="vu-dot"></div><div class="vu-dot"></div><div class="vu-dot"></div>
+  </div>
+  <div class="vu-quick-replies" id="vuQuickReplies">
+    <span class="vu-qr" onclick="vuSendQuick('¿Qué es Treevü exactamente?')">¿Qué es Treevü?</span>
+    <span class="vu-qr" onclick="vuSendQuick('¿Cuánto cuesta implementarlo?')">¿Cuánto cuesta?</span>
+    <span class="vu-qr" onclick="vuSendQuick('¿Cuántos cupos quedan disponibles?')">¿Quedan cupos?</span>
+  </div>
+  <div class="vu-input-row">
+    <input class="vu-input" id="vuInput" type="text" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')vuSend()"/>
+    <button class="vu-send" id="vuSendBtn" onclick="vuSend()">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
+</div>
+
+
+<script>
+const VU_SYSTEM = `Eres Vü, el asistente de Treevü en gettreevu.com. Tu único objetivo es ayudar a directores de RRHH y CFOs de empresas peruanas a entender el beneficio de Treevü y lograr que soliciten un cupo del Programa Fundadores.
+
+IDENTIDAD
+- Nombre: Vü
+- Tono: directo, confiable, ejecutivo. Sin emojis excesivos. Sin lenguaje de startup cool.
+- Respuestas: máximo 2-3 líneas. Siempre al punto.
+- Idioma: español peruano. Usa "colaboradores", no "empleados".
+
+CONTEXTO DEL PRODUCTO
+- Treevü es una plataforma EWA (Earned Wage Access) B2B2E para empresas en Perú.
+- Los colaboradores acceden al salario que ya ganaron, antes del día de pago.
+- Modelo no-custodio: Treevü no toca el dinero. El empleador transfiere directo al colaborador.
+- Costo para el colaborador: S/ 0. Sin intereses, sin deuda.
+- Motor ML con 5 predicciones: rotación, scoring de retiro, demanda, optimización de capital, engagement.
+- Setup en 2 semanas. Integración API con Mandü y Buk.
+- Marco legal: D.L. N° 1499 + SBS Sandbox Res. N° 2429-2021.
+- Programa Fundadores: 10 cupos totales, quedan 4. Fee preferencial bloqueado de por vida (~40% off precio de lista).
+
+OBJECIONES FRECUENTES
+- "¿Es un préstamo?" → No. Es acceso al salario ya trabajado. No genera deuda ni interés.
+- "¿Necesitan licencia SBS?" → No. El modelo no-custodio no requiere licencia financiera.
+- "¿Qué riesgo tenemos?" → Cero. Treevü no custodia dinero.
+- "¿Cuánto cuesta?" → Setup sin costo en el programa fundadores. Modelo SaaS + fee por usuario activo. Condiciones fundadoras se congelan al firmar.
+- "¿Funciona con nuestro sistema?" → Sí. API. Compatibilidad con Mandü y Buk.
+- "¿Qué pasa si un colaborador se va?" → La deducción se registra automáticamente en planilla.
+
+FLUJO
+1. Duda técnica → responde en 2 líneas + pregunta que acerque al cierre.
+2. Interés → ofrece directamente el cupo fundador.
+3. Precio → menciona fee preferencial y urgencia de 4 cupos restantes.
+4. Objeción → resuelve en 1-2 líneas, redirige al valor.
+5. Listo → di exactamente: "Perfecto. Llena el formulario aquí arriba y te respondemos en menos de 24 horas."
+
+CIERRE — cuando detectes interés usa:
+- "¿Cuántos colaboradores tiene tu empresa? Te cuento si califica para el programa fundadores."
+- "Quedan 4 cupos. ¿Quieres que te reserve uno?"
+- "El fee fundador se congela al firmar. Después sube al precio de lista."
+
+LÍMITES
+- No inventes datos que no estén aquí.
+- Si no sabes algo: "Esa es una buena pregunta para el equipo. Escríbenos a hello@gettreevu.com."
+- Una pregunta concreta por turno. Eres un closer, no un bot de atención al cliente.`;
+
+let vuHistory = [];
+let vuOpen = false;
+let vuWaiting = false;
+
+function toggleVu() {
+  vuOpen = !vuOpen;
+  document.getElementById('vuWindow').classList.toggle('open', vuOpen);
+  document.getElementById('vuLauncher').classList.toggle('open', vuOpen);
+  if (vuOpen) setTimeout(() => document.getElementById('vuInput').focus(), 300);
+}
+
+function vuAddMsg(text, role) {
+  const msgs = document.getElementById('vuMessages');
+  const div = document.createElement('div');
+  div.className = 'vu-msg ' + role;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function vuSendQuick(text) {
+  document.getElementById('vuQuickReplies').style.display = 'none';
+  document.getElementById('vuInput').value = text;
+  vuSend();
+}
+
+async function vuSend() {
+  const input = document.getElementById('vuInput');
+  const text = input.value.trim();
+  if (!text || vuWaiting) return;
+
+  input.value = '';
+  vuWaiting = true;
+  document.getElementById('vuSendBtn').disabled = true;
+  document.getElementById('vuQuickReplies').style.display = 'none';
+
+  vuAddMsg(text, 'user');
+  vuHistory.push({ role: 'user', content: text });
+
+  const typing = document.getElementById('vuTyping');
+  typing.classList.add('visible');
+  document.getElementById('vuMessages').scrollTop = 999999;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 300,
+        system: VU_SYSTEM,
+        messages: vuHistory
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'Hubo un problema. Escríbenos a hello@gettreevu.com.';
+    typing.classList.remove('visible');
+    vuAddMsg(reply, 'bot');
+    vuHistory.push({ role: 'assistant', content: reply });
+  } catch(e) {
+    typing.classList.remove('visible');
+    vuAddMsg('Hubo un problema de conexión. Escríbenos directamente a hello@gettreevu.com.', 'bot');
+  }
+
+  vuWaiting = false;
+  document.getElementById('vuSendBtn').disabled = false;
+  input.focus();
+}
+</script>
+
 </body>
 </html>
