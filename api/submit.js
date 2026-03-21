@@ -1,92 +1,43 @@
-export const config = { runtime: 'edge' };
-
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_CHAT_ID;
 
-export default async function handler(req) {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
-  };
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: corsHeaders
-    });
-  }
-
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400, headers: corsHeaders
-    });
-  }
-
-  const { nombre, email, empresa, sector, colaboradores, objetivo, problema } = body;
+  const { nombre, email, empresa, sector, colaboradores, objetivo, problema } = req.body || {};
 
   if (!nombre || !email || !empresa || !sector || !colaboradores || !objetivo) {
-    return new Response(JSON.stringify({ error: 'Campos requeridos faltantes' }), {
-      status: 400, headers: corsHeaders
-    });
+    return res.status(400).json({ error: 'Campos requeridos faltantes' });
   }
 
-  try {
-    await sendToTelegram({ nombre, email, empresa, colaboradores });
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200, headers: corsHeaders
-    });
-  } catch (err) {
-    console.error('Telegram error:', err);
-    return new Response(JSON.stringify({ error: 'Error al enviar notificación' }), {
-      status: 500, headers: corsHeaders
-    });
-  }
-}
-
-async function sendToTelegram({ nombre, email, empresa, sector, colaboradores, objetivo, problema }) {
   const sectorMap = {
     'retail': 'Retail y consumo', 'manufactura': 'Manufactura',
-    'servicios': 'Servicios', 'salud': 'Salud', 'tecnologia': 'Tecnología',
-    'construccion': 'Construcción / Minería', 'educacion': 'Educación', 'otro': 'Otro'
+    'servicios': 'Servicios', 'salud': 'Salud', 'tecnologia': 'Tecnologia',
+    'construccion': 'Construccion / Mineria', 'educacion': 'Educacion', 'otro': 'Otro'
   };
   const objMap = {
-    'reducir-rotacion': 'Reducir rotación', 'mejorar-clima': 'Mejorar clima laboral',
-    'optimizar-nomina': 'Optimizar nómina', 'bienestar-financiero': 'Bienestar financiero',
+    'reducir-rotacion': 'Reducir rotacion', 'mejorar-clima': 'Mejorar clima laboral',
+    'optimizar-nomina': 'Optimizar nomina', 'bienestar-financiero': 'Bienestar financiero',
     'atraccion-talento': 'Atraer talento', 'otro': 'Otro objetivo'
   };
-  const mensaje = `🌱 *Nuevo Lead Fundador — Treevü*
 
-👤 *${nombre}*
-📧 ${email}
-🏢 ${empresa}
-🏭 ${sectorMap[sector] || sector}
-👥 ${colaboradores} colaboradores
-🎯 ${objMap[objetivo] || objetivo}${problema ? '
-💬 ' + problema : ''}
+  const mensaje = `Nuevo Lead Fundador - Treevu\n\nNombre: ${nombre}\nEmail: ${email}\nEmpresa: ${empresa}\nSector: ${sectorMap[sector] || sector}\nColaboradores: ${colaboradores}\nObjetivo: ${objMap[objetivo] || objetivo}${problema ? '\nReto: ' + problema : ''}\n\nSolicitud desde gettreevu.com`;
 
-_Solicitud desde gettreevu.com_`;
-
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text: mensaje,
-      parse_mode: 'Markdown'
-    })
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Telegram ${res.status}: ${err}`);
+  try {
+    const tgRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: mensaje })
+    });
+    if (!tgRes.ok) throw new Error(`Telegram ${tgRes.status}`);
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Telegram error:', err);
+    return res.status(500).json({ error: 'Error al enviar notificacion' });
   }
-  return res.json();
 }
