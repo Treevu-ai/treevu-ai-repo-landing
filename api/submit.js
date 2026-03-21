@@ -30,9 +30,9 @@ export default async function handler(req) {
     });
   }
 
-  const { nombre, email, empresa, colaboradores } = body;
+  const { nombre, email, empresa, sector, colaboradores, objetivo, problema } = body;
 
-  if (!nombre || !email || !empresa || !colaboradores) {
+  if (!nombre || !email || !empresa || !sector || !colaboradores || !objetivo) {
     return new Response(JSON.stringify({ error: 'Campos requeridos faltantes' }), {
       status: 400, headers: corsHeaders
     });
@@ -51,13 +51,26 @@ export default async function handler(req) {
   }
 }
 
-async function sendToTelegram({ nombre, email, empresa, colaboradores }) {
+async function sendToTelegram({ nombre, email, empresa, sector, colaboradores, objetivo, problema }) {
+  const sectorMap = {
+    'retail': 'Retail y consumo', 'manufactura': 'Manufactura',
+    'servicios': 'Servicios', 'salud': 'Salud', 'tecnologia': 'Tecnología',
+    'construccion': 'Construcción / Minería', 'educacion': 'Educación', 'otro': 'Otro'
+  };
+  const objMap = {
+    'reducir-rotacion': 'Reducir rotación', 'mejorar-clima': 'Mejorar clima laboral',
+    'optimizar-nomina': 'Optimizar nómina', 'bienestar-financiero': 'Bienestar financiero',
+    'atraccion-talento': 'Atraer talento', 'otro': 'Otro objetivo'
+  };
   const mensaje = `🌱 *Nuevo Lead Fundador — Treevü*
 
 👤 *${nombre}*
 📧 ${email}
 🏢 ${empresa}
+🏭 ${sectorMap[sector] || sector}
 👥 ${colaboradores} colaboradores
+🎯 ${objMap[objetivo] || objetivo}${problema ? '
+💬 ' + problema : ''}
 
 _Solicitud desde gettreevu.com_`;
 
