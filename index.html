@@ -647,13 +647,17 @@ input[type="range"]::-moz-range-thumb {
 
 /* ─── ML ENGINE ─── */
 .ml-header {
-  display: flex; gap: 48px; align-items: flex-start;
   margin-bottom: 48px;
+  text-align: center;
 }
-.ml-header-left { flex: 1; }
+.ml-header-left {
+  max-width: 680px;
+  margin: 0 auto 28px;
+}
 .ml-badge-stack {
   display: flex; gap: 10px; flex-wrap: wrap;
-  margin-top: 20px;
+  justify-content: center;
+  margin-top: 0;
 }
 .ml-badge {
   display: flex; align-items: center; gap: 7px;
@@ -693,7 +697,6 @@ input[type="range"]::-moz-range-thumb {
 }
 @media (max-width: 900px) {
   .ml-grid { grid-template-columns: repeat(2, 1fr); }
-  .ml-header { flex-direction: column; gap: 24px; }
 }
 @media (max-width: 480px) {
   .ml-grid { grid-template-columns: 1fr; }
@@ -1840,18 +1843,17 @@ input[type="range"]::-moz-range-thumb {
 <!-- ML ENGINE -->
 <section class="section section-alt" id="ml-engine">
   <div class="container">
-    <div class="ml-header fade-up">
+    <div class="ml-header fade-up text-center">
       <div class="ml-header-left">
         <div class="section-tag">Inteligencia Predictiva</div>
         <h2 class="section-title">Treevü te avisa 3 semanas antes<br/>de que alguien renuncie.</h2>
-        <p class="section-subtitle">No es magia — son datos. El sistema analiza patrones de uso, frecuencia de adelantos y comportamiento financiero para predecir lo que tu equipo de RRHH no puede ver a simple vista.</p>
+        <p class="section-subtitle" style="margin:0 auto;">No es magia — son datos. El sistema analiza patrones de uso, frecuencia de adelantos y comportamiento financiero para predecir lo que tu equipo de RRHH no puede ver a simple vista.</p>
       </div>
-      <div>
-        <div class="ml-badge-stack">
-          <div class="ml-badge"><div class="ml-badge-dot"></div> Alertas de rotación tempranas</div>
-          <div class="ml-badge"><div class="ml-badge-dot"></div> Predicción de liquidez 30 días</div>
-          <div class="ml-badge"><div class="ml-badge-dot"></div> Dashboard en tiempo real</div>
-        </div>
+      <div class="ml-badge-stack">
+        <div class="ml-badge"><div class="ml-badge-dot"></div> Alertas de rotación tempranas</div>
+        <div class="ml-badge"><div class="ml-badge-dot"></div> Predicción de liquidez 30 días</div>
+        <div class="ml-badge"><div class="ml-badge-dot"></div> Dashboard en tiempo real</div>
+        <div class="ml-badge"><div class="ml-badge-dot"></div> Sin código — solo resultados</div>
       </div>
     </div>
     <div class="ml-grid fade-up">
