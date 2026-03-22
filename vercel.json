@@ -6,7 +6,8 @@
     { "src": "api/chat.js",               "use": "@vercel/node" },
     { "src": "api/daily-summary.js",      "use": "@vercel/node" },
     { "src": "api/followup.js",           "use": "@vercel/node" },
-    { "src": "api/calendly-webhook.js",   "use": "@vercel/node" }
+    { "src": "api/calendly-webhook.js",   "use": "@vercel/node" },
+    { "src": "api/setup-calendly.js",     "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/api/submit",            "dest": "/api/submit.js" },
@@ -14,6 +15,7 @@
     { "src": "/api/daily-summary",     "dest": "/api/daily-summary.js" },
     { "src": "/api/followup",          "dest": "/api/followup.js" },
     { "src": "/api/calendly-webhook",  "dest": "/api/calendly-webhook.js" },
+    { "src": "/api/setup-calendly",    "dest": "/api/setup-calendly.js" },
     { "src": "/(.*)",                  "dest": "/index.html" }
   ],
   "crons": [
