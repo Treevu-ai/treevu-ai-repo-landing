@@ -1,0 +1,13 @@
+{
+  "name": "treevu-ai-repo-landing",
+  "version": "1.0.0",
+  "description": "Treevü Landing Page",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static HTML build complete'",
+    "lint": "echo 'No linter configured for static HTML'"
+  },
+  "dependencies": {
+    "@vercel/speed-insights": "^1.0.0"
+  }
+}
