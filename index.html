@@ -2102,50 +2102,91 @@ input[type="range"]::-moz-range-thumb {
         </ul>
       </div>
       <div class="fade-up">
-        <!-- Pricing mejorado: 3 tiers con breakdown claro -->
-        <div style="display:flex;flex-direction:column;gap:12px;">
+        <!-- Pricing — modelo 2 fases claro -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
 
-          <!-- Tier Fundador — destacado -->
-          <div class="pricing-card featured" style="position:relative;">
-            <div class="pricing-ribbon">FUNDADOR · Q2 2026</div>
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:8px;">
-              <div>
-                <div class="pricing-label">Acceso Fundador — 4 cupos</div>
-                <div style="font-family:var(--font-head);font-size:2rem;font-weight:900;color:var(--brand-dark);line-height:1;margin:6px 0 2px;">S/ 7</div>
-                <div style="font-size:0.8rem;color:var(--neutral-500);">por colaborador activo / mes</div>
+          <!-- FASE 1: Piloto (meses 1-2) -->
+          <div style="background:var(--neutral-50);border:1px solid var(--neutral-100);border-radius:var(--radius-md);padding:16px 20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:22px;height:22px;border-radius:50%;background:var(--brand-xlight);border:2px solid var(--brand);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:0.6rem;font-weight:900;color:var(--brand);">1</div>
+                <span style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--neutral-500);">Piloto — Meses 1 y 2</span>
               </div>
-              <div style="text-align:right;">
-                <div style="font-size:0.7rem;color:var(--neutral-400,#94A3B8);text-decoration:line-through;margin-bottom:2px;">S/ 12 / colab.</div>
-                <div style="font-size:0.72rem;font-weight:800;color:var(--brand-dark);background:var(--brand-xlight);padding:2px 8px;border-radius:999px;">-42% off</div>
-              </div>
+              <span style="font-size:0.68rem;font-weight:700;color:var(--brand);background:var(--brand-xlight);padding:2px 8px;border-radius:999px;">Sin suscripción</span>
             </div>
-            <div style="margin:14px 0;border-top:1px solid var(--brand-light);padding-top:14px;display:flex;flex-direction:column;gap:6px;">
-              <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
-                <span style="color:var(--neutral-600,#475569);">Setup e integración</span>
-                <strong style="color:var(--brand-dark);">S/ 0</strong>
-              </div>
-              <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
-                <span style="color:var(--neutral-600,#475569);">Ejemplo: 200 colaboradores activos</span>
-                <strong style="color:var(--neutral-900);">S/ 1,400 / mes</strong>
-              </div>
-              <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
-                <span style="color:var(--neutral-600,#475569);">Ejemplo: 500 colaboradores activos</span>
-                <strong style="color:var(--neutral-900);">S/ 3,500 / mes</strong>
-              </div>
+            <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px;">
+              <span style="font-family:var(--font-head);font-size:1.6rem;font-weight:900;color:var(--neutral-900);">S/ 7</span>
+              <span style="font-size:0.8rem;color:var(--neutral-500);">por colaborador activo / mes</span>
             </div>
-            <div style="font-size:0.78rem;color:var(--neutral-500);line-height:1.5;">Solo pagas por colaboradores que <em>realmente usan</em> el servicio ese mes. Fee congelado de por vida al firmar.</div>
-            <span class="pricing-frozen" style="margin-top:10px;display:inline-block;">Fee congelado al firmar · Nunca sube</span>
+            <div style="font-size:0.75rem;color:var(--neutral-500);">Solo pagas por quien usa el servicio ese mes. Sin mínimos. Dashboard incluido sin costo adicional.</div>
           </div>
 
-          <!-- Tier Post-piloto — referencia -->
-          <div class="pricing-card" style="opacity:0.85;">
+          <!-- FASE 2: Continuidad (mes 3+) — FEATURED -->
+          <div class="pricing-card featured" style="position:relative;padding:20px;">
+            <div class="pricing-ribbon">FUNDADOR · PRECIO CONGELADO</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;margin-bottom:14px;">
+              <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.3);border:2px solid var(--brand);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:0.6rem;font-weight:900;color:var(--brand-dark);">2</div>
+              <span style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--brand-dark);">Continuidad — Mes 3 en adelante</span>
+            </div>
+
+            <!-- Componente 1: Suscripción dashboard -->
+            <div style="background:rgba(255,255,255,0.55);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <div style="font-size:0.72rem;font-weight:700;color:var(--neutral-700);margin-bottom:2px;">Suscripción Dashboard ML</div>
+                  <div style="font-size:0.68rem;color:var(--neutral-500);">Acceso a los 5 modelos predictivos, alertas de rotación, panel HR y reportes</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+                  <div style="font-family:var(--font-head);font-size:1.25rem;font-weight:900;color:var(--brand-dark);line-height:1;">S/ 490</div>
+                  <div style="font-size:0.62rem;color:var(--neutral-500);">/ mes fijo</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Componente 2: Fee por usuario -->
+            <div style="background:rgba(255,255,255,0.55);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <div style="font-size:0.72rem;font-weight:700;color:var(--neutral-700);margin-bottom:2px;">Fee por colaborador activo</div>
+                  <div style="font-size:0.68rem;color:var(--neutral-500);">Solo los que realizan adelantos ese mes. Sin cobro por inactivos.</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+                  <div style="font-family:var(--font-head);font-size:1.25rem;font-weight:900;color:var(--brand-dark);line-height:1;">S/ 7</div>
+                  <div style="font-size:0.62rem;color:var(--neutral-500);">/ usuario activo</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ejemplos concretos -->
+            <div style="border-top:1px solid rgba(5,150,105,0.2);padding-top:10px;margin-bottom:10px;">
+              <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--brand-dark);margin-bottom:6px;">Ejemplos de costo mensual total</div>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;border-bottom:1px solid rgba(5,150,105,0.1);">
+                  <span style="color:var(--neutral-700);">100 colaboradores activos</span>
+                  <strong style="color:var(--neutral-900);">S/ 1,190 / mes</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;border-bottom:1px solid rgba(5,150,105,0.1);">
+                  <span style="color:var(--neutral-700);">250 colaboradores activos</span>
+                  <strong style="color:var(--neutral-900);">S/ 2,240 / mes</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;">
+                  <span style="color:var(--neutral-700);">500 colaboradores activos</span>
+                  <strong style="color:var(--neutral-900);">S/ 3,990 / mes</strong>
+                </div>
+              </div>
+            </div>
+
+            <span class="pricing-frozen" style="display:inline-block;">Precio congelado de por vida al firmar</span>
+          </div>
+
+          <!-- Precio de lista post-piloto — referencia -->
+          <div class="pricing-card" style="opacity:0.75;padding:14px 18px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <div>
-                <div class="pricing-label">Precio de lista — post piloto</div>
-                <div style="font-family:var(--font-head);font-size:1.5rem;font-weight:800;color:var(--neutral-700);line-height:1;margin:4px 0 2px;">S/ 12</div>
-                <div style="font-size:0.78rem;color:var(--neutral-500);">por colaborador activo / mes + S/ 490 setup</div>
+                <div class="pricing-label" style="margin-bottom:4px;">Precio de lista — post programa fundadores</div>
+                <div style="font-size:0.78rem;color:var(--neutral-500);">Dashboard: <strong>S/ 790/mes</strong> + fee <strong>S/ 12/usuario activo</strong></div>
               </div>
-              <div style="font-size:0.7rem;color:var(--neutral-400,#94A3B8);text-align:right;max-width:120px;">Para empresas que entren después del programa</div>
+              <div style="font-size:0.68rem;font-weight:800;color:var(--danger);background:#FEF2F2;padding:3px 10px;border-radius:999px;white-space:nowrap;margin-left:12px;">Tú pagas menos</div>
             </div>
           </div>
 
