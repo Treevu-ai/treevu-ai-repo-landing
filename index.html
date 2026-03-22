@@ -50,7 +50,7 @@ body {
 
 /* --- UTILS --- */
 .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
-.section { padding: 96px 0; }
+.section { padding: clamp(40px, 6vw, 80px) 0; }
 .section-alt { background: var(--neutral-50); }
 .section-tag {
   display: inline-flex; align-items: center; gap: 6px;
@@ -117,8 +117,8 @@ body {
 }
 .nav-inner {
   display: flex; align-items: center; justify-content: space-between;
-  height: 64px;
-  gap: 48px;
+  height: 60px;
+  gap: 32px;
 }
 .nav-logo {
   font-family: var(--font-head); font-size: 1.25rem; font-weight: 800;
@@ -126,16 +126,16 @@ body {
 }
 .nav-logo span { color: var(--brand); }
 .nav-links {
-  display: flex; align-items: center; gap: 44px;
+  display: flex; align-items: center; gap: 24px;
   list-style: none;
 }
 .nav-links a {
-  font-size: 0.875rem; font-weight: 500;
+  font-size: 0.8125rem; font-weight: 500;
   color: var(--neutral-500); text-decoration: none;
   transition: color 0.12s;
 }
 .nav-links a:hover { color: var(--neutral-900); }
-.nav-cta { margin-left: 8px; }
+.nav-cta { margin-left: 4px; padding: 10px 18px; font-size: 0.8125rem; white-space: nowrap; }
 .nav-mobile-toggle {
   display: none; background: none; border: none; cursor: pointer;
   padding: 4px; color: var(--neutral-700);
@@ -161,7 +161,7 @@ body {
 
 /* --- HERO --- */
 .hero {
-  padding: 80px 0 96px;
+  padding: 60px 0 80px;
   background: linear-gradient(160deg, var(--white) 0%, var(--brand-xlight) 100%);
   position: relative; overflow: hidden;
 }
@@ -562,7 +562,7 @@ input[type="range"]::-moz-range-thumb {
   background: var(--neutral-900);
   border-radius: var(--radius-xl);
   padding: 36px 32px;
-  position: sticky; top: 88px;
+  position: sticky; top: 72px;
 }
 .calc-results-title {
   font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
@@ -759,8 +759,8 @@ input[type="range"]::-moz-range-thumb {
 /* ─── FUNDADORES ─── */
 .founders-inner {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 64px; align-items: start;
-  margin-top: 48px;
+  gap: 48px; align-items: start;
+  margin-top: 36px;
 }
 .founders-info {}
 .cupos-counter {
@@ -1616,7 +1616,7 @@ input[type="range"]::-moz-range-thumb {
         <li><a href="#piloto">Programa Fundadores</a></li>
         <li><a href="#contacto">Solicitar Acceso</a></li>
       </ul>
-      <a href="#contacto" class="btn btn-primary nav-cta">Solicitar Acceso Fundador</a>
+      <a href="#contacto" class="btn btn-primary nav-cta">Acceso Fundador</a>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Cambiar modo">
         <svg class="icon-moon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
         <svg class="icon-sun" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -2102,27 +2102,53 @@ input[type="range"]::-moz-range-thumb {
         </ul>
       </div>
       <div class="fade-up">
-        <div class="pricing-cards">
-          <div class="pricing-card">
-            <div class="pricing-label">Precio de Lista</div>
-            <div class="pricing-price-wrapper">
-              <div class="pricing-old">Desde S/ 12 / colaborador activo</div>
-              <div class="pricing-main">+ S/ 490</div>
-              <div class="pricing-period">setup mensual · facturación mensual</div>
+        <!-- Pricing mejorado: 3 tiers con breakdown claro -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+
+          <!-- Tier Fundador — destacado -->
+          <div class="pricing-card featured" style="position:relative;">
+            <div class="pricing-ribbon">FUNDADOR · Q2 2026</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:8px;">
+              <div>
+                <div class="pricing-label">Acceso Fundador — 4 cupos</div>
+                <div style="font-family:var(--font-head);font-size:2rem;font-weight:900;color:var(--brand-dark);line-height:1;margin:6px 0 2px;">S/ 7</div>
+                <div style="font-size:0.8rem;color:var(--neutral-500);">por colaborador activo / mes</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:0.7rem;color:var(--neutral-400,#94A3B8);text-decoration:line-through;margin-bottom:2px;">S/ 12 / colab.</div>
+                <div style="font-size:0.72rem;font-weight:800;color:var(--brand-dark);background:var(--brand-xlight);padding:2px 8px;border-radius:999px;">-42% off</div>
+              </div>
             </div>
-            <div class="pricing-desc">Para empresas que ingresen después del programa fundadores. Sin condiciones preferenciales.</div>
-          </div>
-          <div class="pricing-card featured">
-            <div class="pricing-ribbon">FUNDADOR</div>
-            <div class="pricing-label">Precio Fundador — Piloto Q2 2026</div>
-            <div class="pricing-price-wrapper">
-              <div class="pricing-old" style="text-decoration:none;color:var(--brand-dark);font-weight:700;">S/ 7 por colaborador activo / mes</div>
-              <div class="pricing-main">+ S/ 0</div>
-              <div class="pricing-period">setup sin costo · facturación mensual</div>
+            <div style="margin:14px 0;border-top:1px solid var(--brand-light);padding-top:14px;display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
+                <span style="color:var(--neutral-600,#475569);">Setup e integración</span>
+                <strong style="color:var(--brand-dark);">S/ 0</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
+                <span style="color:var(--neutral-600,#475569);">Ejemplo: 200 colaboradores activos</span>
+                <strong style="color:var(--neutral-900);">S/ 1,400 / mes</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
+                <span style="color:var(--neutral-600,#475569);">Ejemplo: 500 colaboradores activos</span>
+                <strong style="color:var(--neutral-900);">S/ 3,500 / mes</strong>
+              </div>
             </div>
-            <div class="pricing-desc">Empresa de 200 colaboradores activos = <strong>S/ 1,400 / mes</strong>. Fee congelado de por vida al firmar — nunca subirá.</div>
-            <span class="pricing-frozen">Fee congelado al firmar</span>
+            <div style="font-size:0.78rem;color:var(--neutral-500);line-height:1.5;">Solo pagas por colaboradores que <em>realmente usan</em> el servicio ese mes. Fee congelado de por vida al firmar.</div>
+            <span class="pricing-frozen" style="margin-top:10px;display:inline-block;">Fee congelado al firmar · Nunca sube</span>
           </div>
+
+          <!-- Tier Post-piloto — referencia -->
+          <div class="pricing-card" style="opacity:0.85;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="pricing-label">Precio de lista — post piloto</div>
+                <div style="font-family:var(--font-head);font-size:1.5rem;font-weight:800;color:var(--neutral-700);line-height:1;margin:4px 0 2px;">S/ 12</div>
+                <div style="font-size:0.78rem;color:var(--neutral-500);">por colaborador activo / mes + S/ 490 setup</div>
+              </div>
+              <div style="font-size:0.7rem;color:var(--neutral-400,#94A3B8);text-align:right;max-width:120px;">Para empresas que entren después del programa</div>
+            </div>
+          </div>
+
         </div>
         <div class="founders-cta-block">
           <a href="#contacto" class="btn btn-primary btn-lg btn-full" style="margin-bottom:10px">Solicitar mi Cupo Fundador</a>
