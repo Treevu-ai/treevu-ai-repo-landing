@@ -1562,6 +1562,118 @@ input[type="range"]::-moz-range-thumb {
   background: var(--brand-xlight);
 }
 
+/* ── Badges hardcodeados: sector colors en dark ── */
+[data-theme="dark"] [style*="background:#EFF6FF"] {
+  background: #172A4A !important;
+  color: #93C5FD !important;
+}
+[data-theme="dark"] [style*="background:#FEF3C7"] {
+  background: #2D1F05 !important;
+  color: #FCD34D !important;
+}
+[data-theme="dark"] [style*="background:#FEF2F2"] {
+  background: #2D0A0A !important;
+  color: #FCA5A5 !important;
+}
+
+/* ── Piloto fase 1 card: neutral-50 bg con texto dark ── */
+[data-theme="dark"] [style*="background:var(--neutral-50)"][style*="border:1px solid var(--neutral-100)"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* ── Pricing featured: sub-items rgba(255,255,255,0.55) ── */
+[data-theme="dark"] .pricing-card.featured [style*="background:rgba(255,255,255,0.55)"] {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(52,211,153,0.15);
+}
+[data-theme="dark"] .pricing-card.featured [style*="background:rgba(255,255,255,0.3)"] {
+  background: rgba(52,211,153,0.15) !important;
+}
+
+/* ── Pricing featured: textos internos ── */
+[data-theme="dark"] .pricing-card.featured [style*="color:var(--neutral-700)"] {
+  color: var(--text-secondary) !important;
+}
+[data-theme="dark"] .pricing-card.featured [style*="color:var(--neutral-900)"] {
+  color: var(--text-primary) !important;
+}
+[data-theme="dark"] .pricing-card.featured [style*="color:var(--neutral-500)"] {
+  color: var(--text-muted) !important;
+}
+
+/* ── Pricing post-piloto card ── */
+[data-theme="dark"] .pricing-card [style*="color:var(--neutral-700)"] {
+  color: var(--text-secondary) !important;
+}
+[data-theme="dark"] .pricing-card [style*="color:var(--neutral-500)"] {
+  color: var(--text-muted) !important;
+}
+
+/* ── Sección aplica: info bar al final ── */
+[data-theme="dark"] [style*="background:var(--neutral-50)"][style*="border:1px solid var(--neutral-100)"][style*="display:flex;align-items:center"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+[data-theme="dark"] [style*="color:var(--neutral-600,#475569)"][style*="margin:0"] {
+  color: var(--text-secondary) !important;
+}
+
+/* ── Empresas confirmadas: badges MFG / RTL / SVC ── */
+[data-theme="dark"] [style*="background:var(--brand-xlight)"][style*="font-size:0.55rem"] {
+  background: var(--brand-xlight) !important;
+  color: var(--brand) !important;
+}
+[data-theme="dark"] [style*="background:#EFF6FF"][style*="font-size:0.55rem"] {
+  background: #172A4A !important;
+  color: #93C5FD !important;
+}
+[data-theme="dark"] [style*="background:#FEF3C7"][style*="font-size:0.55rem"] {
+  background: #2D1F05 !important;
+  color: #FCD34D !important;
+}
+
+/* ── Cupos counter: empresas confirmadas filas ── */
+[data-theme="dark"] .cupos-counter [style*="background:var(--neutral-50)"] {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+}
+[data-theme="dark"] .cupos-counter [style*="color:var(--neutral-800)"] {
+  color: var(--text-primary) !important;
+}
+[data-theme="dark"] .cupos-counter [style*="color:var(--neutral-500)"] {
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .cupos-counter [style*="font-size:0.7rem;color:var(--neutral-400"] {
+  color: var(--text-disabled) !important;
+}
+
+/* ── Fundadores nota de confidencialidad ── */
+[data-theme="dark"] [style*="font-style:italic;margin-top:4px"] {
+  color: var(--text-disabled) !important;
+}
+
+/* ── Pricing 2 fases: badge "Sin suscripción" ── */
+[data-theme="dark"] .pricing-card.featured [style*="font-size:0.65rem;font-weight:700;text-transform:uppercase"] {
+  color: var(--brand) !important;
+}
+
+/* ── Confianza / Aplica: card title y desc inline ── */
+[data-theme="dark"] .aplica-grid li span { color: var(--text-secondary) !important; }
+[data-theme="dark"] .confianza-grid div[style*="font-family:var(--font-head)"] {
+  color: var(--text-primary) !important;
+}
+
+/* ── Light mode: mejorar contraste de neutral-500 sobre neutral-50 ── */
+/* neutral-500 = #64748B sobre neutral-50 = #F8FAFC = ratio 4.6:1 PASS AA */
+/* Solo los font-size muy pequeños (<0.75rem) son problemáticos */
+.section-tag { font-size: 12px; } /* ya era así */
+
+/* ── Pricing post-piloto "Tú pagas menos" badge — light mode ── */
+/* #FEF2F2 bg con danger text = suficiente contraste en light */
+/* En dark ya tiene override */
+
+
 /* ── Toggle button ── */
 .theme-toggle {
   background: none;
@@ -2183,7 +2295,7 @@ input[type="range"]::-moz-range-thumb {
               <div style="width:32px;height:32px;border-radius:6px;background:#FEF3C7;display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:900;color:#D97706;flex-shrink:0;">SVC</div>
               <div><div style="font-size:0.8rem;font-weight:700;color:var(--neutral-800);">Servicios, Trujillo</div><div style="font-size:0.7rem;color:var(--neutral-500);">180 colaboradores · Piloto confirmado marzo 2026</div></div>
             </div>
-            <div style="font-size:0.7rem;color:var(--neutral-400,#94A3B8);font-style:italic;margin-top:4px;">*Nombres omitidos por acuerdo de confidencialidad pre-piloto.</div>
+            <div style="font-size:0.7rem;color:var(--neutral-500);font-style:italic;margin-top:4px;">*Nombres omitidos por acuerdo de confidencialidad pre-piloto.</div>
           </div>
         </div>
         <ul class="founders-benefits">
@@ -2210,7 +2322,7 @@ input[type="range"]::-moz-range-thumb {
               <span style="font-family:var(--font-head);font-size:1.6rem;font-weight:900;color:var(--neutral-900);">S/ 7</span>
               <span style="font-size:0.8rem;color:var(--neutral-500);">por colaborador activo / mes</span>
             </div>
-            <div style="font-size:0.75rem;color:var(--neutral-500);">Solo pagas por quien usa el servicio ese mes. Sin mínimos. Dashboard incluido sin costo adicional.</div>
+            <div style="font-size:0.75rem;color:var(--neutral-600,#475569);">Solo pagas por quien usa el servicio ese mes. Sin mínimos. Dashboard incluido sin costo adicional.</div>
           </div>
 
           <!-- FASE 2: Continuidad (mes 3+) — FEATURED -->
