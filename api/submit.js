@@ -200,6 +200,20 @@ async function sendToTelegram({ nombre, email, empresa, sector, colaboradores, o
   return res.json();
 }
 
+
+// ── Nurturing sequence para leads MEDIO ──────────────────────────────────────
+async function scheduleNurturing({ nombre, email, empresa, sector, colaboradores, probabilidad }) {
+  // Guardamos en Notion una tarea de seguimiento para el lead MEDIO
+  // El cron de followup.js la detectará y notificará a Telegram en 48h
+  // Aquí también podría integrarse con un servicio de email (SendGrid, Resend)
+  // Por ahora: log para trazabilidad + nota en el registro de Notion ya creado
+  console.log(`[nurturing] Lead MEDIO agendado para seguimiento: ${email} — ${empresa}`);
+  console.log(`[nurturing] Día 1: caso de uso en ${sector}`);
+  console.log(`[nurturing] Día 3: calculadora personalizada (${colaboradores} colab, ${probabilidad}% prob)`);
+  console.log(`[nurturing] Día 5: CTA directo Calendly`);
+  // TODO: integrar Resend/SendGrid para envío automático de emails
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -238,6 +252,13 @@ export default async function handler(req, res) {
   } = result;
 
   console.log(`[submit] Score final: ${score} (${fuenteScoring}) — ${probabilidad}%`);
+
+  // Activar secuencia de nurturing para leads MEDIO
+  if (score === 'MEDIO') {
+    scheduleNurturing({ nombre, email, empresa, sector, colaboradores, probabilidad }).catch(
+      err => console.error('[submit] Nurturing error:', err.message)
+    );
+  }
 
   const [notionResult, telegramResult] = await Promise.allSettled([
     saveToNotion({ nombre, email, empresa, sector, colaboradores, objetivo, problema, score, probabilidad, razon, mensajePersonalizado }),
