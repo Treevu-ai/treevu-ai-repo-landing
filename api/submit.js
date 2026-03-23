@@ -1,13 +1,13 @@
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const NOTION_TOKEN = process.env.NOTION_TOKEN;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_CHAT_ID;
+const NOTION_TOKEN       = process.env.NOTION_TOKEN;
+const ANTHROPIC_API_KEY  = process.env.ANTHROPIC_API_KEY;
 const NOTION_DATABASE_ID = "8a5cb4e6-16b9-4248-ac44-cab55c9ace6f";
 
-const GMAIL_CLIENT_ID = process.env.GMAIL_CLIENT_ID;
+const GMAIL_CLIENT_ID     = process.env.GMAIL_CLIENT_ID;
 const GMAIL_CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET;
 const GMAIL_REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN;
-const GMAIL_FROM = process.env.GMAIL_FROM || 'hello@gettreevu.com';
+const GMAIL_FROM          = process.env.GMAIL_FROM || 'hello@gettreevu.com';
 
 // ── Lookup maps ───────────────────────────────────────────────────────────────
 const SECTOR_MAP = {
@@ -25,14 +25,14 @@ const SCORE_EMOJI = { ALTO: '🔥', MEDIO: '🟡', BAJO: '🔵' };
 // ── Fallback scoring ──────────────────────────────────────────────────────────
 function calcScoreFallback(sector, colaboradores, objetivo) {
   let pts = 0;
-  if (['200-500', '500-1000', '1000-5000'].includes(colaboradores)) pts += 3;
+  if (['200-500','500-1000','1000-5000'].includes(colaboradores)) pts += 3;
   else if (colaboradores === '50-200') pts += 2;
   else if (colaboradores === '5000+') pts += 1;
   if (objetivo === 'reducir-rotacion') pts += 3;
-  else if (['bienestar-financiero', 'mejorar-clima'].includes(objetivo)) pts += 2;
+  else if (['bienestar-financiero','mejorar-clima'].includes(objetivo)) pts += 2;
   else pts += 1;
-  if (['retail', 'manufactura'].includes(sector)) pts += 2;
-  else if (['servicios', 'salud', 'construccion'].includes(sector)) pts += 1;
+  if (['retail','manufactura'].includes(sector)) pts += 2;
+  else if (['servicios','salud','construccion'].includes(sector)) pts += 1;
   if (pts >= 7) return { score: 'ALTO', probabilidad: 75, razon: 'Perfil ideal: sector + tamaño + objetivo alineados.', accion: 'Contactar HOY — llamada de 20 min', señales_positivas: [], señales_negativas: [], mensaje_personalizado: null };
   if (pts >= 4) return { score: 'MEDIO', probabilidad: 45, razon: 'Perfil compatible. Requiere validación adicional.', accion: 'Contactar esta semana', señales_positivas: [], señales_negativas: [], mensaje_personalizado: null };
   return { score: 'BAJO', probabilidad: 15, razon: 'Perfil fuera del ICP actual del piloto.', accion: 'Nutrir con contenido, evaluar más adelante', señales_positivas: [], señales_negativas: [], mensaje_personalizado: null };
@@ -105,7 +105,7 @@ Responde SOLO con JSON válido, sin texto ni markdown adicional:
     const clean = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
     const parsed = JSON.parse(clean);
 
-    if (!parsed.score || !['ALTO', 'MEDIO', 'BAJO'].includes(parsed.score)) {
+    if (!parsed.score || !['ALTO','MEDIO','BAJO'].includes(parsed.score)) {
       throw new Error('Score inválido en respuesta Claude');
     }
     console.log(`[submit] Claude scoring OK: ${parsed.score} (${parsed.probabilidad}%)`);
@@ -129,10 +129,10 @@ async function createGmailDraft({ nombre, email, empresa, sector, colaboradores,
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: GMAIL_CLIENT_ID,
+      client_id:     GMAIL_CLIENT_ID,
       client_secret: GMAIL_CLIENT_SECRET,
       refresh_token: GMAIL_REFRESH_TOKEN,
-      grant_type: 'refresh_token'
+      grant_type:    'refresh_token'
     })
   });
 
@@ -145,36 +145,38 @@ async function createGmailDraft({ nombre, email, empresa, sector, colaboradores,
   const { access_token } = await tokenRes.json();
 
   // 2. Construir el email
+  const primerNombre = nombre.split(' ')[0];
   const apertura = mensajePersonalizado
     ? mensajePersonalizado
-    : `Hola ${nombre.split(' ')[0]}, vi que ${empresa} está explorando soluciones para mejorar el bienestar financiero de sus colaboradores.`;
+    : `Vi que ${empresa} opera en el sector ${SECTOR_MAP[sector] || sector} con ${colaboradores} colaboradores — un perfil donde Treevü genera impacto directo en retención y productividad.`;
 
-  const subject = `Treevü × ${empresa} — Piloto EWA personalizado`;
+  const subject = `Treevü × ${empresa} — Piloto EWA`;
+
+  // Costo estimado de rotación (referencia interna ICP)
+  const colabNum = parseInt(colaboradores.split('-')[0].replace('+','')) || 200;
+  const rotacionEstimada = Math.round(colabNum * 0.15);
+  const costoEstimado = (rotacionEstimada * 8000).toLocaleString('es-PE');
 
   const bodyHtml = `
+<p>Hola ${primerNombre}, espero que estés bien.</p>
+
 <p>${apertura}</p>
 
-<p>En Treevü ayudamos a empresas como la tuya a reducir rotación y mejorar la productividad a través de Earned Wage Access (EWA) con motor de inteligencia artificial.</p>
+<p><strong>¿Por qué esto es urgente?</strong><br>
+Con una rotación promedio del 15% en tu sector, ${empresa} podría estar asumiendo ~S/ ${costoEstimado}/año solo en costos de reemplazo (S/ 8,000 por colaborador según estudios SHRM adaptados a Perú).</p>
 
-<p><strong>¿Por qué ${empresa}?</strong><br>
-${razon || `Tu perfil en ${SECTOR_MAP[sector] || sector} con ${colaboradores} colaboradores encaja perfectamente con nuestro ICP.`}</p>
+<p><strong>Lo que Treevü resuelve:</strong><br>
+✅ Acceso anticipado al salario — sin costo para el colaborador<br>
+✅ Alerta de renuncia con 3 semanas de anticipación (motor ML)<br>
+✅ Cero riesgo financiero para ${empresa} — modelo no-custodio<br>
+✅ Piloto desde S/ 7/colaborador activo/mes</p>
 
-<p><strong>Lo que incluye el piloto:</strong></p>
-<ul>
-  <li>Acceso anticipado a salario sin costo para el colaborador</li>
-  <li>Dashboard ML con alertas de riesgo de renuncia 3 semanas antes</li>
-  <li>Sin riesgo financiero para ${empresa} — modelo no-custodio</li>
-  <li>Precio piloto: S/ 7/colaborador activo/mes (meses 1-2)</li>
-</ul>
+<p>${razon ? `<em>${razon}</em><br><br>` : ''}¿Agendamos 30 minutos esta semana?<br>
+👉 <a href="https://calendly.com/hello-gettreevu/30min">Reserva tu espacio aquí</a></p>
 
-<p>${accion || 'Me gustaría agendar una llamada de 20 minutos para mostrarte el producto en vivo.'}</p>
-
-<p>¿Tienes disponibilidad esta semana?</p>
-
-<p>—<br>
+<p>Quedo atento,<br>
 <strong>Equipo Treevü</strong><br>
-hello@gettreevu.com<br>
-<a href="https://gettreevu.com">gettreevu.com</a></p>
+<a href="https://gettreevu.com">gettreevu.com</a> · hello@gettreevu.com</p>
 `.trim();
 
   // 3. Codificar en base64url (formato RFC 2822)
@@ -226,13 +228,13 @@ async function saveToNotion({ nombre, email, empresa, sector, colaboradores, obj
     parent: { database_id: NOTION_DATABASE_ID },
     properties: {
       "Nombre y Cargo": { title: [{ text: { content: nombre } }] },
-      "Email": { email: email },
-      "Empresa": { rich_text: [{ text: { content: empresa } }] },
-      "Sector": { select: { name: SECTOR_MAP[sector] || 'Otro' } },
-      "Colaboradores": { select: { name: colaboradores } },
-      "Objetivo": { select: { name: OBJ_MAP[objetivo] || 'Otro' } },
-      "Score": { select: { name: score } },
-      "Estado": { select: { name: 'Nuevo' } }
+      "Email":          { email: email },
+      "Empresa":        { rich_text: [{ text: { content: empresa } }] },
+      "Sector":         { select: { name: SECTOR_MAP[sector] || 'Otro' } },
+      "Colaboradores":  { select: { name: colaboradores } },
+      "Objetivo":       { select: { name: OBJ_MAP[objetivo] || 'Otro' } },
+      "Score":          { select: { name: score } },
+      "Estado":         { select: { name: 'Nuevo' } }
     }
   };
 
@@ -281,7 +283,7 @@ async function sendToTelegram({ nombre, email, empresa, sector, colaboradores, o
   msg += `👥 ${colaboradores} colaboradores\n`;
   msg += `🎯 ${OBJ_MAP[objetivo] || objetivo}`;
   if (problema) msg += `\n💬 _${problema}_`;
-  if (razon) msg += `\n\n📊 *Análisis:* ${razon}`;
+  if (razon)   msg += `\n\n📊 *Análisis:* ${razon}`;
 
   if (senalesPositivas?.length) msg += `\n✅ ${senalesPositivas.join(' · ')}`;
   if (senalesNegativas?.length) msg += `\n⚠️ ${senalesNegativas.join(' · ')}`;
@@ -318,7 +320,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
   const { nombre, email, empresa, sector, colaboradores, objetivo, problema } = req.body || {};
 
@@ -369,7 +371,7 @@ export default async function handler(req, res) {
     sendToTelegram({ nombre, email, empresa, sector, colaboradores, objetivo, problema, score, probabilidad, razon, accion, senalesPositivas, senalesNegativas, mensajePersonalizado, fuenteScoring })
   ]);
 
-  if (notionResult.status === 'rejected') console.error('[submit] Notion error:', notionResult.reason?.message);
+  if (notionResult.status   === 'rejected') console.error('[submit] Notion error:', notionResult.reason?.message);
   if (telegramResult.status === 'rejected') console.error('[submit] Telegram error:', telegramResult.reason?.message);
 
   if (notionResult.status === 'rejected' && telegramResult.status === 'rejected') {
