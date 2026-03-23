@@ -2383,14 +2383,35 @@ input[type="range"]::-moz-range-thumb {
             <span class="pricing-frozen" style="display:inline-block;">Precio congelado de por vida al firmar</span>
           </div>
 
-          <!-- Precio de lista post-piloto — referencia -->
-          <div class="pricing-card" style="opacity:0.75;padding:14px 18px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div>
-                <div class="pricing-label" style="margin-bottom:4px;">Precio de lista — post programa fundadores</div>
-                <div style="font-size:0.78rem;color:var(--neutral-500);">Dashboard: <strong>S/ 790/mes</strong> + fee <strong>S/ 12/usuario activo</strong></div>
+          <!-- Precios Post-Piloto (SaaS) -->
+          <div class="pricing-card" style="opacity:0.85;padding:14px 18px;">
+            <div style="margin-bottom:12px;border-bottom:1px solid rgba(0,0,0,0.05);padding-bottom:8px;">
+              <div class="pricing-label" style="margin-bottom:4px;color:var(--neutral-700)">Precios Post-Piloto (SaaS)</div>
+              <div style="font-size:0.75rem;color:var(--neutral-500);">Planes de suscripción al término del piloto</div>
+            </div>
+            
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <!-- Plan Essential -->
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-size:0.75rem;font-weight:800;color:var(--neutral-700);">Plan Essential</div>
+                  <div style="font-size:0.7rem;color:var(--neutral-500);">Acceso base, integraciones</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:0.85rem;font-weight:800;color:var(--neutral-900);">S/ 790 + S/ 12<span style="font-size:0.65rem;color:var(--neutral-500);font-weight:400;">/user</span></div>
+                </div>
               </div>
-              <div style="font-size:0.68rem;font-weight:800;color:var(--danger);background:#FEF2F2;padding:3px 10px;border-radius:999px;white-space:nowrap;margin-left:12px;">Tú pagas menos</div>
+              
+              <!-- Plan Pro -->
+              <div style="display:flex;justify-content:space-between;align-items:center;background:var(--brand-xlight);padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--brand-light);">
+                <div>
+                  <div style="font-size:0.75rem;font-weight:800;color:var(--brand-dark);">Plan Pro (Predictivo ML)</div>
+                  <div style="font-size:0.7rem;color:var(--brand);">Motor predictivo full, alertas</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:0.85rem;font-weight:800;color:var(--brand-dark);">S/ 1,500 + S/ 15<span style="font-size:0.65rem;font-weight:400;">/user</span></div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2487,7 +2508,7 @@ input[type="range"]::-moz-range-thumb {
           ¿Cuánto cuesta implementar?
           <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>
-        <div class="faq-answer">El programa fundadores no tiene costo de setup. El modelo de negocio es SaaS + fee por usuario activo. Las empresas fundadoras acceden a condiciones preferenciales de por vida. Escríbenos a hello@gettreevu.com para un presupuesto personalizado.</div>
+        <div class="faq-answer">El programa fundadores no tiene costo de setup. El modelo de negocio es SaaS diferenciado: <strong>Plan Essential</strong> (S/ 790 base + S/ 12 user/mes) o <strong>Plan Pro</strong> con Motor ML Full (S/ 1,500 base + S/ 15 user/mes). Las empresas fundadoras acceden a condiciones preferenciales de por vida. Escríbenos a hello@gettreevu.com para un presupuesto personalizado.</div>
       </div>
       <div class="faq-item">
         <button class="faq-question" onclick="toggleFaq(this)">
