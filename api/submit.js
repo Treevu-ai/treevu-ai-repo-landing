@@ -378,5 +378,26 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Error al procesar solicitud' });
   }
 
+  // ── Notificar a AsisTreevü (guarda en Contacts DB + notificación en bot piloto) ──
+  fetch('https://treevu-bot.vercel.app/lead', {
+    method: 'POST',
+    headers: {
+      'Content-Type':     'application/json',
+      'x-webhook-secret': 'treevu_lead_2026',
+    },
+    body: JSON.stringify({
+      name:        nombre,
+      email:       email,
+      company:     empresa,
+      role:        nombre.includes('-') ? nombre.split('-')[1]?.trim() : '',
+      sector:      SECTOR_MAP[sector] || sector,
+      employees:   colaboradores,
+      message:     `[${score} · ${probabilidad}%] ${razon || ''} | Acción: ${accion || ''} | Apertura: ${mensajePersonalizado || ''}`.slice(0, 500),
+      source:      'gettreevu.com',
+      score:       score,
+      probability: probabilidad,
+    }),
+  }).catch(err => console.error('[submit] AsisTreevü webhook error:', err.message));
+
   return res.status(200).json({ success: true, score, fuente_scoring: fuenteScoring });
 }
