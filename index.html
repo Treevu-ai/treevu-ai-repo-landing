@@ -8,7 +8,7 @@
 <meta name="description" content="Plataforma EWA B2B2E con Motor ML para empresas en Perú. Reduce rotación hasta 40%. Modelo no-custodio. Setup en 2 semanas."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
 :root {
   --brand:        #059669;
@@ -17,22 +17,26 @@
   --brand-xlight: #ECFDF5;
   --danger:       #DC2626;
   --warning:      #F59E0B;
-  --neutral-900:  #0F172A;
-  --neutral-700:  #334155;
-  --neutral-500:  #64748B;
-  --neutral-300:  #CBD5E1;
-  --neutral-100:  #F1F5F9;
-  --neutral-50:   #F8FAFC;
+  --neutral-900:  #09090b;
+  --neutral-800:  #18181b;
+  --neutral-700:  #3f3f46;
+  --neutral-500:  #71717a;
+  --neutral-400:  #a1a1aa;
+  --neutral-300:  #d4d4d8;
+  --neutral-200:  #e4e4e7;
+  --neutral-100:  #f4f4f5;
+  --neutral-50:   #fafafa;
   --white:        #FFFFFF;
-  --font-head:    'Sora', sans-serif;
-  --font-body:    'DM Sans', sans-serif;
+  --font-head:    'Inter', sans-serif;
+  --font-body:    'Inter', sans-serif;
   --radius-sm:    6px;
-  --radius-md:    10px;
-  --radius-lg:    16px;
-  --radius-xl:    24px;
-  --shadow-sm:    0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md:    0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg:    0 20px 60px rgba(0,0,0,0.10), 0 8px 20px rgba(0,0,0,0.06);
+  --radius-md:    8px;
+  --radius-lg:    12px;
+  --radius-xl:    16px;
+  --shadow-sm:    0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:    0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
+  --shadow-lg:    0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+  --border:       1px solid var(--neutral-200);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -46,34 +50,38 @@ body {
   color: var(--neutral-700);
   background: var(--white);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* --- UTILS --- */
-.container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+.container { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
+@media (max-width: 640px) { .container { padding: 0 20px; } }
 .section { padding: clamp(40px, 6vw, 80px) 0; }
 .section-alt { background: var(--neutral-50); }
 .section-tag {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--font-body); font-size: 12px; font-weight: 600;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--brand); background: var(--brand-xlight);
-  border: 1px solid var(--brand-light);
-  padding: 5px 12px; border-radius: 999px;
-  margin-bottom: 16px;
+  font-family: var(--font-body); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--neutral-700); background: var(--white);
+  border: 1px solid var(--neutral-200);
+  padding: 4px 12px; border-radius: 999px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
 }
 .section-title {
   font-family: var(--font-head);
   font-size: clamp(1.75rem, 3.5vw, 2.5rem);
   font-weight: 800;
   color: var(--neutral-900);
-  line-height: 1.15;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   margin-bottom: 16px;
 }
 .section-subtitle {
-  font-size: 1.0625rem;
-  color: #475569;
-  max-width: 580px;
-  line-height: 1.65;
+  font-size: 1rem;
+  color: var(--neutral-500);
+  max-width: 560px;
+  line-height: 1.7;
 }
 .text-center { text-align: center; }
 .text-center .section-subtitle { margin: 0 auto; }
@@ -81,61 +89,64 @@ body {
 /* --- BUTTONS --- */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--font-body); font-size: 0.9375rem; font-weight: 600;
-  padding: 13px 26px; border-radius: var(--radius-sm);
-  border: 1.5px solid transparent;
+  font-family: var(--font-body); font-size: 0.875rem; font-weight: 600;
+  padding: 10px 20px; border-radius: var(--radius-md);
+  border: 1px solid transparent;
   cursor: pointer; text-decoration: none;
   transition: all 0.15s ease;
-  white-space: nowrap;
+  white-space: nowrap; letter-spacing: -0.01em;
 }
 .btn-primary {
   background: var(--brand); color: var(--white);
   border-color: var(--brand);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.15);
 }
 .btn-primary:hover {
   background: var(--brand-dark); border-color: var(--brand-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(5,150,105,0.28);
+  box-shadow: 0 4px 12px rgba(5,150,105,0.3);
 }
 .btn-outline {
-  background: transparent; color: var(--brand);
-  border-color: var(--brand);
+  background: var(--white); color: var(--neutral-700);
+  border-color: var(--neutral-300);
+  box-shadow: var(--shadow-sm);
 }
 .btn-outline:hover {
-  background: var(--brand-xlight);
-  transform: translateY(-1px);
+  background: var(--neutral-50); border-color: var(--neutral-400);
+  color: var(--neutral-900);
 }
-.btn-lg { padding: 16px 32px; font-size: 1rem; }
+.btn-lg { padding: 13px 28px; font-size: 0.9375rem; }
 .btn-full { width: 100%; justify-content: center; }
 
 /* --- NAV --- */
 .nav {
   position: sticky; top: 0; z-index: 100;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--neutral-100);
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--neutral-200);
 }
 .nav-inner {
   display: flex; align-items: center; justify-content: space-between;
-  height: 60px;
+  height: 64px;
   gap: 32px;
 }
 .nav-logo {
-  font-family: var(--font-head); font-size: 1.25rem; font-weight: 800;
-  color: var(--neutral-900); text-decoration: none;
+  font-family: var(--font-head); font-size: 1.15rem; font-weight: 800;
+  color: var(--neutral-900); text-decoration: none; letter-spacing: -0.02em;
 }
 .nav-logo span { color: var(--brand); }
 .nav-links {
-  display: flex; align-items: center; gap: 24px;
+  display: flex; align-items: center; gap: 6px;
   list-style: none;
 }
 .nav-links a {
   font-size: 0.8125rem; font-weight: 500;
   color: var(--neutral-500); text-decoration: none;
-  transition: color 0.12s;
+  padding: 6px 10px; border-radius: var(--radius-md);
+  transition: color 0.12s, background 0.12s;
 }
-.nav-links a:hover { color: var(--neutral-900); }
-.nav-cta { margin-left: 4px; padding: 10px 18px; font-size: 0.8125rem; white-space: nowrap; }
+.nav-links a:hover { color: var(--neutral-900); background: var(--neutral-100); }
+.nav-cta { margin-left: 8px; padding: 8px 16px; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; }
 .nav-mobile-toggle {
   display: none; background: none; border: none; cursor: pointer;
   padding: 4px; color: var(--neutral-700);
@@ -161,8 +172,10 @@ body {
 
 /* --- HERO --- */
 .hero {
-  padding: 60px 0 80px;
-  background: linear-gradient(160deg, var(--white) 0%, var(--brand-xlight) 100%);
+  padding: 80px 0 100px;
+  background: var(--white);
+  background-image: radial-gradient(circle, var(--neutral-300) 1px, transparent 1px);
+  background-size: 28px 28px;
   position: relative; overflow: hidden;
 }
 .hero::before {
@@ -179,56 +192,59 @@ body {
 }
 .hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
-  background: #FEF3C7; color: #92400E;
-  border: 1px solid #FDE68A;
-  padding: 6px 14px; border-radius: 999px;
-  font-size: 0.8125rem; font-weight: 700;
-  margin-bottom: 20px;
+  background: var(--white); color: var(--neutral-700);
+  border: 1px solid var(--neutral-200);
+  padding: 5px 14px; border-radius: 999px;
+  font-size: 0.78rem; font-weight: 600;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
 }
 .hero-badge-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: #F59E0B;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--brand);
   animation: pulse-dot 2s ease-in-out infinite;
 }
 @keyframes pulse-dot {
   0%,100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.8); }
+  50% { opacity: 0.5; transform: scale(0.7); }
 }
 .hero-title {
   font-family: var(--font-head);
-  font-size: clamp(2.25rem, 4.5vw, 3.25rem);
-  font-weight: 800;
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  font-weight: 900;
   color: var(--neutral-900);
-  line-height: 1.1;
-  margin-bottom: 10px;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  margin-bottom: 12px;
 }
 .hero-title .accent { color: var(--brand); }
 .hero-title-sub {
   font-family: var(--font-head);
-  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-size: clamp(1.35rem, 2.5vw, 1.75rem);
   font-weight: 400;
-  color: var(--neutral-500);
-  line-height: 1.2;
-  margin-bottom: 24px;
+  color: var(--neutral-400);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
 }
 .hero-sub {
-  font-size: 1.0625rem; color: var(--neutral-500);
-  line-height: 1.65; margin-bottom: 36px;
-  max-width: 460px;
+  font-size: 1rem; color: var(--neutral-500);
+  line-height: 1.7; margin-bottom: 32px;
+  max-width: 480px;
 }
 .hero-ctas {
-  display: flex; gap: 12px; flex-wrap: wrap;
-  margin-bottom: 40px;
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 24px;
 }
 .trust-bar {
-  display: flex; flex-wrap: wrap; gap: 8px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 20px;
 }
 .trust-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: var(--white); border: 1px solid var(--neutral-200, #E2E8F0);
-  padding: 5px 12px; border-radius: 999px;
-  font-size: 0.75rem; font-weight: 500; color: var(--neutral-600, #475569);
-  box-shadow: var(--shadow-sm);
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
+  padding: 4px 10px; border-radius: var(--radius-md);
+  font-size: 0.72rem; font-weight: 500; color: var(--neutral-600, #475569);
 }
 .trust-chip svg { flex-shrink: 0; color: var(--brand); }
 
@@ -1818,6 +1834,90 @@ input[type="range"]::-moz-range-thumb {
 [data-theme="dark"] .theme-toggle .icon-sun  { display: block; }
 [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
+
+/* ── SHADCN-STYLE GLOBAL CARD UPGRADES ── */
+.card, .problem-card, .aplica-card, .flow-step, .benefit-item,
+.calc-box, .cupo-card, .trust-card, .faq-item, .founders-feature {
+  border: 1px solid var(--neutral-200) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: box-shadow 0.2s, border-color 0.2s !important;
+}
+.card:hover, .problem-card:hover, .aplica-card:hover, .flow-step:hover,
+.trust-card:hover, .faq-item:hover {
+  border-color: var(--neutral-300) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* ── COUNTDOWN HERO ── */
+.hero-countdown {
+  display: flex; gap: 10px; margin: 18px 0 4px; align-items: center; flex-wrap: wrap;
+}
+.hcd-label { font-size: .75rem; color: var(--neutral-500); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
+.hcd-block { background: var(--neutral-900); color: #fff; border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 54px; }
+.hcd-num { font-size: 1.5rem; font-weight: 800; font-family: var(--font-head); line-height: 1; }
+.hcd-unit { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6; margin-top: 2px; }
+.hcd-sep { font-size: 1.4rem; font-weight: 700; color: var(--brand); line-height: 1; padding-bottom: 10px; }
+[data-theme="dark"] .hcd-block { background: #1e293b; }
+
+/* ── CUPOS PROGRESS HERO ── */
+.hero-slots {
+  margin: 14px 0 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.hero-slots-bar { flex: 1; max-width: 160px; height: 7px; background: var(--neutral-200); border-radius: 99px; overflow: hidden; }
+.hero-slots-fill { height: 100%; background: var(--brand); border-radius: 99px; width: 60%; transition: width .6s ease; }
+.hero-slots-text { font-size: .78rem; color: var(--neutral-700); font-weight: 600; }
+.hero-slots-text span { color: var(--brand); font-weight: 700; }
+[data-theme="dark"] .hero-slots-text { color: var(--neutral-300); }
+[data-theme="dark"] .hero-slots-bar { background: #1e293b; }
+
+/* ── FOUNDER STRIP ── */
+.founder-strip {
+  display: flex; align-items: center; gap: 10px; margin-top: 18px;
+  padding: 10px 14px; background: var(--neutral-50); border: 1px solid var(--neutral-200);
+  border-radius: 10px; max-width: 360px;
+}
+.founder-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--brand-light); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .9rem; color: var(--brand-dark); flex-shrink: 0; }
+.founder-info { font-size: .78rem; line-height: 1.4; }
+.founder-info strong { display: block; font-size: .82rem; color: var(--neutral-900); }
+.founder-info a { color: var(--brand); text-decoration: none; font-size: .72rem; }
+.founder-info a:hover { text-decoration: underline; }
+[data-theme="dark"] .founder-strip { background: #0f172a; border-color: #1e293b; }
+[data-theme="dark"] .founder-info strong { color: #f1f5f9; }
+
+/* ── EXIT INTENT ── */
+.exit-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 99999; align-items: center; justify-content: center; }
+.exit-overlay.show { display: flex; }
+.exit-box { background: #fff; border-radius: 16px; padding: 36px 32px; max-width: 420px; width: 90%; text-align: center; position: relative; box-shadow: 0 24px 64px rgba(0,0,0,.2); }
+.exit-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--neutral-500); }
+.exit-box h3 { font-size: 1.3rem; font-weight: 800; margin-bottom: 8px; color: var(--neutral-900); }
+.exit-box p { font-size: .9rem; color: var(--neutral-500); margin-bottom: 22px; }
+.exit-box .btn-tg { display: inline-flex; align-items: center; gap: 8px; background: #229ED9; color: #fff; border-radius: 8px; padding: 12px 24px; font-weight: 700; text-decoration: none; font-size: .95rem; }
+.exit-box .btn-tg:hover { background: #1a8cbf; }
+.exit-box .exit-skip { display: block; margin-top: 14px; font-size: .78rem; color: var(--neutral-400); cursor: pointer; }
+.exit-box .exit-skip:hover { color: var(--neutral-600); }
+[data-theme="dark"] .exit-box { background: #0f172a; }
+[data-theme="dark"] .exit-box h3 { color: #f1f5f9; }
+
+/* ── PRE-QUALIFY MODAL ── */
+.prequal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 99998; align-items: center; justify-content: center; }
+.prequal-overlay.show { display: flex; }
+.prequal-box { background: #fff; border-radius: 16px; padding: 36px 32px; max-width: 460px; width: 92%; position: relative; box-shadow: 0 24px 64px rgba(0,0,0,.2); }
+.prequal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--neutral-500); }
+.prequal-box h3 { font-size: 1.15rem; font-weight: 800; margin-bottom: 4px; color: var(--neutral-900); }
+.prequal-box .pq-sub { font-size: .82rem; color: var(--neutral-500); margin-bottom: 22px; }
+.pq-step { display: none; }
+.pq-step.active { display: block; }
+.pq-question { font-size: .9rem; font-weight: 700; color: var(--neutral-700); margin-bottom: 12px; }
+.pq-options { display: flex; flex-direction: column; gap: 8px; }
+.pq-opt { padding: 10px 14px; border: 1.5px solid var(--neutral-200); border-radius: 8px; cursor: pointer; font-size: .88rem; color: var(--neutral-700); transition: .15s; }
+.pq-opt:hover, .pq-opt.selected { border-color: var(--brand); background: var(--brand-xlight); color: var(--brand-dark); font-weight: 600; }
+.pq-progress { display: flex; gap: 6px; margin-bottom: 20px; }
+.pq-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--neutral-200); transition: .2s; }
+.pq-dot.done { background: var(--brand); }
+[data-theme="dark"] .prequal-box { background: #0f172a; }
+[data-theme="dark"] .prequal-box h3 { color: #f1f5f9; }
+[data-theme="dark"] .pq-opt { border-color: #1e293b; color: #cbd5e1; }
+[data-theme="dark"] .pq-opt:hover, [data-theme="dark"] .pq-opt.selected { background: #064e3b; color: #6ee7b7; border-color: var(--brand); }
 </style>
 </head>
 <body>
@@ -1864,14 +1964,26 @@ input[type="range"]::-moz-range-thumb {
           <div class="hero-badge-dot"></div>
           <span id="hero-badge-text">Solo 4 cupos · Programa Fundadores Q2 2026</span>
         </div>
+        <div class="hero-countdown">
+          <span class="hcd-label">Cierra en</span>
+          <div class="hcd-block"><div class="hcd-num" id="hcd-d">--</div><div class="hcd-unit">días</div></div>
+          <span class="hcd-sep">:</span>
+          <div class="hcd-block"><div class="hcd-num" id="hcd-h">--</div><div class="hcd-unit">hrs</div></div>
+          <span class="hcd-sep">:</span>
+          <div class="hcd-block"><div class="hcd-num" id="hcd-m">--</div><div class="hcd-unit">min</div></div>
+        </div>
         <h1 class="hero-title">
           Reduce rotación<br/><span class="accent">hasta 40%.</span>
         </h1>
         <p class="hero-title-sub">Tu equipo cobra lo que<br/>ya ganó — hoy.</p>
         <p class="hero-sub">El beneficio laboral que paga solo: cero costo para el colaborador, cero riesgo para la empresa. Motor ML predictivo incluido.</p>
         <div class="hero-ctas">
-          <a href="#contacto" class="btn btn-primary btn-lg">Solicitar Acceso Fundador</a>
+          <a href="#contacto" class="btn btn-primary btn-lg" onclick="openPrequal(event)">Solicitar Acceso Fundador</a>
           <a href="#calculadora" class="btn btn-outline btn-lg">Calcular mi ahorro →</a>
+        </div>
+        <div class="hero-slots">
+          <div class="hero-slots-bar"><div class="hero-slots-fill" id="hero-slots-fill"></div></div>
+          <span class="hero-slots-text"><span>6 de 10</span> cupos confirmados</span>
         </div>
         <div class="trust-bar">
           <span class="trust-chip">
@@ -1890,6 +2002,13 @@ input[type="range"]::-moz-range-thumb {
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
             Yape · Plin · CCE
           </span>
+        </div>
+        <div class="founder-strip">
+          <div class="founder-avatar">RC</div>
+          <div class="founder-info">
+            <strong>Ricardo Cuba · CEO &amp; Founder</strong>
+            Trujillo, Perú · <a href="https://linkedin.com/in/antoniocubaalvan" target="_blank" rel="noopener">LinkedIn →</a>
+          </div>
         </div>
       </div>
       <div class="hero-visual fade-up">
@@ -2831,46 +2950,162 @@ cuposObserver.observe(cuposBar);
 
 calcUpdate();
 
-// ── Countdown dinámico al cierre del programa (30 abril 2026) ─────────────
+// ── Countdown en vivo (se actualiza cada segundo) ──────────────────────────
 (function () {
-  const CIERRE = new Date('2026-04-30T23:59:59-05:00'); // Lima (UTC-5)
-  const hoy    = new Date();
-  const diffMs = CIERRE - hoy;
-  const dias   = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  const CIERRE = new Date('2026-04-30T23:59:59-05:00');
   const cupos  = 4;
 
-  // Color de urgencia según días restantes
-  const urgBg  = dias <= 7  ? '#dc2626'
-               : dias <= 14 ? '#d97706'
-               : dias <= 21 ? '#ca8a04'
-               : null;
+  function pad(n) { return String(n).padStart(2, '0'); }
 
-  // 1. Pastilla en la urgency-bar superior
-  const pill = document.getElementById('urgency-pill');
-  if (pill) {
-    pill.textContent = `${dias}d restantes · ${cupos} cupos`;
-    if (urgBg) { pill.style.background = urgBg; pill.style.color = '#fff'; }
+  function tick() {
+    const now    = new Date();
+    const diffMs = CIERRE - now;
+    if (diffMs <= 0) return;
+
+    const dias = Math.floor(diffMs / 864e5);
+    const hrs  = Math.floor((diffMs % 864e5) / 36e5);
+    const mins = Math.floor((diffMs % 36e5) / 6e4);
+
+    // Hero countdown blocks
+    const dEl = document.getElementById('hcd-d');
+    const hEl = document.getElementById('hcd-h');
+    const mEl = document.getElementById('hcd-m');
+    if (dEl) dEl.textContent = pad(dias);
+    if (hEl) hEl.textContent = pad(hrs);
+    if (mEl) mEl.textContent = pad(mins);
+
+    // Color urgencia
+    const urgBg = dias <= 7 ? '#dc2626' : dias <= 14 ? '#d97706' : dias <= 21 ? '#ca8a04' : null;
+
+    // Urgency bar pill
+    const pill = document.getElementById('urgency-pill');
+    if (pill) {
+      pill.textContent = `${dias}d ${pad(hrs)}h restantes · ${cupos} cupos`;
+      if (urgBg) { pill.style.background = urgBg; pill.style.color = '#fff'; }
+    }
+
+    // Hero badge
+    const badge = document.getElementById('hero-badge-text');
+    if (badge) badge.textContent = `Solo ${cupos} cupos · cierra en ${dias} días`;
+
+    // Sección cupos
+    const cuposCount = document.getElementById('cupos-count');
+    if (cuposCount) cuposCount.textContent = `Solo ${cupos} quedan · ${dias}d`;
+
+    // Formulario
+    const formCupos = document.getElementById('cupos-form-text');
+    if (formCupos) formCupos.textContent = `${cupos} cupos disponibles`;
+    const formDias = document.getElementById('dias-form-text');
+    if (formDias) formDias.textContent = dias > 0 ? `quedan ${dias} días para cerrar` : 'el programa ya cerró';
   }
 
-  // 2. Badge del hero
-  const badge = document.getElementById('hero-badge-text');
-  if (badge) badge.textContent = `Solo ${cupos} cupos · cierra en ${dias} días`;
+  tick();
+  setInterval(tick, 1000);
 
-  // 3. Contador en la sección de cupos
-  const cuposCount = document.getElementById('cupos-count');
-  if (cuposCount) cuposCount.textContent = `Solo ${cupos} quedan · ${dias}d`;
-
-  // 4. Urgencia en el formulario
-  const formCupos = document.getElementById('cupos-form-text');
-  if (formCupos) formCupos.textContent = `${cupos} cupos disponibles`;
-  const formDias = document.getElementById('dias-form-text');
-  if (formDias) {
-    formDias.textContent = dias > 0
-      ? `quedan ${dias} días para cerrar`
-      : 'el programa ya cerró';
-  }
+  // Animar progress bar del hero
+  setTimeout(() => {
+    const fill = document.getElementById('hero-slots-fill');
+    if (fill) fill.style.width = '60%';
+  }, 400);
 })();
+
+// ── Exit intent ────────────────────────────────────────────────────────────
+let exitShown = false;
+document.addEventListener('mouseleave', function (e) {
+  if (e.clientY < 10 && !exitShown) {
+    exitShown = true;
+    document.getElementById('exitOverlay').classList.add('show');
+  }
+});
+function closeExit() { document.getElementById('exitOverlay').classList.remove('show'); }
+
+// ── Pre-qualify modal ───────────────────────────────────────────────────────
+const pqAnswers = {};
+function openPrequal(e) {
+  e.preventDefault();
+  document.getElementById('prequalOverlay').classList.add('show');
+}
+function closePrequal() { document.getElementById('prequalOverlay').classList.remove('show'); }
+
+function pqNext(step, value) {
+  pqAnswers[step] = value;
+  document.getElementById('pq-step-' + step).classList.remove('active');
+  document.getElementById('pq-dot-' + step).classList.add('done');
+  const next = step + 1;
+  if (next <= 2) {
+    document.getElementById('pq-step-' + next).classList.add('active');
+    const dot = document.getElementById('pq-dot-' + next);
+    if (dot) dot.classList.add('done');
+  }
+}
+
+function pqFinish(role) {
+  pqAnswers[2] = role;
+  closePrequal();
+  const size = pqAnswers[0];
+  // No califica: menos de 50 colaboradores
+  if (size === 'menos-50') {
+    window.open('https://t.me/+51902126765', '_blank');
+  } else {
+    document.getElementById('contacto').scrollIntoView({ behavior: 'smooth' });
+  }
+}
 </script>
+
+<!-- EXIT INTENT -->
+<div class="exit-overlay" id="exitOverlay">
+  <div class="exit-box">
+    <button class="exit-close" onclick="closeExit()">×</button>
+    <h3>¿Una pregunta rápida antes de irte?</h3>
+    <p>Ricardo responde en menos de 2 horas por Telegram. Sin formularios.</p>
+    <a class="btn-tg" href="https://t.me/+51902126765" target="_blank" rel="noopener">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L8.32 13.617l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.828.942z"/></svg>
+      Hablar con Ricardo →
+    </a>
+    <span class="exit-skip" onclick="closeExit()">No, continuar navegando</span>
+  </div>
+</div>
+
+<!-- PRE-QUALIFY MODAL -->
+<div class="prequal-overlay" id="prequalOverlay">
+  <div class="prequal-box">
+    <button class="prequal-close" onclick="closePrequal()">×</button>
+    <h3>¿Tu empresa califica?</h3>
+    <p class="pq-sub">3 preguntas rápidas para saber si el programa es para ti.</p>
+    <div class="pq-progress">
+      <div class="pq-dot done" id="pq-dot-0"></div>
+      <div class="pq-dot" id="pq-dot-1"></div>
+      <div class="pq-dot" id="pq-dot-2"></div>
+    </div>
+    <div class="pq-step active" id="pq-step-0">
+      <div class="pq-question">¿Cuántos colaboradores tiene tu empresa?</div>
+      <div class="pq-options">
+        <div class="pq-opt" onclick="pqNext(0,'menos-50')">Menos de 50</div>
+        <div class="pq-opt" onclick="pqNext(0,'50-200')">50 – 200</div>
+        <div class="pq-opt" onclick="pqNext(0,'200-500')">200 – 500</div>
+        <div class="pq-opt" onclick="pqNext(0,'500+')">Más de 500</div>
+      </div>
+    </div>
+    <div class="pq-step" id="pq-step-1">
+      <div class="pq-question">¿Cuál es tu mayor reto con el equipo hoy?</div>
+      <div class="pq-options">
+        <div class="pq-opt" onclick="pqNext(1,'rotacion')">Alta rotación de personal</div>
+        <div class="pq-opt" onclick="pqNext(1,'bienestar')">Bienestar financiero del equipo</div>
+        <div class="pq-opt" onclick="pqNext(1,'clima')">Clima laboral / engagement</div>
+        <div class="pq-opt" onclick="pqNext(1,'otro')">Otro</div>
+      </div>
+    </div>
+    <div class="pq-step" id="pq-step-2">
+      <div class="pq-question">¿Cuál es tu rol en la empresa?</div>
+      <div class="pq-options">
+        <div class="pq-opt" onclick="pqFinish('rrhh')">Director / Gerente de RRHH</div>
+        <div class="pq-opt" onclick="pqFinish('cfo')">CFO / Gerente de Finanzas</div>
+        <div class="pq-opt" onclick="pqFinish('gm')">Gerente General / CEO</div>
+        <div class="pq-opt" onclick="pqFinish('otro')">Otro</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- CHATBOT VÜ -->
 <button class="vu-launcher" id="vuLauncher" onclick="toggleVu()" aria-label="Abrir chat con Vü">
