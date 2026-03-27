@@ -27,7 +27,7 @@
   --text-strong:    #0A2540;
   --text-default:   #1E293B;
   --text-subdued:   #475569;
-  --text-dim:       #64748B;
+  --text-dim:       #516070;
   --text-disabled:  #94A3B8;
 
   /* Surfaces — light */
@@ -40,7 +40,7 @@
   --neutral-900:    #0F172A;
   --neutral-800:    #1E293B;
   --neutral-700:    #334155;
-  --neutral-500:    #64748B;
+  --neutral-500:    #516070;
   --neutral-400:    #94A3B8;
   --neutral-300:    #CBD5E1;
   --neutral-200:    #E2E8F0;
@@ -892,7 +892,7 @@ input[type="range"]::-moz-range-thumb {
 .pricing-card.featured .pricing-label { color: var(--brand); }
 .pricing-price-wrapper { margin-bottom: 16px; }
 .pricing-old {
-  font-size: 0.875rem; color: var(--neutral-400, #94A3B8);
+  font-size: 0.875rem; color: var(--neutral-500);
   text-decoration: line-through; margin-bottom: 4px;
 }
 .pricing-main {
@@ -1752,7 +1752,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ── Light mode: mejorar contraste de neutral-500 sobre neutral-50 ── */
-/* neutral-500 = #64748B sobre neutral-50 = #F8FAFC = ratio 4.6:1 PASS AA */
+/* neutral-500 = #516070 sobre white = ratio 5.6:1 PASS AA */
 /* Solo los font-size muy pequeños (<0.75rem) son problemáticos */
 .section-tag { font-size: 12px; } /* ya era así */
 
@@ -1910,7 +1910,7 @@ input[type="range"]::-moz-range-thumb {
   color: #2563EB;
 }
 .hero .hero-title-sub { color: #475569; }
-.hero .hero-sub { color: #64748B; }
+.hero .hero-sub { color: #516070; }
 .hero .btn-primary {
   background: #2563EB;
   border-color: #2563EB;
@@ -1942,12 +1942,12 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 2px 8px rgba(37,99,235,0.08);
 }
 .hero .hcd-num { color: #2563EB; }
-.hero .hcd-unit { color: #64748B; opacity: 1; }
+.hero .hcd-unit { color: #516070; opacity: 1; }
 .hero .hcd-sep { color: rgba(37,99,235,0.4); }
-.hero .hcd-label { color: #64748B; }
+.hero .hcd-label { color: #516070; }
 .hero .hero-slots-bar { background: #E2E8F0; }
 .hero .hero-slots-fill { background: linear-gradient(90deg, #2563EB, #3B82F6); box-shadow: none; }
-.hero .hero-slots-text { color: #64748B; }
+.hero .hero-slots-text { color: #516070; }
 .hero .hero-slots-text span { color: #2563EB; }
 .hero .founder-strip {
   background: #F8FAFC;
