@@ -1988,12 +1988,12 @@ input[type="range"]::-moz-range-thumb {
     <div class="nav-inner">
       <a href="#top" class="nav-logo">Tree<span>vü</span></a>
       <ul class="nav-links">
-        <li><a href="#aplica">¿Calificas?</a></li>
-        <li><a href="#calculadora">Calculadora</a></li>
-        <li><a href="#ml-engine">Motor ML</a></li>
-        <li><a href="#confianza">Confianza</a></li>
-        <li><a href="#piloto">Programa Fundadores</a></li>
-        <li><a href="#contacto">Solicitar Acceso</a></li>
+        <li><a href="#aplica">¿Para quién?</a></li>
+        <li><a href="#calculadora">Mi ahorro</a></li>
+        <li><a href="#ml-engine">Predicción</a></li>
+        <li><a href="#confianza">Seguridad</a></li>
+        <li><a href="#piloto">Fundadores</a></li>
+        <li><a href="#contacto">Solicitar acceso</a></li>
       </ul>
       <a href="#contacto" class="btn btn-primary nav-cta">Acceso Fundador</a>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Cambiar modo">
@@ -2025,6 +2025,8 @@ input[type="range"]::-moz-range-thumb {
           <div class="hcd-block"><div class="hcd-num" id="hcd-h">--</div><div class="hcd-unit">hrs</div></div>
           <span class="hcd-sep">:</span>
           <div class="hcd-block"><div class="hcd-num" id="hcd-m">--</div><div class="hcd-unit">min</div></div>
+          <span class="hcd-sep">:</span>
+          <div class="hcd-block"><div class="hcd-num" id="hcd-s">--</div><div class="hcd-unit">seg</div></div>
         </div>
         <h1 class="hero-title">
           Reduce rotación<br/><span class="accent">hasta 40%.</span>
@@ -3021,12 +3023,15 @@ calcUpdate();
     const mins = Math.floor((diffMs % 36e5) / 6e4);
 
     // Hero countdown blocks
+    const secs = Math.floor((diffMs % 6e4) / 1000);
     const dEl = document.getElementById('hcd-d');
     const hEl = document.getElementById('hcd-h');
     const mEl = document.getElementById('hcd-m');
+    const sEl = document.getElementById('hcd-s');
     if (dEl) dEl.textContent = pad(dias);
     if (hEl) hEl.textContent = pad(hrs);
     if (mEl) mEl.textContent = pad(mins);
+    if (sEl) sEl.textContent = pad(secs);
 
     // Color urgencia
     const urgBg = dias <= 7 ? '#dc2626' : dias <= 14 ? '#d97706' : dias <= 21 ? '#ca8a04' : null;
