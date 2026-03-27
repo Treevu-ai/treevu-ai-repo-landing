@@ -1324,6 +1324,19 @@ input[type="range"]::-moz-range-thumb {
   --text-secondary:#CBD5E1;
   --text-muted:    #94A3B8;
   --text-disabled: #64748B;
+  /* Semantic surface + text tokens — mapean las vars del bloque global a dark */
+  --surface-base:    #0F172A;
+  --surface-raised:  #1E293B;
+  --surface-overlay: #243044;
+  --surface-alt:     #111827;
+  --text-strong:     #F1F5F9;
+  --text-default:    #E2E8F0;
+  --text-subdued:    #CBD5E1;
+  --text-dim:        #94A3B8;
+  --border-default:  rgba(255,255,255,0.08);
+  --border-strong:   rgba(255,255,255,0.15);
+  --border-subtle:   rgba(255,255,255,0.04);
+  --border-brand:    rgba(96,165,250,0.3);
 }
 
 /* ── Base ── */
@@ -2015,7 +2028,7 @@ footer *, .footer * { color: var(--text-dim) !important; }
 footer a:hover, .footer a:hover { color: var(--brand) !important; }
 
 /* Urgency bar */
-.urgency-bar { background: var(--surface-overlay) !important; border-bottom: 1px solid var(--border-brand); }
+.urgency-bar { border-bottom: 1px solid var(--border-brand); }
 
 /* Badges y tags de sección */
 [class*="tag"], [class*="badge"], [class*="chip"] {
