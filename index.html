@@ -2287,9 +2287,9 @@ input[type="range"]::-moz-range-thumb {
         <a href="#contacto" class="btn btn-primary btn-full" id="calc-cta">
           Ver estos resultados en mi empresa →
         </a>
-        <a href="https://t.me/+51902126765" target="_blank" class="btn btn-outline btn-full" style="margin-top:10px;">
-          Agendar llamada de 20 min con el equipo
-        </a>
+        <button onclick="document.getElementById('vuLauncher').click()" class="btn btn-outline btn-full" style="margin-top:10px;">
+          Preguntar a Vü →
+        </button>
         <div class="calc-cta-text">Sin compromiso · Te confirmamos en &lt; 2 horas</div>
         <div class="calc-disclaimer">Estimación basada en estudios SHRM y Deloitte Perú. Resultados reales pueden variar según industria, tamaño y contexto de cada empresa.</div>
       </div>
@@ -3102,9 +3102,9 @@ function pqFinish(role) {
   pqAnswers[2] = role;
   closePrequal();
   const size = pqAnswers[0];
-  // No califica: menos de 50 colaboradores
+  // No califica: menos de 50 colaboradores → redirigir a Vü
   if (size === 'menos-50') {
-    window.open('https://t.me/+51902126765', '_blank');
+    setTimeout(() => { document.getElementById('vuLauncher').click(); }, 200);
   } else {
     document.getElementById('contacto').scrollIntoView({ behavior: 'smooth' });
   }
@@ -3115,12 +3115,12 @@ function pqFinish(role) {
 <div class="exit-overlay" id="exitOverlay">
   <div class="exit-box">
     <button class="exit-close" onclick="closeExit()">×</button>
-    <h3>¿Una pregunta rápida antes de irte?</h3>
-    <p>Ricardo responde en menos de 2 horas por Telegram. Sin formularios.</p>
-    <a class="btn-tg" href="https://t.me/+51902126765" target="_blank" rel="noopener">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L8.32 13.617l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.828.942z"/></svg>
-      Hablar con Ricardo →
-    </a>
+    <h3>¿Tienes alguna duda?</h3>
+    <p>Vü te responde al instante — sin formularios, sin esperar.</p>
+    <button class="btn-tg" onclick="closeExit(); setTimeout(()=>{ document.getElementById('vuLauncher').click(); }, 200);" style="border:none;cursor:pointer;width:100%;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      Hablar con Vü →
+    </button>
     <span class="exit-skip" onclick="closeExit()">No, continuar navegando</span>
   </div>
 </div>
