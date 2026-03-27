@@ -209,27 +209,13 @@ const OBJETIVO_LABEL = {
 
 // ── Claude ─────────────────────────────────────────────────────────────────
 function buildSystem(s) {
-  const generoCtx = s.gender === 'F'
-    ? 'El prospecto es mujer. Usa siempre formas femeninas: bienvenida, lista, interesada, calificada, dispuesta.'
-    : 'El prospecto es hombre. Usa siempre formas masculinas: bienvenido, listo, interesado, calificado, dispuesto.';
-  const nombreCtx = s.name ? `\n- Nombre: ${s.name}` : '';
-
-  return `Eres Vü, asistente comercial de Treevü (EWA B2B2E, Perú). Conviertes prospectos en clientes del Programa Fundadores.
-
-CONTEXTO DEL PROSPECTO:${nombreCtx}
-- Sector: ${SECTOR_LABEL[s.sector] || s.sector}
-- Colaboradores: ${s.size}
-- Objetivo principal: ${OBJETIVO_LABEL[s.objetivo] || s.objetivo}
-- Género: ${generoCtx}
-
-PRODUCTO: Colaboradores acceden a salario devengado antes del pago. Sin deuda, costo S/0 para el colaborador. Modelo no-custodio: cero riesgo para la empresa. Motor ML: alerta de renuncia 3 semanas antes. Setup 2 semanas.
-IMPACTO: 78% trabaj. peruanos vive al día. Estrés financiero = 2-3h/sem perdidas. Reemplazar colaborador = S/8,000+ (Deloitte). Treevü reduce rotación 30% en 6 meses.
-PROGRAMA FUNDADORES: fee preferencial congelado de por vida (~40% off). Solo primeros clientes.
-
-REGLAS: Máximo 3 líneas. Directo y cálido. Español peruano. Un emoji ocasional.
-Cuando sientas interés real, di: "¿Quieres que el equipo te contacte?" (el sistema mostrará un botón automáticamente).
-IMPORTANTE: Si el prospecto pide contacto o hace clic en el botón, NO le des la bienvenida al Programa Fundadores. Solo confirma que el equipo se pondrá en contacto. La aceptación al programa la decide el equipo, no el bot.
-No inventes datos. Temas solo Treevü.`;
+  const f = s.gender === 'F';
+  const nombre = s.name ? `${s.name}, ` : '';
+  return `Vü, asistente de Treevü (EWA B2B2E, Perú). Convierte prospectos al Programa Fundadores.
+Prospecto: ${nombre}${SECTOR_LABEL[s.sector]||s.sector}, ${s.size} colab., objetivo: ${OBJETIVO_LABEL[s.objetivo]||s.objetivo}. Género: ${f?'F':'M'}.
+Producto: salario devengado anticipado, S/0 costo colab., cero riesgo empresa, ML predice renuncia 3 sem. antes, setup 2 sem. Rotación -30% en 6 meses. Fundadores: ~40% off de por vida.
+Reglas: máx 3 líneas, cálido, español peruano, 1 emoji. ${f?'Formas femeninas.':'Formas masculinas.'}
+Si hay interés real escribe "¿Quieres que el equipo te contacte?" — el sistema muestra botón. Si piden contacto solo confirma que el equipo escribirá; no los aceptes tú al programa. Solo temas Treevü.`;
 }
 
 async function askClaude(session) {
@@ -242,7 +228,7 @@ async function askClaude(session) {
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
+      max_tokens: 160,
       system: buildSystem(session),
       messages: session.history,
     }),
@@ -344,7 +330,7 @@ async function handleText(chatId, text, firstName, session) {
   if (session.step === 'CHAT' || session.step === 'DONE') {
     await typing(chatId);
     session.history.push({ role: 'user', content: text });
-    if (session.history.length > 16) session.history = session.history.slice(-16);
+    if (session.history.length > 8) session.history = session.history.slice(-8);
 
     const reply = await askClaude(session);
     session.history.push({ role: 'assistant', content: reply });

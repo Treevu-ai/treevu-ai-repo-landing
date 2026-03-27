@@ -98,12 +98,12 @@ async function notionPatch(pageId, properties) {
 }
 
 // ── Claude helper ─────────────────────────────────────────────────────────────
-async function askClaude(prompt) {
+async function askClaude(prompt, maxTokens = 250) {
   if (!ANTHROPIC_KEY) return null;
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-    body:    JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, messages: [{ role: 'user', content: prompt }] }),
+    body:    JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] }),
   });
   const data = await res.json();
   return data.content?.[0]?.text || null;
@@ -286,7 +286,7 @@ Responde SOLO con el mensaje listo para copiar. Sin explicaciones.`;
 
     await send(`⏳ _Generando mensaje ${canal} para ${empresa}..._`);
 
-    const mensaje = await askClaude(prompt);
+    const mensaje = await askClaude(prompt, 300);
 
     if (!mensaje) {
       await send('❌ Error generando mensaje con IA.');
@@ -603,7 +603,7 @@ async function handleNextStep() {
       `Estado piloto: ${cerrados}/${CUPOS_TOTAL} firmados, ${diasCierre} días para cierre 30 abril.\n\n` +
       `Da exactamente 3 próximos pasos accionables para esta semana. Numerados, 1 línea c/u. Sin relleno.`;
     await send('⏳ _Analizando pipeline..._');
-    const resp = await askClaude(prompt);
+    const resp = await askClaude(prompt, 120);
     await send(`🎯 *Próximos pasos — esta semana*\n\n${resp}`);
   } catch (err) { await send('❌ Error al generar próximos pasos.'); }
 }
@@ -852,7 +852,7 @@ async function handleBloqueantes() {
       `Formato exacto por línea: 🔴/🟡/🟢 [Bloqueante] — [Acción inmediata]\n` +
       `Solo 3 líneas. Sin introducciones.`;
     await send('⏳ _Analizando bloqueantes..._');
-    const resp = await askClaude(prompt);
+    const resp = await askClaude(prompt, 120);
     await send(`🚦 *Bloqueantes RAG*\n\n${resp}\n\n_/decision para decisiones pendientes_`);
   } catch (err) { await send('❌ Error al analizar bloqueantes.'); }
 }
@@ -867,7 +867,7 @@ async function handleDecision() {
       `Formato: [N]. [Decisión] — [Criterio o consecuencia de no decidir]\n` +
       `Solo 3 líneas. Sin relleno.`;
     await send('⏳ _Identificando decisiones..._');
-    const resp = await askClaude(prompt);
+    const resp = await askClaude(prompt, 120);
     await send(`⚖️ *Decisiones pendientes*\n\n${resp}`);
   } catch (err) { await send('❌ Error al generar decisiones.'); }
 }
@@ -1146,7 +1146,7 @@ async function handleObjecion(tipo) {
 
   try {
     await send(`⏳ _Preparando rebate para objeción de ${t}..._`);
-    const resp = await askClaude(prompts[t]);
+    const resp = await askClaude(prompts[t], 160);
     if (!resp) throw new Error('Sin respuesta de IA');
     await send(`💬 *Objeción: ${t}*\n\n${resp}\n\n_/objecion para ver todos los tipos_`);
   } catch (err) {
@@ -1309,7 +1309,7 @@ async function handlePregunta(query) {
     `Responde como asesor experimentado en B2B SaaS early-stage. Máximo 5 líneas. Directo, accionable, sin relleno. Si la pregunta requiere contexto que no tienes, dilo brevemente y da igual tu mejor recomendación.`;
 
   try {
-    const respuesta = await askClaude(prompt);
+    const respuesta = await askClaude(prompt, 200);
     if (!respuesta) throw new Error('Sin respuesta');
     await send(`🧠 *Asesor estratégico*\n\n${respuesta}`);
   } catch (err) {
