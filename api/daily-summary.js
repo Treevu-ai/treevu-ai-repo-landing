@@ -1,122 +1,113 @@
 // ── api/daily-summary.js ──────────────────────────────────────────────────────
-// Cron job: resumen diario del pipeline a las 8am hora Perú (13:00 UTC)
-// Configurar en vercel.json: { "crons": [{ "path": "/api/daily-summary", "schedule": "0 13 * * *" }] }
-// También puede llamarse manualmente con ?secret=CRON_SECRET
+// Cron job: resumen diario del pipeline a las 8am Lima (13:00 UTC)
+// Fuente primaria: Supabase (métricas reales) | Fallback: Notion
 
-const NOTION_TOKEN       = process.env.NOTION_TOKEN;
-const NOTION_DATABASE_ID = "8a5cb4e6-16b9-4248-ac44-cab55c9ace6f";
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_CHAT_ID;
-const CRON_SECRET        = process.env.CRON_SECRET;
+import { getPipelineMetrics, sbSelect } from '../lib/supabase.js';
+import { queryNotionDB, getProp }       from '../lib/notion.js';
+import { sendTelegram }                 from '../lib/telegram.js';
 
-async function queryNotion(filter) {
-  const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${NOTION_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Notion-Version': '2022-06-28'
-    },
-    body: JSON.stringify({ filter, page_size: 100 })
-  });
-  if (!res.ok) throw new Error(`Notion ${res.status}: ${await res.text()}`);
-  return res.json();
-}
+const CRON_SECRET = process.env.CRON_SECRET;
 
-function getProp(page, name) {
-  const prop = page.properties?.[name];
-  if (!prop) return null;
-  if (prop.type === 'select')    return prop.select?.name || null;
-  if (prop.type === 'title')     return prop.title?.[0]?.plain_text || null;
-  if (prop.type === 'rich_text') return prop.rich_text?.[0]?.plain_text || null;
-  if (prop.type === 'email')     return prop.email || null;
-  if (prop.type === 'number')    return prop.number ?? null;
-  return null;
-}
+const SCORE_EMOJI = { ALTO: '🔥', MEDIO: '🟡', BAJO: '🔵' };
 
-async function getPipelineStats() {
-  // Traer todos los leads
-  const all = await queryNotion({});
-  const leads = all.results || [];
-
-  const stats = {
-    total: leads.length,
-    byScore: { ALTO: 0, MEDIO: 0, BAJO: 0 },
-    byEstado: {},
-    cuposRestantes: 4,
-    leadsHoy: [],
-    altoPendientes: []
-  };
+// ── Resumen desde Supabase ────────────────────────────────────────────────────
+async function buildSummaryFromSupabase() {
+  const m = await getPipelineMetrics();
+  if (!m) return null;
 
   const hoy = new Date().toISOString().split('T')[0];
+  const leadsHoy = await sbSelect('leads', {
+    filters: { created_at: `gte.${hoy}T00:00:00.000Z` },
+    select: 'nombre,empresa,score',
+    limit: 20
+  }).catch(() => []);
+
+  const altoPendientes = await sbSelect('leads', {
+    filters: {
+      score:  'eq.ALTO',
+      estado: 'in.(Nuevo,Contactado)'
+    },
+    select: 'nombre,empresa,estado',
+    limit:  10
+  }).catch(() => []);
+
+  return { ...m, leadsHoy: leadsHoy || [], altoPendientes: altoPendientes || [], source: 'supabase' };
+}
+
+// ── Fallback desde Notion ─────────────────────────────────────────────────────
+async function buildSummaryFromNotion() {
+  const all    = await queryNotionDB({});
+  const leads  = all.results || [];
+  const hoy    = new Date().toISOString().split('T')[0];
+
+  const stats = {
+    total:           leads.length,
+    byScore:         { ALTO: 0, MEDIO: 0, BAJO: 0 },
+    byEstado:        {},
+    leadsHoy:        [],
+    altoPendientes:  [],
+    source:          'notion'
+  };
 
   for (const lead of leads) {
-    const score  = getProp(lead, 'Score')  || 'BAJO';
-    const estado = getProp(lead, 'Estado') || 'Nuevo';
-    const nombre = getProp(lead, 'Nombre y Cargo') || 'Sin nombre';
-    const empresa = getProp(lead, 'Empresa') || '';
-    const creado = lead.created_time?.split('T')[0] || '';
+    const score   = getProp(lead, 'Score')          || 'BAJO';
+    const estado  = getProp(lead, 'Estado')         || 'Nuevo';
+    const nombre  = getProp(lead, 'Nombre y Cargo') || 'Sin nombre';
+    const empresa = getProp(lead, 'Empresa')        || '';
+    const creado  = lead.created_time?.split('T')[0] || '';
 
-    // Conteo por score
-    if (stats.byScore[score] !== undefined) stats.byScore[score]++;
-    else stats.byScore[score] = 1;
-
-    // Conteo por estado
+    stats.byScore[score] = (stats.byScore[score] || 0) + 1;
     stats.byEstado[estado] = (stats.byEstado[estado] || 0) + 1;
 
-    // Leads de hoy
-    if (creado === hoy) {
-      stats.leadsHoy.push({ nombre, empresa, score });
-    }
-
-    // ALTOs pendientes de contactar
-    if (score === 'ALTO' && ['Nuevo', 'Contactado'].includes(estado)) {
+    if (creado === hoy) stats.leadsHoy.push({ nombre, empresa, score });
+    if (score === 'ALTO' && ['Nuevo','Contactado'].includes(estado)) {
       stats.altoPendientes.push({ nombre, empresa, estado });
-    }
-
-    // Cupos usados = leads en estado Piloto activo o Firmado
-    if (['Piloto activo', 'Firmado', 'Reunión agendada'].includes(estado)) {
-      stats.cuposRestantes = Math.max(0, stats.cuposRestantes - 1);
     }
   }
 
   return stats;
 }
 
-async function sendTelegramSummary(stats) {
+// ── Construir mensaje Telegram ────────────────────────────────────────────────
+function buildMessage(stats) {
   const hoy = new Date().toLocaleDateString('es-PE', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     timeZone: 'America/Lima'
   });
+  const sourceTag = stats.source === 'supabase' ? '📊 Supabase' : '🗂 Notion';
 
-  let msg = `📊 *Resumen Treevü — ${hoy}*\n\n`;
+  let msg = `📊 *Resumen Treevü — ${hoy}*\n_${sourceTag}_\n\n`;
 
-  // Pipeline general
+  // Pipeline
   msg += `*Pipeline total: ${stats.total} leads*\n`;
-  msg += `🔥 ALTO: ${stats.byScore.ALTO || 0}  `;
-  msg += `🟡 MEDIO: ${stats.byScore.MEDIO || 0}  `;
-  msg += `🔵 BAJO: ${stats.byScore.BAJO || 0}\n\n`;
+  msg += `🔥 ALTO: ${stats.byScore?.ALTO || 0}  `;
+  msg += `🟡 MEDIO: ${stats.byScore?.MEDIO || 0}  `;
+  msg += `🔵 BAJO: ${stats.byScore?.BAJO || 0}\n\n`;
 
-  // Estado del programa
-  msg += `🎯 *Programa Fundadores Q2 2026*\n`;
-  msg += `Cupos estimados disponibles: *${stats.cuposRestantes} de 4*\n\n`;
+  // Métricas de conversión (solo Supabase)
+  if (stats.source === 'supabase') {
+    msg += `*Conversión:*\n`;
+    msg += `📈 Lead → Reunión: ${stats.convLeadToMeeting}%\n`;
+    msg += `🏆 Win rate: ${stats.winRate}%\n`;
+    msg += `⏱ Tiempo promedio lead→reunión: ${stats.avgDaysToMeeting} días\n\n`;
+  }
 
-  // Por estado
-  if (Object.keys(stats.byEstado).length) {
+  // Estado del pipeline
+  if (stats.byEstado && Object.keys(stats.byEstado).length) {
     msg += `*Estado del pipeline:*\n`;
+    const iconos = {
+      'Nuevo': '🆕', 'Contactado': '📨', 'Reunión agendada': '📅',
+      'En evaluación': '🔍', 'Propuesta enviada': '📄',
+      'Piloto activo': '🚀', 'Firmado': '✅', 'Descartado': '❌'
+    };
     for (const [estado, count] of Object.entries(stats.byEstado)) {
-      const icons = {
-        'Nuevo': '🆕', 'Contactado': '📨', 'Reunión agendada': '📅',
-        'En evaluación': '🔍', 'Propuesta enviada': '📄',
-        'Piloto activo': '🚀', 'Firmado': '✅', 'Descartado': '❌'
-      };
-      msg += `${icons[estado] || '·'} ${estado}: ${count}\n`;
+      msg += `${iconos[estado] || '·'} ${estado}: ${count}\n`;
     }
     msg += '\n';
   }
 
   // Leads de hoy
-  if (stats.leadsHoy.length) {
+  if (stats.leadsHoy?.length) {
     msg += `*Nuevos leads hoy (${stats.leadsHoy.length}):*\n`;
     for (const l of stats.leadsHoy) {
       msg += `${SCORE_EMOJI[l.score] || '·'} ${l.nombre} — ${l.empresa}\n`;
@@ -127,45 +118,46 @@ async function sendTelegramSummary(stats) {
   }
 
   // ALTOs pendientes
-  if (stats.altoPendientes.length) {
-    msg += `⚠️ *ALTOs pendientes de acción (${stats.altoPendientes.length}):*\n`;
+  if (stats.altoPendientes?.length) {
+    msg += `⚠️ *ALTOs sin acción (${stats.altoPendientes.length}):*\n`;
     for (const l of stats.altoPendientes) {
       msg += `🔥 ${l.nombre} — ${l.empresa} _(${l.estado})_\n`;
     }
     msg += '\n';
   }
 
-  msg += `_Treevü CRM · hello@gettreevu.com_`;
-
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' })
-  });
-
-  if (!res.ok) throw new Error(`Telegram ${res.status}: ${await res.text()}`);
-  return res.json();
+  msg += `💡 Comandos: /pipeline /stats /reunion /resultado\n`;
+  msg += `_Treevü Revenue Engine · hello@gettreevu.com_`;
+  return msg;
 }
 
-const SCORE_EMOJI = { ALTO: '🔥', MEDIO: '🟡', BAJO: '🔵' };
-
+// ── Handler ───────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  // Seguridad: solo GET con secret o llamada de cron de Vercel
-  const authHeader = req.headers['authorization'];
-  const secret = req.query?.secret;
+  const authHeader   = req.headers['authorization'];
+  const secret       = req.query?.secret;
   const isVercelCron = authHeader === `Bearer ${CRON_SECRET}`;
-  const isManual = secret && secret === CRON_SECRET;
+  const isManual     = secret && secret === CRON_SECRET;
 
   if (!isVercelCron && !isManual) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    console.log('[daily-summary] Generando resumen del pipeline...');
-    const stats = await getPipelineStats();
-    await sendTelegramSummary(stats);
-    console.log(`[daily-summary] Enviado OK — ${stats.total} leads`);
-    return res.status(200).json({ success: true, total: stats.total });
+    console.log('[daily-summary] Generando resumen...');
+
+    let stats;
+    try {
+      stats = await buildSummaryFromSupabase();
+    } catch (err) {
+      console.warn('[daily-summary] Supabase falló, usando Notion:', err.message);
+    }
+    if (!stats) stats = await buildSummaryFromNotion();
+
+    const msg = buildMessage(stats);
+    await sendTelegram(msg);
+
+    console.log(`[daily-summary] OK — ${stats.total} leads (${stats.source})`);
+    return res.status(200).json({ success: true, total: stats.total, source: stats.source });
   } catch (err) {
     console.error('[daily-summary] Error:', err.message);
     return res.status(500).json({ error: err.message });

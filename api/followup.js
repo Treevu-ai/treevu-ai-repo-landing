@@ -1,67 +1,60 @@
 // ── api/followup.js ───────────────────────────────────────────────────────────
-// Cron job: detecta leads ALTO/MEDIO sin respuesta en 48h y notifica por Telegram
-// Schedule: "0 14 * * *" (9am Lima, 14:00 UTC)
+// Cron job: detecta leads ALTO/MEDIO sin respuesta en 48h y alerta
+// Schedule: "0 14 * * *" (9am Lima = 14:00 UTC)
+// Fuente: Supabase primero, fallback a Notion
 
-const NOTION_TOKEN       = process.env.NOTION_TOKEN;
-const NOTION_DATABASE_ID = "8a5cb4e6-16b9-4248-ac44-cab55c9ace6f";
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_CHAT_ID;
-const CRON_SECRET        = process.env.CRON_SECRET;
+import { sbSelect, logEvent } from '../lib/supabase.js';
+import { queryNotionDB, getProp } from '../lib/notion.js';
+import { sendTelegram }           from '../lib/telegram.js';
 
-function getProp(page, name) {
-  const prop = page.properties?.[name];
-  if (!prop) return null;
-  if (prop.type === 'select')    return prop.select?.name || null;
-  if (prop.type === 'title')     return prop.title?.[0]?.plain_text || null;
-  if (prop.type === 'rich_text') return prop.rich_text?.[0]?.plain_text || null;
-  if (prop.type === 'email')     return prop.email || null;
-  return null;
-}
+const CRON_SECRET = process.env.CRON_SECRET;
 
-async function getLeadsPendingFollowup() {
-  // Buscar leads ALTO o MEDIO en estado "Nuevo" o "Contactado" creados hace más de 48h
-  const hace48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-
-  const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${NOTION_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Notion-Version': '2022-06-28'
+// ── Leads pendientes desde Supabase ──────────────────────────────────────────
+async function getLeadsPendingFromSupabase() {
+  const hace48h = new Date(Date.now() - 48 * 3600000).toISOString();
+  return sbSelect('leads', {
+    filters: {
+      updated_at: `lte.${hace48h}`,
+      score:      'in.(ALTO,MEDIO)',
+      estado:     'in.(Nuevo,Contactado)'
     },
-    body: JSON.stringify({
-      filter: {
-        and: [
-          {
-            or: [
-              { property: 'Score', select: { equals: 'ALTO' } },
-              { property: 'Score', select: { equals: 'MEDIO' } }
-            ]
-          },
-          {
-            or: [
-              { property: 'Estado', select: { equals: 'Nuevo' } },
-              { property: 'Estado', select: { equals: 'Contactado' } }
-            ]
-          },
-          {
-            timestamp: 'created_time',
-            created_time: { before: hace48h }
-          }
-        ]
-      },
-      page_size: 20
-    })
+    select: 'id,email,nombre,empresa,sector,score,probabilidad,estado,created_at',
+    order:  'score.desc,created_at.asc',
+    limit:  20
   });
-
-  if (!res.ok) throw new Error(`Notion ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  return data.results || [];
 }
 
+// ── Fallback desde Notion ────────────────────────────────────────────────────
+async function getLeadsPendingFromNotion() {
+  const hace48h = new Date(Date.now() - 48 * 3600000).toISOString();
+  const data = await queryNotionDB({
+    and: [
+      { or: [
+        { property: 'Score', select: { equals: 'ALTO' } },
+        { property: 'Score', select: { equals: 'MEDIO' } }
+      ]},
+      { or: [
+        { property: 'Estado', select: { equals: 'Nuevo' } },
+        { property: 'Estado', select: { equals: 'Contactado' } }
+      ]},
+      { timestamp: 'created_time', created_time: { before: hace48h } }
+    ]
+  }, 20);
+  return (data.results || []).map(p => ({
+    email:   getProp(p, 'Email'),
+    nombre:  getProp(p, 'Nombre y Cargo') || 'Sin nombre',
+    empresa: getProp(p, 'Empresa')        || '',
+    score:   getProp(p, 'Score')          || 'MEDIO',
+    estado:  getProp(p, 'Estado')         || 'Nuevo',
+    created_at: p.created_time,
+    source: 'notion'
+  }));
+}
+
+// ── Alerta Telegram ───────────────────────────────────────────────────────────
 async function sendFollowupAlert(leads) {
   if (!leads.length) {
-    console.log('[followup] Sin leads pendientes de seguimiento');
+    console.log('[followup] Sin leads pendientes');
     return;
   }
 
@@ -69,48 +62,57 @@ async function sendFollowupAlert(leads) {
   msg += `_${leads.length} lead(s) sin respuesta en +48h_\n\n`;
 
   for (const lead of leads) {
-    const score   = getProp(lead, 'Score') || 'MEDIO';
-    const nombre  = getProp(lead, 'Nombre y Cargo') || 'Sin nombre';
-    const empresa = getProp(lead, 'Empresa') || '';
-    const email   = getProp(lead, 'Email') || '';
-    const estado  = getProp(lead, 'Estado') || 'Nuevo';
-    const creado  = new Date(lead.created_time).toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-    const emoji   = score === 'ALTO' ? '🔥' : '🟡';
-
-    msg += `${emoji} *${nombre}*\n`;
-    msg += `🏢 ${empresa}\n`;
-    msg += `📧 ${email}\n`;
-    msg += `📅 Registrado: ${creado} · Estado: ${estado}\n\n`;
+    const emoji  = lead.score === 'ALTO' ? '🔥' : '🟡';
+    const creado = new Date(lead.created_at).toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+    msg += `${emoji} *${lead.nombre}*\n`;
+    msg += `🏢 ${lead.empresa}\n`;
+    msg += `📧 ${lead.email}\n`;
+    msg += `📅 ${creado} · Estado: ${lead.estado}`;
+    if (lead.probabilidad) msg += ` · ${lead.probabilidad}% prob.`;
+    msg += `\n\n`;
   }
 
-  msg += `💡 _Responde pronto — los leads se enfrían rápido._`;
+  msg += `💡 Acciones rápidas:\n`;
+  msg += `\`/reunion <email>\` — briefing\n`;
+  msg += `\`/nextstep <email> <acción>\` — registrar contacto`;
 
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' })
-  });
-
-  if (!res.ok) throw new Error(`Telegram ${res.status}: ${await res.text()}`);
-  return res.json();
+  await sendTelegram(msg);
 }
 
+// ── Handler ───────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  const authHeader = req.headers['authorization'];
-  const secret = req.query?.secret;
+  const authHeader   = req.headers['authorization'];
+  const secret       = req.query?.secret;
   const isVercelCron = authHeader === `Bearer ${CRON_SECRET}`;
-  const isManual = secret && secret === CRON_SECRET;
+  const isManual     = secret && secret === CRON_SECRET;
 
-  if (!isVercelCron && !isManual) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!isVercelCron && !isManual) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    console.log('[followup] Buscando leads sin seguimiento...');
-    const leads = await getLeadsPendingFollowup();
+    console.log('[followup] Buscando leads pendientes...');
+
+    let leads = [];
+    let source = 'supabase';
+    try {
+      leads = await getLeadsPendingFromSupabase() || [];
+    } catch (err) {
+      console.warn('[followup] Supabase falló, usando Notion:', err.message);
+      leads  = await getLeadsPendingFromNotion();
+      source = 'notion';
+    }
+
     await sendFollowupAlert(leads);
-    console.log(`[followup] OK — ${leads.length} leads pendientes`);
-    return res.status(200).json({ success: true, pendientes: leads.length });
+
+    // Log evento para auditoría
+    if (leads.length && source === 'supabase') {
+      for (const l of leads) {
+        logEvent(l.email, 'followup_alert_sent', { days_pending: Math.floor((Date.now() - new Date(l.created_at)) / 86400000) },
+          { leadId: l.id }).catch(() => {});
+      }
+    }
+
+    console.log(`[followup] OK — ${leads.length} pendientes (${source})`);
+    return res.status(200).json({ success: true, pendientes: leads.length, source });
   } catch (err) {
     console.error('[followup] Error:', err.message);
     return res.status(500).json({ error: err.message });

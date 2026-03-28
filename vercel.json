@@ -7,19 +7,27 @@
     { "src": "api/daily-summary.js",      "use": "@vercel/node" },
     { "src": "api/followup.js",           "use": "@vercel/node" },
     { "src": "api/calendly-webhook.js",   "use": "@vercel/node" },
-    { "src": "api/setup-calendly.js",     "use": "@vercel/node" }
+    { "src": "api/setup-calendly.js",     "use": "@vercel/node" },
+    { "src": "api/telegram-webhook.js",   "use": "@vercel/node" },
+    { "src": "api/cadences.js",           "use": "@vercel/node" },
+    { "src": "api/learning.js",           "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/api/submit",            "dest": "/api/submit.js" },
-    { "src": "/api/chat",              "dest": "/api/chat.js" },
-    { "src": "/api/daily-summary",     "dest": "/api/daily-summary.js" },
-    { "src": "/api/followup",          "dest": "/api/followup.js" },
-    { "src": "/api/calendly-webhook",  "dest": "/api/calendly-webhook.js" },
-    { "src": "/api/setup-calendly",    "dest": "/api/setup-calendly.js" },
-    { "src": "/(.*)",                  "dest": "/index.html" }
+    { "src": "/api/submit",              "dest": "/api/submit.js" },
+    { "src": "/api/chat",                "dest": "/api/chat.js" },
+    { "src": "/api/daily-summary",       "dest": "/api/daily-summary.js" },
+    { "src": "/api/followup",            "dest": "/api/followup.js" },
+    { "src": "/api/calendly-webhook",    "dest": "/api/calendly-webhook.js" },
+    { "src": "/api/setup-calendly",      "dest": "/api/setup-calendly.js" },
+    { "src": "/api/telegram-webhook",    "dest": "/api/telegram-webhook.js" },
+    { "src": "/api/cadences",            "dest": "/api/cadences.js" },
+    { "src": "/api/learning",            "dest": "/api/learning.js" },
+    { "src": "/(.*)",                    "dest": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/daily-summary", "schedule": "0 13 * * *" },
-    { "path": "/api/followup",      "schedule": "0 14 * * *" }
+    { "path": "/api/daily-summary", "schedule": "0 13 * * *"  },
+    { "path": "/api/followup",      "schedule": "0 14 * * *"  },
+    { "path": "/api/cadences",      "schedule": "0 15 * * *"  },
+    { "path": "/api/learning",      "schedule": "0 12 * * 1"  }
   ]
 }

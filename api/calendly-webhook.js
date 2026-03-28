@@ -1,124 +1,165 @@
 // ── api/calendly-webhook.js ───────────────────────────────────────────────────
 // Recibe webhooks de Calendly cuando un lead agenda una reunión
-// y actualiza el estado en Notion de "Nuevo/Contactado" → "Reunión agendada"
-//
-// Setup en Calendly: https://calendly.com/integrations/webhooks
-// URL: https://gettreevu.com/api/calendly-webhook
-// Eventos: invitee.created
+// Flujo: invitee.created → Supabase + Notion → briefing pre-reunión → Telegram
 
-const NOTION_TOKEN       = process.env.NOTION_TOKEN;
-const NOTION_DATABASE_ID = "8a5cb4e6-16b9-4248-ac44-cab55c9ace6f";
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_CHAT_ID;
-const CALENDLY_WEBHOOK_SECRET = process.env.CALENDLY_WEBHOOK_SECRET;
+import { getLeadByEmail, updateLead, logEvent,
+         logScoreHistory, sbInsert }               from '../lib/supabase.js';
+import { findLeadByEmail, updateLeadEstado }       from '../lib/notion.js';
+import { sendTelegram }                            from '../lib/telegram.js';
+import { applyBehavioralSignals, SCORE_EMOJI,
+         SECTOR_MAP, OBJ_MAP }                     from '../lib/scoring.js';
+import { llmCall }                                 from '../lib/llm.js';
 
-async function findLeadByEmail(email) {
-  const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${NOTION_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Notion-Version': '2022-06-28'
-    },
-    body: JSON.stringify({
-      filter: { property: 'Email', email: { equals: email } },
-      page_size: 1
-    })
-  });
-  if (!res.ok) throw new Error(`Notion query ${res.status}`);
-  const data = await res.json();
-  return data.results?.[0] || null;
+// ── Briefing pre-reunión ──────────────────────────────────────────────────────
+async function generateBriefing(lead) {
+  const system = `Eres el asistente de ventas de Treevü. Genera briefings pre-reunión concisos y accionables.
+Formato: bullets cortos, tono ejecutivo. Máximo 350 palabras.`;
+
+  const user = `Briefing para reunión con:
+- Nombre: ${lead.nombre}
+- Empresa: ${lead.empresa}
+- Sector: ${SECTOR_MAP[lead.sector] || lead.sector}
+- Colaboradores: ${lead.colaboradores}
+- Objetivo: ${OBJ_MAP[lead.objetivo] || lead.objetivo}
+- Reto: ${lead.problema || 'No especificado'}
+- Score: ${lead.score} (${lead.probabilidad}%)
+- Análisis: ${lead.razon || 'N/D'}
+
+Incluye: contexto del lead, dolor principal, 2 objeciones probables con respuesta, objetivo de la reunión.`;
+
+  return llmCall({ task: 'pre-meeting-briefing', system, user, model: 'claude_sonnet', maxTokens: 700 });
 }
 
-async function updateLeadEstado(pageId, nuevoEstado, notaAdicional) {
-  const body = {
-    properties: {
-      'Estado': { select: { name: nuevoEstado } }
-    }
-  };
-  if (notaAdicional) {
-    body.properties['Notas'] = { rich_text: [{ text: { content: notaAdicional } }] };
-  }
-  const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-    method: 'PATCH',
-    headers: {
-      'Authorization': `Bearer ${NOTION_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Notion-Version': '2022-06-28'
-    },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) throw new Error(`Notion update ${res.status}: ${await res.text()}`);
-  return res.json();
-}
-
-async function notifyTelegram(invitee, event, leadNombre) {
-  const fechaReunion = new Date(event.start_time).toLocaleString('es-PE', {
+// ── Telegram: notificación de reunión agendada ────────────────────────────────
+async function notifyMeetingScheduled(invitee, eventData, lead, briefing) {
+  const fechaReunion = new Date(eventData.start_time).toLocaleString('es-PE', {
     timeZone: 'America/Lima',
     weekday: 'long', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
 
+  const emoji = lead ? (SCORE_EMOJI[lead.score] || '📅') : '📅';
   let msg = `📅 *¡Reunión agendada! — Treevü*\n\n`;
   msg += `👤 *${invitee.name}*\n`;
   msg += `📧 ${invitee.email}\n`;
   msg += `🗓 ${fechaReunion}\n`;
-  msg += `📋 ${event.name || 'Llamada Treevü 30 min'}\n`;
-  if (leadNombre) msg += `\n_Lead identificado: ${leadNombre}_\n`;
-  msg += `\n✅ *Estado actualizado en Notion → Reunión agendada*`;
+  msg += `📋 ${eventData.name || 'Llamada Treevü 30 min'}\n`;
+  if (lead) {
+    msg += `\n${emoji} Lead ${lead.score} · ${lead.probabilidad}% prob. cierre\n`;
+    msg += `🏢 ${lead.empresa}\n`;
+  }
+  msg += `\n✅ *Notion + Supabase actualizados*\n`;
 
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' })
-  });
-  if (!res.ok) console.error('[calendly] Telegram error:', res.status);
+  if (briefing) {
+    msg += `\n📋 *Briefing pre-reunión:*\n${briefing.slice(0, 800)}`;
+    if (briefing.length > 800) msg += '\n_...ver completo con /reunion_';
+  }
+
+  msg += `\n\n💡 Después: \`/resultado ${invitee.email} <ganado|perdido|seguimiento|no_show>\``;
+
+  return sendTelegram(msg);
 }
 
+// ── Handler ───────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Verificar firma de Calendly (opcional pero recomendado)
-  // Calendly envía: Calendly-Webhook-Signature header
-  // Por ahora aceptamos todos los POST — agregar verificación HMAC en producción
-
   const { event, payload } = req.body || {};
 
-  // Solo procesar invitee.created (nueva reunión agendada)
   if (event !== 'invitee.created') {
     return res.status(200).json({ ignored: true, event });
   }
 
-  const invitee = payload?.invitee || {};
-  const eventData = payload?.event || {};
-  const email = invitee?.email;
-  const nombre = invitee?.name;
+  const invitee   = payload?.invitee || {};
+  const eventData = payload?.event   || {};
+  const email     = invitee?.email?.toLowerCase();
+  const nombre    = invitee?.name;
 
   if (!email) {
-    console.warn('[calendly] Webhook sin email de invitado');
+    console.warn('[calendly] Webhook sin email');
     return res.status(200).json({ ok: true, note: 'no email' });
   }
 
-  console.log(`[calendly] Nueva reunión agendada: ${nombre} <${email}>`);
+  console.log(`[calendly] Reunión agendada: ${nombre} <${email}>`);
 
-  try {
-    // Buscar lead en Notion por email
-    const lead = await findLeadByEmail(email);
+  // Buscar lead en Supabase y Notion en paralelo
+  const [sbLead, notionLead] = await Promise.allSettled([
+    getLeadByEmail(email),
+    findLeadByEmail(email)
+  ]);
 
-    if (lead) {
-      const nota = `Reunión agendada vía Calendly el ${new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}. Evento: ${eventData.name || 'Llamada 30 min'}`;
-      await updateLeadEstado(lead.id, 'Reunión agendada', nota);
-      console.log(`[calendly] Notion actualizado: ${email} → Reunión agendada`);
-      await notifyTelegram(invitee, eventData, nombre);
-    } else {
-      // Lead no existe en Notion — igualmente notificar
-      console.warn(`[calendly] Lead no encontrado en Notion para: ${email}`);
-      await notifyTelegram(invitee, eventData, null);
+  const lead    = sbLead.status    === 'fulfilled' ? sbLead.value    : null;
+  const nLead   = notionLead.status === 'fulfilled' ? notionLead.value : null;
+
+  const scheduledAt = eventData.start_time || new Date().toISOString();
+
+  // Actualizar Supabase
+  if (lead?.id) {
+    try {
+      // Aplicar señal comportamental: reunión agendada
+      const { newProb, newScore, delta, applied } = applyBehavioralSignals(lead.probabilidad || 50, {
+        meeting_scheduled: true
+      });
+
+      await Promise.all([
+        updateLead(email, {
+          estado:       'Reunión agendada',
+          probabilidad: newProb,
+          score:        newScore
+        }),
+        logEvent(email, 'meeting_scheduled', {
+          scheduled_at:  scheduledAt,
+          event_name:    eventData.name,
+          score_delta:   delta,
+          applied_signals: applied
+        }, { leadId: lead.id, stageFrom: lead.estado, stageTo: 'Reunión agendada' }),
+        logScoreHistory(email, lead.id, newScore, newProb, 'behavioral', {
+          meeting_scheduled: true,
+          applied
+        }),
+        // Crear registro en meetings
+        sbInsert('meetings', {
+          lead_id:      lead.id,
+          email,
+          scheduled_at: scheduledAt,
+          event_name:   eventData.name || 'Llamada Treevü 30 min'
+        })
+      ]);
+
+      console.log(`[calendly] Supabase actualizado: ${email} → Reunión agendada (score: ${newScore} ${newProb}%)`);
+    } catch (err) {
+      console.error('[calendly] Supabase error:', err.message);
     }
-
-    return res.status(200).json({ success: true });
-  } catch (err) {
-    console.error('[calendly] Error:', err.message);
-    return res.status(500).json({ error: err.message });
   }
+
+  // Actualizar Notion
+  if (nLead?.id) {
+    try {
+      const nota = `Reunión agendada vía Calendly el ${new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}. Evento: ${eventData.name || 'Llamada 30 min'}`;
+      await updateLeadEstado(nLead.id, 'Reunión agendada', nota);
+      console.log(`[calendly] Notion actualizado: ${email}`);
+    } catch (err) {
+      console.error('[calendly] Notion error:', err.message);
+    }
+  }
+
+  // Generar briefing si tenemos datos del lead
+  let briefing = null;
+  if (lead?.nombre) {
+    try {
+      briefing = await generateBriefing(lead);
+      await logEvent(email, 'briefing_generated', {}, { leadId: lead?.id });
+    } catch (err) {
+      console.error('[calendly] Briefing error:', err.message);
+    }
+  }
+
+  // Notificar Telegram
+  try {
+    await notifyMeetingScheduled(invitee, eventData, lead, briefing);
+  } catch (err) {
+    console.error('[calendly] Telegram error:', err.message);
+  }
+
+  return res.status(200).json({ success: true });
 }
