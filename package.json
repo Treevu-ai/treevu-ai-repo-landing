@@ -2,7 +2,12 @@
   "name": "treevu-ai-repo-landing",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test --experimental-vm-modules api/__tests__/*.test.js"
+  },
   "dependencies": {
+    "@sentry/node": "^8.0.0",
     "node-fetch": "^2.7.0"
   }
 }
