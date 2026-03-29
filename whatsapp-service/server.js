@@ -31,7 +31,10 @@ const app = express();
 app.use(express.json());
 
 const PORT               = process.env.PORT                    || 3001;
-const SERVICE_SECRET     = process.env.WHATSAPP_SERVICE_SECRET  || 'treevu2026';
+const SERVICE_SECRET     = process.env.WHATSAPP_SERVICE_SECRET;
+if (!SERVICE_SECRET) {
+  console.error('[wa] FATAL: WHATSAPP_SERVICE_SECRET no configurado — servicio /send deshabilitado');
+}
 const TELEGRAM_TOKEN     = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_ABM_CHAT_ID;
 const NOTION_TOKEN       = process.env.NOTION_API_KEY;
@@ -233,9 +236,14 @@ app.get('/health', (_, res) => {
 });
 
 app.post('/send', async (req, res) => {
-  const { secret, to, message } = req.body || {};
+  const { to, message } = req.body || {};
 
-  if (secret !== SERVICE_SECRET) {
+  // Acepta auth via Authorization header (Bearer) o body.secret (legacy)
+  const authHeader = req.headers['authorization'];
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const providedSecret = bearerToken || req.body?.secret;
+
+  if (!SERVICE_SECRET || providedSecret !== SERVICE_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   if (!isConnected || !sock) {
