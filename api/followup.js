@@ -3,84 +3,42 @@
 // re-engagement de sesiones abandonadas, y reactivación semanal (lunes).
 // Schedule: "0 14 * * *" (9am Lima, 14:00 UTC)
 
-const NOTION_TOKEN        = process.env.NOTION_API_KEY;
-const NOTION_DATABASE_ID  = "2e5f06c0295b46fbbc212bac5f6fcb3c"; // CRM unificado
-const NOTION_EJECUCION_DB = "bcebf14878f04db087f052722f9a084d"; // Ejecución 14 días
+import { NOTION, PROGRAMA, SCORE_EMOJI } from './lib/constants.js';
+import { getProp, notionQuery, notionPatch } from './lib/notion.js';
+import { sendMessage }       from './lib/telegram.js';
+import { askClaude }         from './lib/anthropic.js';
+import { detectGender }      from './lib/validators.js';
+import { captureException }  from './lib/sentry.js';
+import { redisCmd }          from './lib/redis.js';
+import { getGmailToken, gmailSend } from './lib/gmail.js';
+
+const NOTION_DATABASE_ID  = NOTION.CRM_DB;
+const NOTION_EJECUCION_DB = NOTION.EJECUCION_DB;
 const TELEGRAM_BOT_TOKEN  = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID    = process.env.TELEGRAM_ABM_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
-const TELEGRAM_VU_TOKEN   = process.env.TELEGRAM_VU_BOT_TOKEN;
-const CRON_SECRET         = process.env.CRON_SECRET;
-const ANTHROPIC_KEY       = process.env.ANTHROPIC_API_KEY;
-const UPSTASH_URL         = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_TOKEN       = process.env.UPSTASH_REDIS_REST_TOKEN;
+const CRON_SECRET = process.env.CRON_SECRET;
 
 const DIAS_REACTIVACION = 45;
 const MAX_REACTIVACION  = 5;
 
-function getProp(page, name) {
-  const prop = page.properties?.[name];
-  if (!prop) return null;
-  if (prop.type === 'select')    return prop.select?.name || null;
-  if (prop.type === 'title')     return prop.title?.[0]?.plain_text || null;
-  if (prop.type === 'rich_text') return prop.rich_text?.[0]?.plain_text || null;
-  if (prop.type === 'email')     return prop.email || null;
-  return null;
-}
-
 async function getLeadsPendingFollowup() {
-  // Buscar leads ALTO o MEDIO en estado "Nuevo" o "Contactado" creados hace más de 48h
   const hace48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-
-  const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${NOTION_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Notion-Version': '2022-06-28'
-    },
-    body: JSON.stringify({
-      filter: {
-        and: [
-          {
-            or: [
-              { property: 'Score', select: { equals: 'ALTO' } },
-              { property: 'Score', select: { equals: 'MEDIO' } }
-            ]
-          },
-          {
-            or: [
-              { property: 'Estado', select: { equals: 'Nuevo' } },
-              { property: 'Estado', select: { equals: 'Contactado' } }
-            ]
-          },
-          {
-            timestamp: 'created_time',
-            created_time: { before: hace48h }
-          }
-        ]
-      },
-      page_size: 20
-    })
-  });
-
-  if (!res.ok) throw new Error(`Notion ${res.status}: ${await res.text()}`);
-  const data = await res.json();
+  const data = await notionQuery(NOTION_DATABASE_ID, {
+    and: [
+      { or: [
+        { property: 'Score', select: { equals: 'ALTO' } },
+        { property: 'Score', select: { equals: 'MEDIO' } }
+      ]},
+      { or: [
+        { property: 'Estado', select: { equals: 'Nuevo' } },
+        { property: 'Estado', select: { equals: 'Contactado' } }
+      ]},
+      { timestamp: 'created_time', created_time: { before: hace48h } }
+    ]
+  }, 20);
   return data.results || [];
 }
 
-function detectGender(fullName) {
-  if (!fullName) return 'M';
-  const first = fullName.trim().split(/[\s,\-]+/)[0]
-    .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const maleEx     = ['joseba','nikola','luca','bautista','joshua','elia','andrea','garcia'];
-  const femaleSpec = ['isabel','pilar','carmen','belen','mercedes','ines','rocio',
-                      'flor','luz','paz','sol','esperanza','milagros','nieves',
-                      'trinidad','dolores','consuelo','amparo','fe','ruth','esther','mar'];
-  if (maleEx.includes(first))     return 'M';
-  if (femaleSpec.includes(first)) return 'F';
-  if (first.endsWith('a'))        return 'F';
-  return 'M';
-}
 
 function buildNurturingLine(score, nombre, empresa, objetivo, probabilidad) {
   const firstName = nombre?.split(/[\s,\-]+/)?.[0] || 'Hola';
@@ -90,7 +48,7 @@ function buildNurturingLine(score, nombre, empresa, objetivo, probabilidad) {
   const probStr   = probabilidad ? ` (${probabilidad}% de fit)` : '';
 
   if (score === 'ALTO') {
-    return `_💬 Sugerencia ALTO${probStr}_: "Hola ${firstName}, ¿pudiste revisar la info de Treevü? Quedan solo 4 cupos del Programa Fundadores — ¿estás ${dispuesto}/a a reservar uno esta semana?"`;
+    return `_💬 Sugerencia ALTO${probStr}_: "Hola ${firstName}, ¿pudiste revisar la info de Treevü? Quedan solo 10 cupos del Programa Fundadores — ¿estás ${dispuesto}/a a reservar uno esta semana?"`;
   }
   const objMsg = objetivo ? `Tu objetivo de ${objetivo.toLowerCase()} es exactamente donde Treevü genera impacto.` : '';
   return `_💬 Sugerencia MEDIO${probStr}_: "Hola ${firstName}, ¿sigues ${interesado}/a en optimizar el bienestar de tu equipo en ${empresa || 'tu empresa'}? ${objMsg} ¿Conversamos 15 min?"`;
@@ -132,35 +90,21 @@ async function sendFollowupAlert(leads) {
 
   msg += `💡 _Los leads se enfrían en 72h — actúa hoy._`;
 
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' })
-  });
-
-  if (!res.ok) throw new Error(`Telegram ${res.status}: ${await res.text()}`);
-  return res.json();
+  return sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg);
 }
 
 // ── #5: Brief pre-reunión (reuniones de hoy en la Ejecución DB) ──────────────
 async function getBriefReunionesHoy() {
   const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
-  const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_EJECUCION_DB}/query`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${NOTION_TOKEN}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' },
-    body: JSON.stringify({
-      filter: {
-        and: [
-          { property: 'Fecha Reunión',     date:   { equals: hoy } },
-          { property: 'Reunión Confirmada', checkbox: { equals: true } },
-        ],
-      },
-      page_size: 10,
-    }),
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.results || [];
+  try {
+    const data = await notionQuery(NOTION_EJECUCION_DB, {
+      and: [
+        { property: 'Fecha Reunión',      date:     { equals: hoy } },
+        { property: 'Reunión Confirmada', checkbox: { equals: true } },
+      ],
+    }, 10);
+    return data.results || [];
+  } catch { return []; }
 }
 
 async function sendBriefReuniones(reuniones) {
@@ -172,7 +116,8 @@ async function sendBriefReuniones(reuniones) {
     const sector   = lead.properties?.['Sector']?.select?.name                || '';
     const score    = lead.properties?.['Score ICP']?.number                   ?? '';
     const notas    = lead.properties?.['Notas']?.rich_text?.[0]?.plain_text   || '';
-    const hora     = lead.properties?.['Fecha Reunión']?.date?.start          || hoy;
+    const hoyLocal = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+    const hora     = lead.properties?.['Fecha Reunión']?.date?.start          || hoyLocal;
     const email    = lead.properties?.['Email Decisor']?.email                || '';
     const telefono = lead.properties?.['Teléfono']?.phone_number              || '';
 
@@ -190,11 +135,7 @@ async function sendBriefReuniones(reuniones) {
     msg += `· "¿Qué costo tiene reemplazar a uno?"\n\n`;
     msg += `Cuando termines: \`/resultado ${empresa}\``;
 
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' }),
-    });
+    await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg);
   }
 }
 
@@ -202,24 +143,16 @@ async function sendBriefReuniones(reuniones) {
 async function getCadenciasVencidas() {
   const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000)
     .toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
-
-  const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_EJECUCION_DB}/query`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${NOTION_TOKEN}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' },
-    body: JSON.stringify({
-      filter: {
-        and: [
-          { property: 'Día 7 (WhatsApp)', date: { before: ayer } },
-          { property: 'Reunión Confirmada', checkbox: { equals: false } },
-          { property: 'Estado', select: { equals: 'En cadencia' } },
-        ],
-      },
-      page_size: 20,
-    }),
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.results || [];
+  try {
+    const data = await notionQuery(NOTION_EJECUCION_DB, {
+      and: [
+        { property: 'Día 7 (WhatsApp)',   date:     { before: ayer } },
+        { property: 'Reunión Confirmada', checkbox: { equals: false } },
+        { property: 'Estado',             select:   { equals: 'En cadencia' } },
+      ],
+    }, 20);
+    return data.results || [];
+  } catch { return []; }
 }
 
 async function sendCadenciaVencidaAlert(leads) {
@@ -240,86 +173,7 @@ async function sendCadenciaVencidaAlert(leads) {
 
   msg += `_Opciones: reiniciar cadencia, escalar a CEO, o descartar_`;
 
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' }),
-  });
-}
-
-// ── Session recovery (diario) ─────────────────────────────────────────────────
-async function redisCmd(...args) {
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) return null;
-  try {
-    const res = await fetch(UPSTASH_URL, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(args),
-    });
-    const data = await res.json();
-    return data.result ?? null;
-  } catch { return null; }
-}
-
-async function runSessionRecovery() {
-  if (!UPSTASH_URL || !UPSTASH_TOKEN || !TELEGRAM_VU_TOKEN) return 0;
-
-  const RECOVERY_MESSAGES = {
-    SECTOR:          '¿Te perdiste? 👋 Solo quedan 2 preguntas rápidas para ver cómo Treevü puede ayudar a tu empresa. ¿Seguimos?',
-    SIZE:            '¿Te perdiste? 👋 Ya casi terminas — solo falta indicar tu objetivo principal. ¿Seguimos?',
-    CHAT:            '¿Quedó alguna duda sin responder? Estoy aquí para ayudarte. 👇',
-    CAPTURE_NAME:    '¿Listo/a para que el equipo te contacte? Solo necesito tu nombre para continuar. 👇',
-    CAPTURE_COMPANY: '¿En qué empresa trabajas? Es el último paso antes de que el equipo se comunique contigo. 👇',
-    CAPTURE_EMAIL:   '¿Cuál es tu correo corporativo? El equipo te escribirá en menos de 24h. 👇',
-  };
-
-  try {
-    const scanRes = await fetch(`${UPSTASH_URL}/scan/0/match/sess:*/count/200`, {
-      headers: { 'Authorization': `Bearer ${UPSTASH_TOKEN}` },
-    });
-    const scanData = await scanRes.json();
-    const keys = scanData.result?.[1] || [];
-
-    const now = Date.now();
-    const MIN_AGE_MS = 4  * 60 * 60 * 1000;
-    const MAX_AGE_MS = 23 * 60 * 60 * 1000;
-    let recovered = 0;
-
-    for (const key of keys) {
-      const raw = await redisCmd('GET', key);
-      if (!raw) continue;
-      let session;
-      try { session = JSON.parse(raw); } catch { continue; }
-
-      if (session.step === 'DONE' || session.step === 'INIT' || !session.sector) continue;
-      if (session.recoverySentAt && (now - session.recoverySentAt) < MIN_AGE_MS) continue;
-
-      const ttl = await redisCmd('TTL', key);
-      if (!ttl || ttl < 0) continue;
-      const ageMs = (86400 - ttl) * 1000;
-      if (ageMs < MIN_AGE_MS || ageMs > MAX_AGE_MS) continue;
-
-      const message = RECOVERY_MESSAGES[session.step];
-      if (!message) continue;
-
-      const chatId = key.replace('sess:', '');
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_VU_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' }),
-      });
-
-      session.recoverySentAt = now;
-      await redisCmd('SET', key, JSON.stringify(session), 'KEEPTTL');
-      recovered++;
-    }
-
-    console.log(`[followup] session-recovery: ${recovered} sesiones recuperadas`);
-    return recovered;
-  } catch (err) {
-    console.error('[followup] session-recovery error:', err.message);
-    return 0;
-  }
+  await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg);
 }
 
 // ── Reactivación de leads fríos (solo lunes) ──────────────────────────────────
@@ -330,30 +184,20 @@ async function runReactivation() {
   const hace45d = new Date(Date.now() - DIAS_REACTIVACION * 24 * 60 * 60 * 1000).toISOString();
 
   try {
-    const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${NOTION_TOKEN}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' },
-      body: JSON.stringify({
-        filter: {
-          and: [
-            { or: [
-              { property: 'Score', select: { equals: 'ALTO' } },
-              { property: 'Score', select: { equals: 'MEDIO' } },
-            ]},
-            { or: [
-              { property: 'Estado', select: { equals: 'Descartado' } },
-              { property: 'Estado', select: { equals: 'Nuevo' } },
-              { property: 'Estado', select: { equals: 'Contactado' } },
-            ]},
-            { timestamp: 'created_time', created_time: { before: hace45d } },
-          ],
-        },
-        sorts: [{ timestamp: 'created_time', direction: 'ascending' }],
-        page_size: MAX_REACTIVACION,
-      }),
-    });
-    if (!res.ok) return 0;
-    const data = await res.json();
+    const data = await notionQuery(NOTION_DATABASE_ID, {
+      and: [
+        { or: [
+          { property: 'Score', select: { equals: 'ALTO' } },
+          { property: 'Score', select: { equals: 'MEDIO' } },
+        ]},
+        { or: [
+          { property: 'Estado', select: { equals: 'Descartado' } },
+          { property: 'Estado', select: { equals: 'Nuevo' } },
+          { property: 'Estado', select: { equals: 'Contactado' } },
+        ]},
+        { timestamp: 'created_time', created_time: { before: hace45d } },
+      ],
+    }, MAX_REACTIVACION);
     const leads = data.results || [];
     if (!leads.length) return 0;
 
@@ -361,17 +205,9 @@ async function runReactivation() {
       weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Lima',
     });
 
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: `♻️ *Reactivación semanal — ${leads.length} lead(s) fríos*\n_${semana}_\n\nLeads ALTO/MEDIO sin actividad en +${DIAS_REACTIVACION} días 👇`,
-        parse_mode: 'Markdown',
-      }),
-    });
-
-    const SCORE_EMOJI = { ALTO: '🔥', MEDIO: '🟡' };
+    await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+      `♻️ *Reactivación semanal — ${leads.length} lead(s) fríos*\n_${semana}_\n\nLeads ALTO/MEDIO sin actividad en +${DIAS_REACTIVACION} días 👇`
+    );
 
     for (const lead of leads) {
       const nombre  = getProp(lead, 'Nombre y Cargo') || 'Sin nombre';
@@ -386,24 +222,10 @@ async function runReactivation() {
       const genero  = detectGender(nombre);
       const dispuesto = genero === 'F' ? 'dispuesta' : 'dispuesto';
 
-      let sugerencia = null;
-      if (ANTHROPIC_KEY) {
-        try {
-          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-            body: JSON.stringify({
-              model: 'claude-haiku-4-5-20251001',
-              max_tokens: 200,
-              messages: [{ role: 'user', content:
-                `Eres Ricardo Cuba, fundador de Treevü (EWA B2B2E, Perú). Genera un mensaje de reactivación para ${firstName} de ${empresa || 'su empresa'} (${sector}), objetivo: ${objetivo || 'no especificado'}, inactivo ${dias} días, estado anterior: ${estado}. Treevü reduce rotación 30%. Máximo 3 líneas, español peruano, cierra con pregunta. Solo el mensaje, sin explicaciones.`
-              }],
-            }),
-          });
-          const aiData = await aiRes.json();
-          sugerencia = aiData.content?.[0]?.text || null;
-        } catch { /* sin IA, continuar */ }
-      }
+      const sugerencia = await askClaude(
+        `Eres Ricardo Cuba, fundador de Treevü (EWA B2B2E, Perú). Genera un mensaje de reactivación para ${firstName} de ${empresa || 'su empresa'} (${sector}), objetivo: ${objetivo || 'no especificado'}, inactivo ${dias} días, estado anterior: ${estado}. Treevü reduce rotación 30%. Máximo 3 líneas, español peruano, cierra con pregunta. Solo el mensaje, sin explicaciones.`,
+        { maxTokens: 200 }
+      );
 
       let card = `${SCORE_EMOJI[score] || '·'} *${nombre}*\n`;
       if (empresa) card += `🏢 ${empresa}\n`;
@@ -411,11 +233,7 @@ async function runReactivation() {
       card += `📌 ${estado} · _inactivo ${dias} días_\n`;
       if (sugerencia) card += `\n💬 *Sugerencia:*\n\`\`\`\n${sugerencia}\n\`\`\``;
 
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: card, parse_mode: 'Markdown' }),
-      });
+      await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, card);
     }
 
     console.log(`[followup] reactivation: ${leads.length} sugerencias enviadas`);
@@ -424,6 +242,235 @@ async function runReactivation() {
     console.error('[followup] reactivation error:', err.message);
     return 0;
   }
+}
+
+// ── Nurturing MEDIO — D+3 y D+7 ─────────────────────────────────────────────
+async function runNurturingMedio() {
+  const nowTs      = Math.floor(Date.now() / 1000);
+  const diasCierre = Math.ceil((new Date(PROGRAMA.FECHA_CIERRE) - new Date()) / 864e5);
+  const gmailToken = await getGmailToken().catch(() => null);
+  if (!gmailToken) {
+    if (process.env.GMAIL_CLIENT_ID) {
+      captureException(new Error('Gmail token refresh failed'), { context: 'followup-nurturing' });
+      sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+        `⚠️ *Gmail token inválido* — nurturing emails pausados\n_Revisar credenciales OAuth2_`
+      ).catch(() => {});
+    }
+    return 0;
+  }
+
+  const sequences = [
+    {
+      key: 'd3', minH: 70, maxH: 74,
+      buildEmail: (d) => ({
+        to:      d.email,
+        subject: `Caso real: así redujeron rotación en ${d.sector || 'empresas peruanas'} con Treevü`,
+        bodyHtml: `
+<p>Hola ${(d.name || '').split(/[\s,\-]+/)[0] || 'equipo'},</p>
+<p>Hace 3 días te compartimos información sobre Treevü. Quería mostrarte un caso concreto:</p>
+<blockquote style="border-left:3px solid #1a1a2e;padding-left:12px;color:#444;">
+  Una empresa de ${d.sector || 'servicios'} con ${d.employees || '200+'} colaboradores
+  redujo su rotación en 28% en 6 meses y recuperó más de S/ 200,000 anuales en costos de reemplazo.
+  Setup en 2 semanas, sin cambiar sistemas de nómina.
+</blockquote>
+<p>¿Esto es relevante para <strong>${d.company || 'tu empresa'}</strong>? Con gusto hacemos el cálculo específico para tu caso.</p>
+<p><a href="${PROGRAMA.CALENDLY}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;">📅 Ver cómo aplica a mi empresa</a></p>
+<p>Saludos,<br><strong>Equipo Treevü</strong><br>
+<a href="https://gettreevu.com">gettreevu.com</a></p>`.trim(),
+      }),
+    },
+    {
+      key: 'd7', minH: 166, maxH: 170,
+      buildEmail: (d) => ({
+        to:      d.email,
+        subject: `Quedan ${diasCierre} días — Programa Fundadores Treevü`,
+        bodyHtml: `
+<p>Hola ${(d.name || '').split(/[\s,\-]+/)[0] || 'equipo'},</p>
+<p>El <strong>Programa Fundadores de Treevü</strong> cierra el <strong>${PROGRAMA.FECHA_CIERRE}</strong>
+(en ${diasCierre} días). Los fundadores acceden a condiciones preferenciales de por vida.</p>
+<p>Si <strong>${d.company || 'tu empresa'}</strong> está evaluando opciones de bienestar financiero para
+${d.employees || 'tus colaboradores'}, este es el momento de agendar una conversación sin compromiso.</p>
+<p><a href="${PROGRAMA.CALENDLY}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;">📅 Reservar uno de los últimos cupos</a></p>
+<p style="color:#888;font-size:12px;">Si ya no tienes interés, puedes ignorar este mensaje — no te escribiremos más.</p>
+<p>Saludos,<br><strong>Equipo Treevü</strong><br>
+<a href="https://gettreevu.com">gettreevu.com</a></p>`.trim(),
+      }),
+    },
+  ];
+
+  let total = 0;
+  for (const seq of sequences) {
+    const minTs = nowTs - seq.maxH * 3600;
+    const maxTs = nowTs - seq.minH * 3600;
+    const ids   = await redisCmd('ZRANGEBYSCORE', 'nurturings', minTs, maxTs);
+    if (!ids?.length) continue;
+
+    for (const notionId of ids) {
+      const alreadySent = await redisCmd('GET', `nurturing_${seq.key}:${notionId}`);
+      if (alreadySent) continue;
+
+      const raw = await redisCmd('GET', `nurturing:${notionId}`);
+      if (!raw) continue;
+      let data;
+      try { data = JSON.parse(raw); } catch { continue; }
+      if (!data.email) continue;
+
+      const sent = await gmailSend(gmailToken, seq.buildEmail(data));
+      if (sent) {
+        await redisCmd('SET', `nurturing_${seq.key}:${notionId}`, '1', 'EX', 2592000);
+        total++;
+        console.log(`[followup] Nurturing ${seq.key} enviado: ${data.email} (${data.company})`);
+      }
+    }
+  }
+  return total;
+}
+
+// ── Propuestas vencidas (>14 días sin actividad) ──────────────────────────────
+async function checkPropostasVencidas() {
+  const hace14d = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const data = await notionQuery(NOTION_DATABASE_ID, {
+      and: [
+        { property: 'Estado', select: { equals: 'Propuesta' } },
+        { timestamp: 'last_edited_time', last_edited_time: { before: hace14d } },
+      ],
+    }, 10);
+    const leads = data.results || [];
+    if (!leads.length) return 0;
+
+    let msg = `⚠️ *Propuestas vencidas — ${leads.length} lead(s)*\n`;
+    msg += `_Sin actividad en +14 días_\n\n`;
+    for (const lead of leads) {
+      const nombre  = getProp(lead, 'Nombre y Cargo') || 'Sin nombre';
+      const empresa = getProp(lead, 'Empresa')        || '';
+      const dias    = Math.floor((Date.now() - new Date(lead.last_edited_time).getTime()) / (1000 * 60 * 60 * 24));
+      msg += `📄 *${nombre}*${empresa ? ` · ${empresa}` : ''}\n`;
+      msg += `_Inactiva ${dias} días_ — `;
+      msg += `¿llamada de desbloqueo · \`/actualizar ${empresa} Contactado\` · descartar?\n\n`;
+    }
+    await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg);
+    return leads.length;
+  } catch (err) {
+    console.error('[followup] propuestas vencidas:', err.message);
+    return 0;
+  }
+}
+
+// ── Secuencia post-reunión D+1 / D+3 / D+7 ───────────────────────────────────
+async function checkPostMeetingSequence() {
+  const nowTs = Math.floor(Date.now() / 1000);
+  const sequences = [
+    {
+      key: 'd1', day: 1, minH: 22, maxH: 26,
+      buildMsg: (d) =>
+        `📋 *Follow-up D+1 — ${d.empresa}*\n\n` +
+        `¿Enviaste el correo de seguimiento a *${(d.nombre || '').split(/[\s,]+/)[0] || d.nombre}*?\n\n` +
+        `El follow-up en las primeras 24h tiene 3× más respuesta.\n` +
+        `_Dolor: ${d.dolor || 'N/A'} · Sig. paso: ${d.siguiente_paso || 'N/A'}_`,
+    },
+    {
+      key: 'd3', day: 3, minH: 70, maxH: 74,
+      buildMsg: (d) =>
+        `⏰ *D+3 post-reunión — ${d.empresa}*\n\n` +
+        `3 días desde la reunión. Si no hubo respuesta considera:\n\n` +
+        `_"Hola ${(d.nombre || '').split(/[\s,]+/)[0] || ''}, ¿pudiste revisar la propuesta? ` +
+        `Quedé disponible para resolver cualquier duda."_\n\n` +
+        `Sig. paso acordado: *${d.siguiente_paso || 'N/A'}*`,
+    },
+    {
+      key: 'd7', day: 7, minH: 166, maxH: 170,
+      buildMsg: (d) =>
+        `🔔 *D+7 — ${d.empresa}*\n\n` +
+        `Una semana sin respuesta de *${d.nombre || 'el contacto'}*. Opciones:\n\n` +
+        `• Llamada de 10 min para desbloquear\n` +
+        `• Mensaje de urgencia (quedan cupos Founders)\n` +
+        `• \`/actualizar ${d.empresa} Contactado\` y reactivar en 30 días\n\n` +
+        `_Dolor: ${d.dolor || 'N/A'}_`,
+    },
+  ];
+
+  let total = 0;
+  for (const seq of sequences) {
+    const minTs = nowTs - seq.maxH * 3600;
+    const maxTs = nowTs - seq.minH * 3600;
+    const ids   = await redisCmd('ZRANGEBYSCORE', 'postmeetings', minTs, maxTs);
+    if (!ids?.length) continue;
+
+    for (const leadId of ids) {
+      const alreadySent = await redisCmd('GET', `postmeeting_${seq.key}:${leadId}`);
+      if (alreadySent) continue;
+
+      const raw = await redisCmd('GET', `postmeeting:${leadId}`);
+      if (!raw) continue;
+      let data;
+      try { data = JSON.parse(raw); } catch { continue; }
+
+      await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, seq.buildMsg(data));
+      await redisCmd('SET', `postmeeting_${seq.key}:${leadId}`, '1', 'EX', 2592000);
+      total++;
+      console.log(`[followup] D+${seq.day} enviado: ${leadId} (${data.empresa})`);
+    }
+  }
+  return total;
+}
+
+// ── Cadencia de propuestas D+2 / D+5 / D+10 ─────────────────────────────────
+async function checkProposalCadence() {
+  const nowTs = Math.floor(Date.now() / 1000);
+  const sequences = [
+    {
+      key: 'd2', minH: 46, maxH: 50,
+      buildMsg: (d) =>
+        `📄 *Cadencia propuesta D+2 — ${d.empresa}*\n\n` +
+        `¿Recibiste respuesta de *${(d.nombre || '').split(/[\s,]+/)[0] || d.nombre}* sobre la propuesta?\n\n` +
+        `Si no: envía un WhatsApp corto:\n` +
+        `_"Hola ${(d.nombre || '').split(/[\s,]+/)[0] || ''}, ¿tuviste oportunidad de revisar la propuesta? Cualquier duda con gusto."_`,
+    },
+    {
+      key: 'd5', minH: 118, maxH: 122,
+      buildMsg: (d) =>
+        `⏰ *Cadencia propuesta D+5 — ${d.empresa}*\n\n` +
+        `5 días sin respuesta de *${d.nombre || 'el contacto'}*.\n\n` +
+        `Opciones:\n` +
+        `• Llamada de 10 min para resolver objeciones\n` +
+        `• Enviar caso de éxito del sector ${d.sector || ''}\n` +
+        `• \`/actualizar ${d.empresa} Contactado\` si ya no avanza`,
+    },
+    {
+      key: 'd10', minH: 238, maxH: 242,
+      buildMsg: (d) =>
+        `🔔 *Propuesta sin respuesta D+10 — ${d.empresa}*\n\n` +
+        `10 días sin cerrar. Última oportunidad antes de archivar:\n\n` +
+        `_"${(d.nombre || '').split(/[\s,]+/)[0] || 'Hola'}, ¿sigue siendo prioridad para Q2? ` +
+        `Quedan pocos cupos del Programa Fundadores — necesito saberlo para reservarte uno."_\n\n` +
+        `Si no hay respuesta en 48h → \`/actualizar ${d.empresa} Descartado\``,
+    },
+  ];
+
+  let total = 0;
+  for (const seq of sequences) {
+    const minTs = nowTs - seq.maxH * 3600;
+    const maxTs = nowTs - seq.minH * 3600;
+    const ids   = await redisCmd('ZRANGEBYSCORE', 'proposals', minTs, maxTs);
+    if (!ids?.length) continue;
+
+    for (const leadId of ids) {
+      const alreadySent = await redisCmd('GET', `proposal_${seq.key}:${leadId}`);
+      if (alreadySent) continue;
+
+      const raw = await redisCmd('GET', `proposal:${leadId}`);
+      if (!raw) continue;
+      let data;
+      try { data = JSON.parse(raw); } catch { continue; }
+
+      await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, seq.buildMsg(data));
+      await redisCmd('SET', `proposal_${seq.key}:${leadId}`, '1', 'EX', 2592000);
+      total++;
+      console.log(`[followup] Proposal ${seq.key} enviado: ${leadId} (${data.empresa})`);
+    }
+  }
+  return total;
 }
 
 // ── Handler principal ──────────────────────────────────────────────────────────
@@ -439,6 +486,16 @@ export default async function handler(req, res) {
 
   try {
     console.log('[followup] Ejecutando cron diario...');
+
+    // Redis health check — alerta pero no aborta (Notion tasks siguen funcionando)
+    const redisPing = await redisCmd('PING').catch(() => null);
+    if (!redisPing) {
+      console.warn('[followup] Redis no disponible — cadencias pausadas');
+      sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+        `⚠️ *Redis no disponible* — cron /followup\n_Nurturing, post-meeting y proposal cadences pausadas. Notion tasks OK._`
+      ).catch(() => {});
+    }
+
     const [leads, vencidos, reunionesHoy] = await Promise.all([
       getLeadsPendingFollowup(),
       getCadenciasVencidas(),
@@ -450,22 +507,31 @@ export default async function handler(req, res) {
       sendBriefReuniones(reunionesHoy),
     ]);
 
-    const [recovered, reactivados] = await Promise.all([
-      runSessionRecovery(),
-      runReactivation(),
+    // runReactivation() removido — lo maneja exclusivamente /api/reactivation (cron lunes)
+    const [postMeetingSeqs, nurturingEnviados, propuestasVencidas, proposalCadencia] = await Promise.all([
+      checkPostMeetingSequence(),
+      runNurturingMedio(),
+      checkPropostasVencidas(),
+      checkProposalCadence(),
     ]);
 
-    console.log(`[followup] OK — ${leads.length} pendientes, ${vencidos.length} vencidos, ${reunionesHoy.length} reuniones, ${recovered} sesiones recuperadas, ${reactivados} reactivados`);
+    console.log(`[followup] OK — ${leads.length} pendientes, ${vencidos.length} vencidos, ${reunionesHoy.length} reuniones, ${postMeetingSeqs} post-meeting, ${nurturingEnviados} nurturing, ${propuestasVencidas} propuestas vencidas, ${proposalCadencia} proposal cadencia`);
     return res.status(200).json({
       success: true,
       pendientes: leads.length,
       vencidos: vencidos.length,
       reuniones: reunionesHoy.length,
-      sessionRecovery: recovered,
-      reactivados,
+      postMeetingSeqs,
+      nurturingEnviados,
+      propuestasVencidas,
+      proposalCadencia,
     });
   } catch (err) {
     console.error('[followup] Error:', err.message);
+    captureException(err, { path: '/api/followup' });
+    sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+      `⚠️ *Error crítico en cron /api/followup*\n\`${err.message}\`\n_Secuencias pausadas — revisar Sentry_`
+    ).catch(() => {});
     return res.status(500).json({ error: err.message });
   }
 }

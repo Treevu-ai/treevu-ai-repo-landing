@@ -14,100 +14,123 @@
  * Nota: WhatsApp removido del flujo automatizado — todos los envíos son manuales.
  */
 
-const TOKEN             = process.env.TELEGRAM_BOT_TOKEN;
-const CHAT_ID           = process.env.TELEGRAM_ABM_CHAT_ID;
-const NOTION_TOKEN      = process.env.NOTION_API_KEY || process.env.NOTION_TOKEN;
-const ANTHROPIC_KEY     = process.env.ANTHROPIC_API_KEY;
+import { NOTION, PROGRAMA, SCORE_EMOJI, ESTADO_EMOJI } from './lib/constants.js';
+import { getProp, restoreId, notionQuery, notionPatch } from './lib/notion.js';
+import { tg, sendMessage, answerCallback, editMessage } from './lib/telegram.js';
+import { askClaude }                                    from './lib/anthropic.js';
+import { captureException }                             from './lib/sentry.js';
+import { redisCmd }                                     from './lib/redis.js';
 
-const NOTION_CRM_DB      = '2e5f06c0295b46fbbc212bac5f6fcb3c'; // CRM unificado
-const NOTION_EJECUCION_DB = 'bcebf14878f04db087f052722f9a084d'; // 🎯 EJECUCIÓN 14 DÍAS
+const TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
+const CHAT_ID = process.env.TELEGRAM_ABM_CHAT_ID;
+
+const NOTION_CRM_DB       = NOTION.CRM_DB;
+const NOTION_EJECUCION_DB = NOTION.EJECUCION_DB;
+const CUPOS_TOTAL         = PROGRAMA.CUPOS_TOTAL;
+const FECHA_CIERRE        = PROGRAMA.FECHA_CIERRE;
+const CALENDLY            = PROGRAMA.CALENDLY;
 
 const ESTADO_CODES    = { C: 'Contactado', R: 'Reunion', P: 'Propuesta', X: 'Descartado' };
 const RESULTADO_CODES = { L: 'Propuesta', F: 'En cadencia', N: 'Descartado' };
 const RESULTADO_LABEL = { L: '📝 LOI enviado → Propuesta', F: '🔄 Follow-up pendiente', N: '❌ No interesó → Descartado' };
-const ESTADO_EMOJI = { Nuevo: '🆕', Contactado: '📨', Reunion: '📅', Propuesta: '📄', Cerrado: '✅', Descartado: '❌' };
-const SCORE_EMOJI  = { ALTO: '🔥', MEDIO: '🟡', BAJO: '🔵' };
 
-const CALENDLY     = 'https://calendly.com/ricardocubaalvan/treev-20min';
-const CUPOS_TOTAL  = 2;          // Cupos Q2 — pilotos fundadores
-const FECHA_CIERRE = '2026-04-30'; // Cierre Q2 — centralizado aquí
+// Siguiente_paso que corresponde a cada código de resultado ABM
+const RESULTADO_SIG   = { L: 'diagnostico', F: 'seguimiento', N: 'no_fit' };
 
-// ── Telegram helpers ───────────────────────────────────────────────────────────
-async function tg(method, body) {
-  const res = await fetch(`https://api.telegram.org/bot${TOKEN}/${method}`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!data.ok) console.error(`[tg] ${method} error:`, data.description || JSON.stringify(data));
-  return data;
+// ── Triggers a primera-reunion.js ─────────────────────────────────────────────
+async function triggerPreMeeting(leadId, fechaReunion) {
+  try {
+    await fetch('https://gettreevu.com/api/primera-reunion', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
+      body:    JSON.stringify({ action: 'pre-meeting', lead_id: leadId, fecha_reunion: fechaReunion || null }),
+    });
+    console.log(`[abm-bot] pre-meeting triggered: ${leadId}`);
+  } catch (err) { console.error('[abm-bot] triggerPreMeeting error:', err.message); }
 }
 
+async function triggerPostMeeting(leadId, notas) {
+  try {
+    await fetch('https://gettreevu.com/api/primera-reunion', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
+      body:    JSON.stringify({ action: 'post-meeting', lead_id: leadId, notas }),
+    });
+    console.log(`[abm-bot] post-meeting triggered: ${leadId} → ${notas.siguiente_paso}`);
+  } catch (err) { console.error('[abm-bot] triggerPostMeeting error:', err.message); }
+}
+
+// Helper local: envía al chat ABM (binding fijo de CHAT_ID)
 async function send(text, extra = {}) {
-  return tg('sendMessage', { chat_id: CHAT_ID, text, parse_mode: 'Markdown', ...extra });
+  return sendMessage(TOKEN, CHAT_ID, text, extra);
 }
 
-async function answerCallback(id, text = '') {
-  return tg('answerCallbackQuery', { callback_query_id: id, text });
+// ── CEO bot: post-meeting (fusionado — mismo TELEGRAM_BOT_TOKEN) ──────────────
+const CEO_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+async function getCeoState(chatId) {
+  const raw = await redisCmd('GET', `ceobot:${chatId}`);
+  try { return raw ? JSON.parse(raw) : null; } catch { return null; }
+}
+async function setCeoState(chatId, state) {
+  await redisCmd('SET', `ceobot:${chatId}`, JSON.stringify(state), 'EX', 3600);
+}
+async function clearCeoState(chatId) {
+  await redisCmd('DEL', `ceobot:${chatId}`);
 }
 
-async function editMessage(chatId, messageId, text, extra = {}) {
-  return tg('editMessageText', { chat_id: chatId, message_id: messageId, text, parse_mode: 'Markdown', ...extra });
+const PM_SIG_MAP   = { d: 'diagnostico', n: 'nda', s: 'seguimiento', f: 'no_fit' };
+const PM_SIG_LABEL = { d: '🟢 Diagnóstico', n: '🔵 NDA', s: '🟡 Seguimiento', f: '❌ No fit' };
+
+function kbSiguientePM(leadId) {
+  return {
+    inline_keyboard: [
+      [{ text: '🟢 Diagnóstico', callback_data: `pm_sig:d:${leadId}` },
+       { text: '🔵 NDA',         callback_data: `pm_sig:n:${leadId}` }],
+      [{ text: '🟡 Seguimiento', callback_data: `pm_sig:s:${leadId}` },
+       { text: '❌ No fit',      callback_data: `pm_sig:f:${leadId}` }],
+    ],
+  };
 }
 
-// ── Notion helpers ─────────────────────────────────────────────────────────────
-function restoreId(s) {
-  const c = s.replace(/-/g, '');
-  return `${c.slice(0,8)}-${c.slice(8,12)}-${c.slice(12,16)}-${c.slice(16,20)}-${c.slice(20)}`;
+function kbInteresPM(leadId) {
+  return {
+    inline_keyboard: [[
+      { text: '1 😐', callback_data: `pm_int:1:${leadId}` },
+      { text: '2 🙂', callback_data: `pm_int:2:${leadId}` },
+      { text: '3 😊', callback_data: `pm_int:3:${leadId}` },
+      { text: '4 🤩', callback_data: `pm_int:4:${leadId}` },
+      { text: '5 🔥', callback_data: `pm_int:5:${leadId}` },
+    ]],
+  };
 }
 
-function getProp(page, name) {
-  const p = page.properties?.[name];
-  if (!p) return null;
-  if (p.type === 'select')       return p.select?.name || null;
-  if (p.type === 'title')        return p.title?.[0]?.plain_text || null;
-  if (p.type === 'rich_text')    return p.rich_text?.[0]?.plain_text || null;
-  if (p.type === 'email')        return p.email || null;
-  if (p.type === 'number')       return p.number ?? null;
-  if (p.type === 'phone_number') return p.phone_number || null;
-  if (p.type === 'date')         return p.date?.start || null;
-  if (p.type === 'checkbox')     return p.checkbox ?? false;
-  return null;
-}
-
-async function notionQuery(dbId, filter, pageSize = 100) {
-  const body = filter ? { filter, page_size: pageSize } : { page_size: pageSize };
-  const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
-    method:  'POST',
-    headers: { 'Authorization': `Bearer ${NOTION_TOKEN}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' },
-    body:    JSON.stringify(body),
+async function completarCeoPostMeeting(chatId, state) {
+  await clearCeoState(chatId);
+  await triggerPostMeeting(state.lead_id, {
+    siguiente_paso:  state.siguiente_paso,
+    dolor_principal: state.dolor_principal || '',
+    objeciones:      state.objeciones      || '',
+    interes:         state.interes         || null,
+    fecha_siguiente: state.fecha_siguiente || '',
   });
-  if (!res.ok) throw new Error(`Notion ${res.status}: ${await res.text()}`);
-  return res.json();
+  const sigLabel = Object.entries(PM_SIG_MAP).find(([, v]) => v === state.siguiente_paso)?.[0];
+  const resumen = [
+    `• Sig. paso: ${PM_SIG_LABEL[sigLabel] || state.siguiente_paso}`,
+    state.dolor_principal ? `• Dolor: _${state.dolor_principal}_` : null,
+    state.objeciones      ? `• Objeciones: _${state.objeciones}_` : null,
+    state.interes         ? `• Interés: ${state.interes}/5`        : null,
+    state.fecha_siguiente ? `• Próx. paso: ${state.fecha_siguiente}` : null,
+  ].filter(Boolean).join('\n');
+  await sendMessage(TOKEN, chatId, `✅ *Post-reunión registrado*\n\n${resumen}\n\n_Notion actualizado · follow-up en proceso_`);
 }
 
-async function notionPatch(pageId, properties) {
-  const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-    method:  'PATCH',
-    headers: { 'Authorization': `Bearer ${NOTION_TOKEN}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' },
-    body:    JSON.stringify({ properties }),
-  });
-  if (!res.ok) throw new Error(`Notion ${res.status}: ${await res.text()}`);
-  return res.json();
-}
+// Wrapper para answerCallback y editMessage sin repetir token
+const _answerCallback = (id, text = '') => answerCallback(TOKEN, id, text);
+const _editMessage    = (chatId, msgId, text, extra = {}) => editMessage(TOKEN, chatId, msgId, text, extra);
 
-// ── Claude helper ─────────────────────────────────────────────────────────────
-async function askClaude(prompt, maxTokens = 250) {
-  if (!ANTHROPIC_KEY) return null;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-    body:    JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] }),
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text || null;
-}
+// Wrapper askClaude con maxTokens opcional
+const _askClaude = (prompt, maxTokens = 250) => askClaude(prompt, { maxTokens });
 
 // ── ABM: calcular fechas cadencia ─────────────────────────────────────────────
 function addDays(dateStr, days) {
@@ -275,18 +298,18 @@ Lead:
 - Score ICP: ${score}
 - Notas: ${notas || 'ninguna'}
 
-Producto: Treevü = acceso anticipado al salario devengado sin costo para el colaborador. Motor ML predice renuncia 3 semanas antes. Modelo no-custodio (cero riesgo para la empresa). Quedan 2 cupos piloto Q2. Cierre: 30 abril. Calendly: ${CALENDLY}
+Producto: Treevü = acceso anticipado al salario devengado sin costo para el colaborador. Motor ML predice renuncia 3 semanas antes. Modelo no-custodio (cero riesgo para la empresa). Quedan ${CUPOS_TOTAL} cupos piloto Q2. Cierre: 30 abril. Calendly: ${CALENDLY}
 
 Canal ${canal} — instrucciones:
 ${canal === 'LinkedIn' ? `Conexión + mensaje. Max 3 líneas. Menciona rotación en ${sector}. Termina con pregunta: "¿Te interesa charlar 20 min?"` : ''}
-${canal === 'Email' ? `Asunto: "${empresa} — Reducción rotación (2 cupos, cierre 30 abr)". Cuerpo: 5-6 líneas. Menciona S/ 8,000 costo de reemplazo. Adjunto one-pager. CTA: confirmar 20 min.` : ''}
-${canal === 'Seguimiento' ? `Email breve de seguimiento. Asunto: "Re: Treevü — última plaza Q2". Max 3 líneas. Tono directo y urgente: queda 1 cupo, cierre 30 abr. CTA: "¿Agendamos 20 min esta semana?" + link Calendly.` : ''}
+${canal === 'Email' ? `Asunto: "${empresa} — Reducción rotación (${CUPOS_TOTAL} cupos, cierre 30 abr)". Cuerpo: 5-6 líneas. Menciona S/ 8,000 costo de reemplazo. Adjunto one-pager. CTA: confirmar 20 min.` : ''}
+${canal === 'Seguimiento' ? `Email breve de seguimiento. Asunto: "Re: Treevü — cupos Q2 cerrando". Max 3 líneas. Tono directo y urgente: quedan pocos cupos, cierre 30 abr. CTA: "¿Agendamos 20 min esta semana?" + link Calendly.` : ''}
 
 Responde SOLO con el mensaje listo para copiar. Sin explicaciones.`;
 
     await send(`⏳ _Generando mensaje ${canal} para ${empresa}..._`);
 
-    const mensaje = await askClaude(prompt, 300);
+    const mensaje = await _askClaude(prompt, 300);
 
     if (!mensaje) {
       await send('❌ Error generando mensaje con IA.');
@@ -457,6 +480,72 @@ async function handleResultado(query) {
   }
 }
 
+// ── /reunion [empresa] — Confirma reunión, actualiza CRM y dispara briefing CEO ──
+async function handleReunion(query) {
+  if (!query?.trim()) {
+    await send('Uso: `/reunion [empresa]`\n_Ej: `/reunion Textil Peru`_');
+    return;
+  }
+  const empresa = query.trim();
+  try {
+    // 1. Buscar en Ejecución DB y marcar Reunión Confirmada
+    const [abmData, crmData] = await Promise.all([
+      notionQuery(NOTION_EJECUCION_DB, { property: 'Empresa', title:     { contains: empresa } }, 1),
+      notionQuery(NOTION_CRM_DB,       { property: 'Empresa', rich_text: { contains: empresa } }, 1),
+    ]);
+
+    const abmLead = abmData.results?.[0];
+    const crmLead = crmData.results?.[0];
+    const hoy     = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+
+    if (abmLead) {
+      await notionPatch(abmLead.id, {
+        'Reunión Confirmada': { checkbox: true },
+        'Fecha Reunión':      { date:     { start: hoy } },
+      });
+    }
+
+    if (!crmLead) {
+      await send(
+        `⚠️ *${empresa}* no está en el CRM todavía.\n` +
+        (abmLead ? `✅ Ejecución ABM → Reunión Confirmada\n\n` : '\n') +
+        `Para generar el briefing, agrega el lead al CRM con \`/actualizar\` o espera a que llegue por inbound.`
+      );
+      return;
+    }
+
+    // 2. Actualizar CRM a "Reunion" y disparar briefing
+    await notionPatch(crmLead.id, { 'Estado': { select: { name: 'Reunion' } } });
+    await triggerPreMeeting(crmLead.id, null);
+
+    // Guardar en Redis para alerta post-meeting del cron (ts = ahora → alerta en 3-6h)
+    const reunionTs   = Math.floor(Date.now() / 1000);
+    const reunionData = JSON.stringify({
+      lead_id:       crmLead.id,
+      empresa:       getProp(crmLead, 'Empresa') || empresa,
+      nombre:        getProp(crmLead, 'Nombre y Cargo') || '',
+      email:         getProp(crmLead, 'Email') || '',
+      fecha_reunion: new Date().toISOString(),
+    });
+    await Promise.all([
+      redisCmd('ZADD', 'reuniones', reunionTs, crmLead.id),
+      redisCmd('SET',  `reunion:${crmLead.id}`, reunionData, 'EX', 604800),
+    ]);
+
+    const nombreCrm = getProp(crmLead, 'Empresa') || empresa;
+    await send(
+      `✅ *Reunión confirmada — ${nombreCrm}*\n\n` +
+      `📋 Briefing enviado al CEO por Telegram\n` +
+      `📝 CRM → Estado: Reunión\n` +
+      (abmLead ? `✅ ABM → Reunión Confirmada\n` : '') +
+      `\n_Usa \`/resultado ${empresa}\` después de la reunión para registrar el cierre_`
+    );
+  } catch (err) {
+    console.error('[abm-bot] /reunion error:', err.message);
+    await send('❌ Error al confirmar la reunión.');
+  }
+}
+
 // ── /estado — Dashboard métricas en vivo ──────────────────────────────────────
 async function handleEstado() {
   try {
@@ -603,7 +692,7 @@ async function handleNextStep() {
       `Estado piloto: ${cerrados}/${CUPOS_TOTAL} firmados, ${diasCierre} días para cierre 30 abril.\n\n` +
       `Da exactamente 3 próximos pasos accionables para esta semana. Numerados, 1 línea c/u. Sin relleno.`;
     await send('⏳ _Analizando pipeline..._');
-    const resp = await askClaude(prompt, 120);
+    const resp = await _askClaude(prompt, 120);
     await send(`🎯 *Próximos pasos — esta semana*\n\n${resp}`);
   } catch (err) { await send('❌ Error al generar próximos pasos.'); }
 }
@@ -852,7 +941,7 @@ async function handleBloqueantes() {
       `Formato exacto por línea: 🔴/🟡/🟢 [Bloqueante] — [Acción inmediata]\n` +
       `Solo 3 líneas. Sin introducciones.`;
     await send('⏳ _Analizando bloqueantes..._');
-    const resp = await askClaude(prompt, 120);
+    const resp = await _askClaude(prompt, 120);
     await send(`🚦 *Bloqueantes RAG*\n\n${resp}\n\n_/decision para decisiones pendientes_`);
   } catch (err) { await send('❌ Error al analizar bloqueantes.'); }
 }
@@ -862,12 +951,12 @@ async function handleDecision() {
   try {
     const diasCierre = Math.ceil((new Date(FECHA_CIERRE) - new Date()) / 864e5);
     const prompt =
-      `Eres asesor de Ricardo Cuba, Treevü (EWA B2B2E Perú, ${diasCierre}d para cierre Q2, 2 cupos piloto).\n` +
+      `Eres asesor de Ricardo Cuba, Treevü (EWA B2B2E Perú, ${diasCierre}d para cierre Q2, ${CUPOS_TOTAL} cupos piloto).\n` +
       `Lista las 3 decisiones estratégicas más urgentes que Ricardo debe tomar esta semana.\n` +
       `Formato: [N]. [Decisión] — [Criterio o consecuencia de no decidir]\n` +
       `Solo 3 líneas. Sin relleno.`;
     await send('⏳ _Identificando decisiones..._');
-    const resp = await askClaude(prompt, 120);
+    const resp = await _askClaude(prompt, 120);
     await send(`⚖️ *Decisiones pendientes*\n\n${resp}`);
   } catch (err) { await send('❌ Error al generar decisiones.'); }
 }
@@ -1146,7 +1235,7 @@ async function handleObjecion(tipo) {
 
   try {
     await send(`⏳ _Preparando rebate para objeción de ${t}..._`);
-    const resp = await askClaude(prompts[t], 160);
+    const resp = await _askClaude(prompts[t], 160);
     if (!resp) throw new Error('Sin respuesta de IA');
     await send(`💬 *Objeción: ${t}*\n\n${resp}\n\n_/objecion para ver todos los tipos_`);
   } catch (err) {
@@ -1300,7 +1389,7 @@ async function handlePregunta(query) {
     `Contexto de Treevü:\n` +
     `- Producto: acceso anticipado al salario devengado para colaboradores (EWA). Costo S/0 para el colaborador, modelo no-custodio (cero riesgo empresa).\n` +
     `- Motor ML que predice renuncia 3 semanas antes.\n` +
-    `- Etapa: early sales, piloto Q2 con 2 cupos disponibles, cierre 30 abril.\n` +
+    `- Etapa: early sales, piloto Q2 con ${CUPOS_TOTAL} cupos disponibles, cierre 30 abril.\n` +
     `- Pipeline: CRM inbound + outbound ABM activo.\n` +
     `- Canales: LinkedIn (D1), Email (D3), Email/llamada de seguimiento (D7).\n` +
     `- Meta: cerrar 2 pilotos fundadores antes del 30 abril.\n\n` +
@@ -1309,7 +1398,7 @@ async function handlePregunta(query) {
     `Responde como asesor experimentado en B2B SaaS early-stage. Máximo 5 líneas. Directo, accionable, sin relleno. Si la pregunta requiere contexto que no tienes, dilo brevemente y da igual tu mejor recomendación.`;
 
   try {
-    const respuesta = await askClaude(prompt, 200);
+    const respuesta = await _askClaude(prompt, 200);
     if (!respuesta) throw new Error('Sin respuesta');
     await send(`🧠 *Asesor estratégico*\n\n${respuesta}`);
   } catch (err) {
@@ -1323,7 +1412,7 @@ async function handleResultadoButton(cq) {
   const [, idRaw, code] = cq.data.split(':');
   const estado = RESULTADO_CODES[code];
   const label  = RESULTADO_LABEL[code];
-  if (!estado) return answerCallback(cq.id, '❓ Opción desconocida');
+  if (!estado) return _answerCallback(cq.id, '❓ Opción desconocida');
   const pageId = restoreId(idRaw);
   try {
     const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
@@ -1331,12 +1420,34 @@ async function handleResultadoButton(cq) {
       Estado: { select: { name: estado } },
       'Fecha Último Contacto': { date: { start: hoy } },
     });
-    await answerCallback(cq.id, `✅ ${estado}`);
+    await _answerCallback(cq.id, `✅ ${estado}`);
     const newText = `${cq.message?.text || ''}\n\n${label}`;
-    await editMessage(cq.message.chat.id, cq.message.message_id, newText);
+    await _editMessage(cq.message.chat.id, cq.message.message_id, newText);
+
+    // Para L (LOI) y F (Follow-up): buscar en CRM y disparar post-meeting
+    if (code === 'L' || code === 'F') {
+      try {
+        const pageRes = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+          headers: { 'Authorization': `Bearer ${NOTION.TOKEN}`, 'Notion-Version': '2022-06-28' },
+        });
+        if (pageRes.ok) {
+          const page    = await pageRes.json();
+          const empresa = getProp(page, 'Empresa') || '';
+          if (empresa) {
+            const crmData = await notionQuery(NOTION_CRM_DB, {
+              property: 'Empresa', rich_text: { contains: empresa },
+            }, 1);
+            const crmLead = crmData.results?.[0];
+            if (crmLead) await triggerPostMeeting(crmLead.id, { siguiente_paso: RESULTADO_SIG[code], dolor_principal: 'Registrado desde botón ABM' });
+          }
+        }
+      } catch (err) {
+        console.error('[abm-bot] post-meeting trigger error:', err.message);
+      }
+    }
   } catch (err) {
     console.error('[abm-bot] resultado button error:', err.message);
-    await answerCallback(cq.id, '❌ Error al actualizar');
+    await _answerCallback(cq.id, '❌ Error al actualizar');
   }
 }
 
@@ -1369,11 +1480,7 @@ async function notifyProspect(pageId, estado) {
     const text = messages[estado];
     if (!text) return;
 
-    await fetch(`https://api.telegram.org/bot${vuBotToken}/sendMessage`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
-    });
+    await sendMessage(vuBotToken, chatId, text);
 
     console.log(`[abm-bot] Prospecto notificado via @treevubot — chatId ${chatId}, estado: ${estado}`);
   } catch (err) {
@@ -1385,13 +1492,13 @@ async function notifyProspect(pageId, estado) {
 async function handleEstadoButton(cq) {
   const [, idRaw, code] = cq.data.split(':');
   const estado = ESTADO_CODES[code];
-  if (!estado) return answerCallback(cq.id, '❓ Acción desconocida');
+  if (!estado) return _answerCallback(cq.id, '❓ Acción desconocida');
   const pageId = restoreId(idRaw);
   try {
     await notionPatch(pageId, { Estado: { select: { name: estado } } });
-    await answerCallback(cq.id, `✅ ${estado}`);
+    await _answerCallback(cq.id, `✅ ${estado}`);
     const newText = `${cq.message?.text || ''}\n\n${ESTADO_EMOJI[estado] || '✏️'} *Estado → ${estado}*`;
-    await editMessage(cq.message.chat.id, cq.message.message_id, newText);
+    await _editMessage(cq.message.chat.id, cq.message.message_id, newText);
 
     // Notificar al prospecto si vino de @treevubot (Contactado o Reunion)
     if (code === 'C' || code === 'R') {
@@ -1399,7 +1506,7 @@ async function handleEstadoButton(cq) {
     }
   } catch (err) {
     console.error('[abm-bot] estado button error:', err.message);
-    await answerCallback(cq.id, '❌ Error al actualizar');
+    await _answerCallback(cq.id, '❌ Error al actualizar');
   }
 }
 
@@ -1413,9 +1520,28 @@ export default async function handler(req, res) {
   // ── Callbacks de botones inline ────────────────────────────────────────────
   if (body.callback_query) {
     const cq = body.callback_query;
-    await tg('answerCallbackQuery', { callback_query_id: cq.id });
+    await answerCallback(TOKEN, cq.id);
 
-    if (cq.data?.startsWith('e:')) {
+    if (cq.data?.startsWith('pm_start:')) {
+      // CEO: iniciar flujo post-meeting
+      const lead_id = cq.data.slice(9);
+      const cbChatId = String(cq.message.chat.id);
+      await setCeoState(cbChatId, { step: 'awaiting_siguiente', lead_id });
+      await editMessage(TOKEN, cbChatId, cq.message.message_id, (cq.message.text || '') + '\n\n_✏️ Registrando resultado..._');
+      await sendMessage(TOKEN, cbChatId, '*¿Cuál fue el resultado de la reunión?*', { reply_markup: kbSiguientePM(lead_id) });
+    } else if (cq.data?.startsWith('pm_sig:')) {
+      // CEO: siguiente paso seleccionado → pedir dolor
+      const parts    = cq.data.split(':');
+      const sigAbrev = parts[1];
+      const lead_id  = parts.slice(2).join(':');
+      const sig      = PM_SIG_MAP[sigAbrev] || 'seguimiento';
+      const sigLabel = PM_SIG_LABEL[sigAbrev] || sig;
+      const cbChatId = String(cq.message.chat.id);
+      await setCeoState(cbChatId, { step: 'awaiting_dolor', lead_id, siguiente_paso: sig });
+      await editMessage(TOKEN, cbChatId, cq.message.message_id,
+        `*Resultado: ${sigLabel}* ✓\n\n¿Cuál fue el *dolor principal* que mencionaron?\n_(Texto libre)_`
+      );
+    } else if (cq.data?.startsWith('e:')) {
       await handleEstadoButton(cq);
     } else if (cq.data?.startsWith('r:')) {
       await handleResultadoButton(cq);
@@ -1438,7 +1564,7 @@ export default async function handler(req, res) {
           `*Todos los comandos:*\n\n` +
           `📊 \`/estado\` \`/alerta\` \`/reporte\` \`/nextstep\` \`/pipeline\`\n` +
           `🎯 \`/hoy\` \`/manana\` \`/semana\` \`/agenda\`\n` +
-          `🔄 \`/iniciar [empresa]\` \`/mensaje [empresa]\` \`/resultado [empresa]\`\n` +
+          `🔄 \`/iniciar [empresa]\` \`/mensaje [empresa]\` \`/resultado [empresa]\` \`/reunion [empresa]\`\n` +
           `🔍 \`/buscar\` \`/leads\` \`/leads alto\` \`/leads reunion\` \`/contactos\`\n` +
           `📌 \`/actualizar [empresa] [estado]\`\n` +
           `📅 \`/cuenta\` \`/cronograma\` \`/bloqueantes\` \`/decision\`\n` +
@@ -1456,7 +1582,21 @@ export default async function handler(req, res) {
   const message = body.message;
   if (!message?.text) return res.status(200).json({ ok: true });
 
-  const text = message.text.trim();
+  const text      = message.text.trim();
+  const inChatId  = String(message.chat.id);
+
+  // ── CEO: flujo post-meeting (texto libre, no comando) ──────────────────────
+  if (inChatId === String(CEO_CHAT_ID)) {
+    try {
+      const ceoState = await getCeoState(inChatId);
+      if (ceoState?.step === 'awaiting_dolor') {
+        await clearCeoState(inChatId);
+        await triggerPostMeeting(ceoState.lead_id, ceoState.siguiente_paso, text);
+        await sendMessage(TOKEN, inChatId, '✅ *Listo.* Notion actualizado, follow-up draft creado en Gmail.');
+        return res.status(200).json({ ok: true });
+      }
+    } catch (err) { console.error('[abm-bot] CEO state error:', err.message); }
+  }
 
   // Procesar comando y luego responder — el Lambda permanece vivo durante el await.
   // Telegram espera hasta 5s; el timeout de Vercel serverless es 10s (plan gratuito).
@@ -1465,6 +1605,7 @@ export default async function handler(req, res) {
     else if (text === '/manana' || text === '/mañana') await handleManana();
     else if (text === '/agenda')                      await handleAgenda();
     else if (text.startsWith('/resultado'))           await handleResultado(text.replace('/resultado', '').trim());
+    else if (text.startsWith('/reunion'))             await handleReunion(text.replace('/reunion', '').trim());
     else if (text.startsWith('/mensaje'))             await handleMensaje(text.replace('/mensaje', '').trim());
     else if (text.startsWith('/iniciar'))             await handleIniciar(text.replace('/iniciar', '').trim());
     else if (text.startsWith('/buscar'))              await handleBuscar(text.replace('/buscar', '').trim());
@@ -1492,6 +1633,7 @@ export default async function handler(req, res) {
     else if (text === '/autonomo')                     await handleAutonomo();
   } catch (err) {
     console.error(`[abm-bot] handler error for "${text}":`, err.message);
+    captureException(err, { text, chat_id: inChatId });
   }
 
   return res.status(200).json({ ok: true });

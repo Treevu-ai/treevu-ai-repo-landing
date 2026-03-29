@@ -4,33 +4,18 @@
  * Sesiones persistidas en Upstash Redis (TTL 24h) — sobrevive cold starts
  */
 
+import { detectGender }                                                       from './lib/validators.js';
+import { tg as _tg, sendMessage as _sendMsg, answerCallback as _answerCb,
+         editMessage as _editMsg, sendTyping as _sendTyping }                 from './lib/telegram.js';
+import { askClaude as _askClaudeLib }                                         from './lib/anthropic.js';
+import { PROGRAMA }                                                           from './lib/constants.js';
+import { captureException }                                                   from './lib/sentry.js';
+import { redisCmd }                                                           from './lib/redis.js';
+
 const BOT_TOKEN      = process.env.TELEGRAM_VU_BOT_TOKEN;
-const ANTHROPIC_KEY  = process.env.ANTHROPIC_API_KEY;
 const WEBHOOK_SECRET = process.env.LEAD_WEBHOOK_SECRET;
 const FUNNEL_URL     = 'https://gettreevu.com/api/lead';
 
-const UPSTASH_URL   = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-// ── Redis helpers (Upstash REST API) ────────────────────────────────────────
-async function redisCmd(...args) {
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) return null; // dev fallback: no persistence
-  try {
-    const res = await fetch(UPSTASH_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${UPSTASH_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(args),
-    });
-    const data = await res.json();
-    return data.result ?? null;
-  } catch (err) {
-    console.error('[redis] error:', err.message);
-    return null;
-  }
-}
 
 function defaultSession() {
   return {
@@ -58,52 +43,11 @@ async function saveSession(chatId, session) {
   await redisCmd('SET', `sess:${chatId}`, JSON.stringify(session), 'EX', 86400);
 }
 
-// ── Detección de género por nombre ─────────────────────────────────────────
-function detectGender(fullName) {
-  if (!fullName) return 'M';
-  // Tomar solo el PRIMER token antes de espacio, coma o guión
-  const first = fullName.trim().split(/[\s,\-]+/)[0]
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // elimina tildes
-  // Excepciones masculinas que terminan en 'a'
-  const maleExceptions = ['joseba','nikola','luca','bautista','joshua','elia','andrea',
-                          'garcia','villa','meza','tapia','mejia','silva','soria'];
-  // Nombres femeninos conocidos que no terminan en 'a'
-  const femaleSpecial  = ['isabel','pilar','carmen','belen','mercedes','ines','rocio',
-                          'flor','luz','paz','sol','esperanza','milagros','nieves',
-                          'trinidad','dolores','consuelo','amparo','fe','ruth','esther',
-                          'miriam','raquel','rebeca','judith','noemi','debora'];
-  if (maleExceptions.includes(first)) return 'M';
-  if (femaleSpecial.includes(first))  return 'F';
-  if (first.endsWith('a'))            return 'F';
-  return 'M';
-}
-
-// ── Telegram API ───────────────────────────────────────────────────────────
-async function tg(method, body) {
-  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return res.json();
-}
-
-async function send(chatId, text, extra = {}) {
-  return tg('sendMessage', { chat_id: chatId, text, parse_mode: 'Markdown', ...extra });
-}
-
-async function typing(chatId) {
-  return tg('sendChatAction', { chat_id: chatId, action: 'typing' });
-}
-
-async function answerCallback(callbackQueryId, text = '') {
-  return tg('answerCallbackQuery', { callback_query_id: callbackQueryId, text });
-}
-
-async function editMessage(chatId, messageId, text, extra = {}) {
-  return tg('editMessageText', { chat_id: chatId, message_id: messageId, text, parse_mode: 'Markdown', ...extra });
-}
+// ── Telegram wrappers (bound to BOT_TOKEN) ─────────────────────────────────
+const send           = (chatId, text, extra = {})              => _sendMsg(BOT_TOKEN, chatId, text, extra);
+const typing         = (chatId)                                => _sendTyping(BOT_TOKEN, chatId);
+const answerCallback = (callbackQueryId, text = '')            => _answerCb(BOT_TOKEN, callbackQueryId, text);
+const editMessage    = (chatId, messageId, text, extra = {})   => _editMsg(BOT_TOKEN, chatId, messageId, text, extra);
 
 // ── Inline keyboards ───────────────────────────────────────────────────────
 const KB_INTENT = {
@@ -208,6 +152,15 @@ const OBJETIVO_LABEL = {
 };
 
 // ── Claude ─────────────────────────────────────────────────────────────────
+async function askClaude(session) {
+  const reply = await _askClaudeLib(null, {
+    system:    buildSystem(session),
+    maxTokens: 200,
+    messages:  session.history,
+  });
+  return reply || 'Escríbenos a hello@gettreevu.com.';
+}
+
 function buildSystem(s) {
   const f = s.gender === 'F';
   const nombre = s.name ? `${s.name}, ` : '';
@@ -218,28 +171,9 @@ Reglas: máx 3 líneas, cálido, español peruano, 1 emoji. ${f?'Formas femenina
 Si hay interés real escribe "¿Quieres que el equipo te contacte?" — el sistema muestra botón. Si piden contacto solo confirma que el equipo escribirá; no los aceptes tú al programa. Solo temas Treevü.`;
 }
 
-async function askClaude(session) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 160,
-      system: buildSystem(session),
-      messages: session.history,
-    }),
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text || 'Escríbenos a hello@gettreevu.com.';
-}
-
 // Detecta si Claude sugiere mostrar CTA de contacto
 function shouldShowCTA(reply) {
-  return /contacte|contactar|equipo te|reserve|reservar|más info|información formal/i.test(reply);
+  return /contacte|contactar|equipo te|equipo se|comunique|reserve|reservar|más info|información formal|hablar contigo|ponerse en contacto/i.test(reply);
 }
 
 // ── Score ICP automático ─────────────────────────────────────────────────────
@@ -319,9 +253,45 @@ async function handleText(chatId, text, firstName, session) {
     session.leadSent = true;
     await saveSession(chatId, session);
 
-    await send(chatId,
-      `✅ *${session.name}*, recibido. El equipo de Treevü revisará tu información y te escribirá en menos de 24 horas a *${session.email}* para coordinar los siguientes pasos.`
-    );
+    const score = calcIcpScore(session.sector, session.size, session.objetivo);
+    const diasCierre = Math.ceil((new Date(PROGRAMA.FECHA_CIERRE) - new Date()) / 864e5);
+
+    if (score === 'ALTO') {
+      // Lead ideal → ofrecer Calendly directo con urgencia Founders Program
+      await send(chatId,
+        `✅ *${session.name}*, tu perfil encaja perfecto con el Programa Fundadores.\n\n` +
+        `Solo quedan *${PROGRAMA.CUPOS_TOTAL} cupos disponibles* — cierre el *30 de abril* (${diasCierre} días).\n\n` +
+        `Puedes agendar los 20 minutos directamente o esperar que el equipo te escriba a *${session.email}*:`,
+        {
+          reply_markup: {
+            inline_keyboard: [[{
+              text: '📅 Agendar reunión ahora',
+              url:  PROGRAMA.CALENDLY,
+            }]],
+          },
+        }
+      );
+    } else if (score === 'MEDIO') {
+      // Lead compatible → mensaje estándar + opción de agendar
+      await send(chatId,
+        `✅ *${session.name}*, recibido. El equipo de Treevü te escribirá en menos de 24 horas a *${session.email}*.\n\n` +
+        `Si prefieres adelantar los pasos, puedes agendar una llamada de 20 minutos aquí:`,
+        {
+          reply_markup: {
+            inline_keyboard: [[{
+              text: '📅 Agendar 20 min',
+              url:  PROGRAMA.CALENDLY,
+            }]],
+          },
+        }
+      );
+    } else {
+      // Lead BAJO → mensaje estándar sin botón de Calendly
+      await send(chatId,
+        `✅ *${session.name}*, recibido. El equipo de Treevü revisará tu información y te escribirá en menos de 24 horas a *${session.email}* para coordinar los siguientes pasos.`
+      );
+    }
+
     await submitToFunnel(session, chatId);
     return;
   }
@@ -330,7 +300,7 @@ async function handleText(chatId, text, firstName, session) {
   if (session.step === 'CHAT' || session.step === 'DONE') {
     await typing(chatId);
     session.history.push({ role: 'user', content: text });
-    if (session.history.length > 8) session.history = session.history.slice(-8);
+    if (session.history.length > 10) session.history = session.history.slice(-10);
 
     const reply = await askClaude(session);
     session.history.push({ role: 'assistant', content: reply });
@@ -485,6 +455,7 @@ export default async function handler(req, res) {
     await handleText(chatId, text, firstName, session);
   } catch (err) {
     console.error('[telegram] handler error:', err.message);
+    captureException(err, { chatId: body?.message?.chat?.id || body?.callback_query?.message?.chat?.id });
   }
 
   return res.status(200).json({ ok: true });

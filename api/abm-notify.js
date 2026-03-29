@@ -2,10 +2,10 @@
  * api/abm-notify.js
  * Notificaciones internas ABM al chat de @treev_abm_bot
  * Tipos: ALTA (nuevo lead), BAJA (descartado), MODIFICACION (cambio de estado)
- * Incluye botones inline para actualizar Notion directamente desde Telegram.
  */
 
-const SCORE_EMOJI = { ALTO: '🔥', MEDIO: '🟡', BAJO: '🔵' };
+import { SCORE_EMOJI } from './lib/constants.js';
+import { sendMessage } from './lib/telegram.js';
 
 const TIPO_HEADER = {
   ALTA:         '🆕 *ALTA — Nuevo lead*',
@@ -15,10 +15,9 @@ const TIPO_HEADER = {
 
 // Botones inline para actualizar estado en Notion (solo en ALTA)
 // callback_data formato: "e:[notionId_sin_guiones]:[estado_codigo]"
-// Códigos: C=Contactado, R=Reunion, P=Propuesta, X=Descartado
 function buildKeyboard(notionId) {
   if (!notionId) return undefined;
-  const id = notionId.replace(/-/g, ''); // quitar guiones para caber en 64 bytes
+  const id = notionId.replace(/-/g, '');
   return {
     inline_keyboard: [[
       { text: '📨 Contactado', callback_data: `e:${id}:C` },
@@ -58,7 +57,6 @@ export async function sendAbmNotification(type, data) {
   const score  = data.score ? `${SCORE_EMOJI[data.score] || ''} ${data.score}` : null;
 
   const lines = [header, ''];
-
   if (data.nombre)        lines.push(`👤 ${data.nombre}`);
   if (data.empresa)       lines.push(`🏢 ${data.empresa}`);
   if (data.sector)        lines.push(`🏭 ${data.sector}`);
@@ -77,27 +75,11 @@ export async function sendAbmNotification(type, data) {
   lines.push('');
   lines.push(`_${horaLima} · Lima_`);
 
-  const body = {
-    chat_id:    chatId,
-    text:       lines.join('\n'),
-    parse_mode: 'Markdown',
-  };
+  const extra = (type === 'ALTA' && data.notionId)
+    ? { reply_markup: buildKeyboard(data.notionId) }
+    : {};
 
-  // Botones solo en ALTA y si tenemos el ID de Notion
-  if (type === 'ALTA' && data.notionId) {
-    body.reply_markup = buildKeyboard(data.notionId);
-  }
-
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`[abm-notify] Telegram error ${res.status}: ${err}`);
-  }
-
-  return res.json();
+  const res = await sendMessage(token, chatId, lines.join('\n'), extra);
+  if (!res.ok) throw new Error(`[abm-notify] Telegram error: ${JSON.stringify(res)}`);
+  return res;
 }

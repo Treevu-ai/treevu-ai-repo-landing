@@ -3,42 +3,31 @@
 // Configurar en vercel.json: { "crons": [{ "path": "/api/daily-summary", "schedule": "0 13 * * *" }] }
 // También puede llamarse manualmente con ?secret=CRON_SECRET
 
-const NOTION_TOKEN        = process.env.NOTION_API_KEY;
-const NOTION_DATABASE_ID  = "2e5f06c0295b46fbbc212bac5f6fcb3c";
-const NOTION_EJECUCION_DB = "bcebf14878f04db087f052722f9a084d";
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_ABM_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
-const CRON_SECRET        = process.env.CRON_SECRET;
-const CALENDLY_TOKEN     = process.env.CALENDLY_TOKEN;
-const CUPOS_TOTALES      = 10;
+import { NOTION, PROGRAMA, SCORE_EMOJI } from './lib/constants.js';
+import { getProp, notionQuery }           from './lib/notion.js';
+import { sendMessage }                    from './lib/telegram.js';
+import { captureException }               from './lib/sentry.js';
 
-const SCORE_EMOJI = { ALTO: '🔥', MEDIO: '🟡', BAJO: '🔵' };
+const NOTION_DATABASE_ID  = NOTION.CRM_DB;
+const NOTION_EJECUCION_DB = NOTION.EJECUCION_DB;
+const TELEGRAM_BOT_TOKEN  = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID    = process.env.TELEGRAM_ABM_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
+const CRON_SECRET         = process.env.CRON_SECRET;
+const CALENDLY_TOKEN      = process.env.CALENDLY_TOKEN;
+const CUPOS_TOTALES       = PROGRAMA.CUPOS_TOTAL;
 
-// ── Notion ────────────────────────────────────────────────────────────────────
-async function queryNotion(filter) {
-  const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${NOTION_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Notion-Version': '2022-06-28'
-    },
-    body: JSON.stringify(filter ? { filter, page_size: 100 } : { page_size: 100 })
-  });
-  if (!res.ok) throw new Error(`Notion ${res.status}: ${await res.text()}`);
-  return res.json();
+// Helper local: query al CRM DB con paginación completa
+async function queryNotionAll(filter) {
+  let results = [];
+  let cursor;
+  do {
+    const data = await notionQuery(NOTION_DATABASE_ID, filter || null, 100, null, cursor);
+    results = results.concat(data.results || []);
+    cursor = data.has_more ? data.next_cursor : null;
+  } while (cursor);
+  return { results };
 }
-
-function getProp(page, name) {
-  const prop = page.properties?.[name];
-  if (!prop) return null;
-  if (prop.type === 'select')    return prop.select?.name || null;
-  if (prop.type === 'title')     return prop.title?.[0]?.plain_text || null;
-  if (prop.type === 'rich_text') return prop.rich_text?.[0]?.plain_text || null;
-  if (prop.type === 'email')     return prop.email || null;
-  if (prop.type === 'number')    return prop.number ?? null;
-  return null;
-}
+const queryNotion = queryNotionAll;
 
 // ── Calendly: reuniones de hoy ────────────────────────────────────────────────
 async function getCalendlyEventsToday() {
@@ -92,25 +81,16 @@ async function getCalendlyEventsToday() {
 
 // ── ABM: acciones de hoy (Ejecución 14 días) ─────────────────────────────────
 async function getAccionesHoy() {
-  if (!NOTION_TOKEN) return [];
+  if (!NOTION.TOKEN) return [];
   const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
   try {
-    const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_EJECUCION_DB}/query`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${NOTION_TOKEN}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' },
-      body: JSON.stringify({
-        filter: {
-          or: [
-            { property: 'Día 1 (LinkedIn)', date: { equals: hoy } },
-            { property: 'Día 3 (Email)',    date: { equals: hoy } },
-            { property: 'Día 7 (WhatsApp)', date: { equals: hoy } },
-          ],
-        },
-        page_size: 100,
-      }),
+    const data = await notionQuery(NOTION_EJECUCION_DB, {
+      or: [
+        { property: 'Día 1 (LinkedIn)', date: { equals: hoy } },
+        { property: 'Día 3 (Email)',    date: { equals: hoy } },
+        { property: 'Día 7 (WhatsApp)', date: { equals: hoy } },
+      ],
     });
-    if (!res.ok) return [];
-    const data = await res.json();
 
     return (data.results || []).map(page => {
       const props   = page.properties || {};
@@ -306,16 +286,20 @@ async function sendTelegramSummary(stats, reuniones, accionesHoy = []) {
   msg += `\n${div}\n`;
   msg += `💰 MRR real: *S/ ${stats.mrrActual.toLocaleString('es-PE')}*\n`;
   msg += `📈 MRR potencial: *S/ ${stats.mrrPotencial.toLocaleString('es-PE')}*\n`;
+
+  // ── Alerta cupos críticos ──
+  if (cuposRestantes <= 3 && cuposRestantes > 0) {
+    msg += `\n${div}\n`;
+    msg += `⚠️ *¡ALERTA — solo quedan ${cuposRestantes} cupo${cuposRestantes === 1 ? '' : 's'}!*\n`;
+    msg += `_Cierre del Programa Fundadores: ${PROGRAMA.FECHA_CIERRE}_\n`;
+    msg += `Prioriza a los leads en Reunion/Propuesta hoy.\n`;
+  } else if (cuposRestantes === 0) {
+    msg += `\n${div}\n🎉 *Programa Fundadores COMPLETO — todos los cupos ocupados*\n`;
+  }
+
   msg += `${div}\n_Treevü · 8:00am Lima_`;
 
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' })
-  });
-
-  if (!res.ok) throw new Error(`Telegram ${res.status}: ${await res.text()}`);
-  return res.json();
+  return sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg);
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -341,6 +325,10 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, total: stats.total, reuniones: reuniones.length });
   } catch (err) {
     console.error('[daily-summary] Error:', err.message);
+    captureException(err, { path: '/api/daily-summary' });
+    sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+      `⚠️ *Error en cron /api/daily-summary*\n\`${err.message}\`\n_Resumen diario no enviado_`
+    ).catch(() => {});
     return res.status(500).json({ error: err.message });
   }
 }
