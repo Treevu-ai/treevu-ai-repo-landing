@@ -7,6 +7,7 @@ import { NOTION, PROGRAMA, SCORE_EMOJI } from './lib/constants.js';
 import { getProp, notionQuery }           from './lib/notion.js';
 import { sendMessage }                    from './lib/telegram.js';
 import { captureException }               from './lib/sentry.js';
+import { getGmailToken }                  from './lib/gmail.js';
 
 const NOTION_DATABASE_ID  = NOTION.CRM_DB;
 const NOTION_EJECUCION_DB = NOTION.EJECUCION_DB;
@@ -77,6 +78,28 @@ async function getCalendlyEventsToday() {
     console.error('[daily-summary] Calendly error:', err.message);
     return [];
   }
+}
+
+// ── Health checks ─────────────────────────────────────────────────────────────
+async function checkGmail() {
+  try { return !!(await getGmailToken()); }
+  catch { return false; }
+}
+
+async function checkCalendlyWebhook() {
+  if (!CALENDLY_TOKEN) return null; // no configurado — no alertar
+  const WEBHOOK_URL = 'https://gettreevu.com/api/calendly-webhook';
+  try {
+    const payload  = JSON.parse(Buffer.from(CALENDLY_TOKEN.split('.')[1], 'base64').toString('utf8'));
+    const userUri  = `https://api.calendly.com/users/${payload.user_uuid}`;
+    const res = await fetch(
+      `https://api.calendly.com/webhook_subscriptions?user=${encodeURIComponent(userUri)}&scope=user`,
+      { headers: { 'Authorization': `Bearer ${CALENDLY_TOKEN}` } }
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    return (data.collection || []).some(w => w.callback_url === WEBHOOK_URL && w.state === 'active');
+  } catch { return false; }
 }
 
 // ── ABM: acciones de hoy (Ejecución 14 días) ─────────────────────────────────
@@ -192,7 +215,7 @@ async function getPipelineStats() {
 }
 
 // ── Mensaje Telegram ──────────────────────────────────────────────────────────
-async function sendTelegramSummary(stats, reuniones, accionesHoy = []) {
+async function sendTelegramSummary(stats, reuniones, accionesHoy = [], health = {}) {
   const hoy = new Date().toLocaleDateString('es-PE', {
     weekday: 'long', day: 'numeric', month: 'long',
     timeZone: 'America/Lima'
@@ -297,6 +320,14 @@ async function sendTelegramSummary(stats, reuniones, accionesHoy = []) {
     msg += `\n${div}\n🎉 *Programa Fundadores COMPLETO — todos los cupos ocupados*\n`;
   }
 
+  // ── Alertas de sistema ──
+  const alertas = [];
+  if (health.gmail === false)    alertas.push(`⚠️ *Gmail token caducó* — renovar en OAuth Playground`);
+  if (health.calendly === false) alertas.push(`⚠️ *Calendly webhook inactivo* — correr /api/setup-calendly`);
+  if (alertas.length) {
+    msg += `\n${div}\n🔧 *Sistema*\n` + alertas.join('\n') + '\n';
+  }
+
   msg += `${div}\n_Treevü · 8:00am Lima_`;
 
   return sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg);
@@ -315,12 +346,17 @@ export default async function handler(req, res) {
 
   try {
     console.log('[daily-summary] Generando resumen...');
-    const [stats, reuniones, accionesHoy] = await Promise.all([
+    const [stats, reuniones, accionesHoy, gmailOk, calendlyOk] = await Promise.all([
       getPipelineStats(),
       getCalendlyEventsToday(),
       getAccionesHoy(),
+      checkGmail(),
+      checkCalendlyWebhook(),
     ]);
-    await sendTelegramSummary(stats, reuniones, accionesHoy);
+    const health = { gmail: gmailOk, calendly: calendlyOk };
+    if (!gmailOk)              console.warn('[daily-summary] ⚠️ Gmail token inválido o ausente');
+    if (calendlyOk === false)  console.warn('[daily-summary] ⚠️ Calendly webhook inactivo');
+    await sendTelegramSummary(stats, reuniones, accionesHoy, health);
     console.log(`[daily-summary] Enviado OK — ${stats.total} leads, ${reuniones.length} reuniones, ${accionesHoy.length} acciones ABM hoy`);
     return res.status(200).json({ success: true, total: stats.total, reuniones: reuniones.length });
   } catch (err) {

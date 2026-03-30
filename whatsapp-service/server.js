@@ -149,6 +149,17 @@ async function connectToWhatsApp() {
         : null;
       const shouldReconnect = code !== DisconnectReason.loggedOut;
       console.log(`[wa] Conexión cerrada (código ${code}). ${shouldReconnect ? 'Reconectando en 5s...' : 'Sesión cerrada — re-escanea QR.'}`);
+      // Alerta Telegram en desconexión inesperada
+      if (TELEGRAM_TOKEN && TELEGRAM_CHAT_ID) {
+        const alertMsg = shouldReconnect
+          ? `⚠️ *WhatsApp desconectado* — reconectando automáticamente\nCódigo: \`${code || 'desconocido'}\``
+          : `🔴 *WhatsApp cerró sesión* — re-escanea el QR para reconectar\nCódigo: \`${code}\``;
+        fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: alertMsg, parse_mode: 'Markdown' }),
+        }).catch(() => {});
+      }
       if (shouldReconnect) setTimeout(connectToWhatsApp, 5000);
     } else if (connection === 'open') {
       isConnected = true;
