@@ -12,7 +12,7 @@ import { PROGRAMA }                                                           fr
 import { captureException }                                                   from './lib/sentry.js';
 import { redisCmd }                                                           from './lib/redis.js';
 
-const BOT_TOKEN      = process.env.TELEGRAM_VU_BOT_TOKEN;
+const BOT_TOKEN      = process.env.TELEGRAM_VU_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_SECRET = process.env.LEAD_WEBHOOK_SECRET;
 const FUNNEL_URL     = 'https://gettreevu.com/api/lead';
 

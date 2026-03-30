@@ -17,7 +17,8 @@
     { "src": "api/lead.js",             "use": "@vercel/node" },
     { "src": "api/primera-reunion.js",  "use": "@vercel/node" },
     { "src": "api/reunion-reminder.js", "use": "@vercel/node" },
-    { "src": "api/analytics.js",        "use": "@vercel/node" }
+    { "src": "api/analytics.js",        "use": "@vercel/node" },
+    { "src": "api/ceo-bot.js",          "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/api/submit",           "dest": "/api/submit.js" },
@@ -34,6 +35,7 @@
     { "src": "/api/primera-reunion",  "dest": "/api/primera-reunion.js" },
     { "src": "/api/reunion-reminder", "dest": "/api/reunion-reminder.js" },
     { "src": "/api/analytics",        "dest": "/api/analytics.js" },
+    { "src": "/api/ceo-bot",          "dest": "/api/ceo-bot.js" },
     { "src": "/eva-app.png",          "dest": "/eva-app.png" },
     { "src": "/(.*)",                 "dest": "/index.html" }
   ],

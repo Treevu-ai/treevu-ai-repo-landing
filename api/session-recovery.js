@@ -13,7 +13,7 @@
 import { sendMessage }        from './lib/telegram.js';
 import { redisCmd, redisScan } from './lib/redis.js';
 
-const BOT_TOKEN   = process.env.TELEGRAM_VU_BOT_TOKEN;
+const BOT_TOKEN   = process.env.TELEGRAM_VU_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 const CRON_SECRET = process.env.CRON_SECRET;
 
 const RECOVERY_MESSAGES = {
