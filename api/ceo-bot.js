@@ -35,8 +35,8 @@ const edit   = (id, mid, text, ex={}) => editMessage(BOT_TOKEN, id, mid, text, e
 
 // Siguiente_paso abreviado para callback_data (max 64 bytes)
 // pm_sig:{d|n|s|f}:{lead_id} — ejemplo: pm_sig:d:331d7881-... (45 chars ✓)
-const SIG_MAP = { d: 'diagnostico', n: 'nda', s: 'seguimiento', f: 'no_fit' };
-const SIG_LABEL = { d: '🟢 Diagnóstico', n: '🔵 NDA', s: '🟡 Seguimiento', f: '❌ No fit' };
+const SIG_MAP = { d: 'diagnostico', n: 'nda', s: 'seguimiento', f: 'no_fit', c: 'cerrado' };
+const SIG_LABEL = { d: '🟢 Diagnóstico', n: '🔵 NDA', s: '🟡 Seguimiento', f: '❌ No fit', c: '✅ Cerrado' };
 
 function kbSiguiente(leadId) {
   return {
@@ -45,6 +45,7 @@ function kbSiguiente(leadId) {
        { text: '🔵 NDA',         callback_data: `pm_sig:n:${leadId}` }],
       [{ text: '🟡 Seguimiento', callback_data: `pm_sig:s:${leadId}` },
        { text: '❌ No fit',      callback_data: `pm_sig:f:${leadId}` }],
+      [{ text: '✅ Cerrado',     callback_data: `pm_sig:c:${leadId}` }],
     ],
   };
 }
@@ -304,6 +305,55 @@ async function sendToPandaDoc(leadId, chatId) {
   }
 }
 
+// ── Cierre de deal + onboarding ───────────────────────────────────────────────
+async function triggerCierre(leadId, chatId) {
+  // 1. Actualizar Notion → Cerrado
+  try {
+    await notionPatch(leadId, { Estado: { select: { name: 'Cerrado' } } });
+  } catch (err) {
+    console.warn('[ceo-bot/cierre] Notion patch error:', err.message);
+  }
+
+  // 2. Leer datos del lead para onboarding
+  let empresa = '', email = '', contacto = '', sector = '', colabs = '';
+  try {
+    const page = await getNotionPage(leadId);
+    empresa  = getProp(page, 'Empresa')      || getProp(page, 'Name') || '';
+    email    = getProp(page, 'Email')         || '';
+    contacto = getProp(page, 'Nombre')        || getProp(page, 'Contacto') || '';
+    sector   = getProp(page, 'Sector')        || '';
+    colabs   = getProp(page, 'Colaboradores') || '';
+  } catch (err) {
+    console.warn('[ceo-bot/cierre] Notion read error:', err.message);
+  }
+
+  // 3. Disparar onboarding
+  if (email && CRON_SECRET) {
+    fetch('https://gettreevu.com/api/onboarding', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET}` },
+      body:    JSON.stringify({ leadId, empresa, email, contacto, sector, colabs }),
+    }).catch(err => console.error('[ceo-bot/cierre] onboarding error:', err.message));
+  }
+
+  // 4. Confirmar al CEO
+  const mrr = (() => {
+    const n = parseInt((colabs || '').split('-')[0].replace('+', '')) || 0;
+    return n ? `S/ ${((Math.round(n * 0.30) * 7) + 490).toLocaleString('es-PE')}/mes` : null;
+  })();
+
+  await send(chatId,
+    `🎉 *¡Deal cerrado!*\n\n` +
+    `🏢 *${empresa || 'Lead'}*\n` +
+    (email    ? `📧 ${email}\n`    : '') +
+    (mrr      ? `💰 MRR: *${mrr}*\n` : '') +
+    `\n✅ Notion → Cerrado\n` +
+    (email ? `📩 Secuencia de onboarding iniciada (D+1, D+3, D+7, D+30)` : `⚠️ Sin email — onboarding no iniciado`)
+  );
+
+  console.log(`[ceo-bot/cierre] Deal cerrado: ${empresa} (${leadId})`);
+}
+
 // ── Llamar a post-meeting ──────────────────────────────────────────────────────
 async function callPostMeeting(lead_id, notas) {
   try {
@@ -336,6 +386,12 @@ async function completarPostMeeting(chatId, state) {
     state.fecha_siguiente ? `• Próx. paso: ${state.fecha_siguiente}` : null,
   ].filter(Boolean).join('\n');
   await send(chatId, `✅ *Post-reunión registrado*\n\n${resumen}\n\n_Notion actualizado · follow-up en proceso_`);
+
+  // Deal cerrado → actualizar Notion + disparar onboarding
+  if (state.siguiente_paso === 'cerrado') {
+    await triggerCierre(state.lead_id, chatId);
+    return;
+  }
 
   // Ofrecer propuesta automática para deals que avanzan
   if (['diagnostico', 'nda', 'seguimiento'].includes(state.siguiente_paso) && (state.interes || 0) >= 3) {
