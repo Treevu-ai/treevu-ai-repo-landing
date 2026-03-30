@@ -180,7 +180,128 @@ Devuelve SOLO el HTML del body (sin <html>, <head>).`;
     { parse_mode: 'Markdown', disable_web_page_preview: true }
   );
 
+  // Ofrecer envío para firma si hay email y PandaDoc configurado
+  if (email && process.env.PANDADOC_API_KEY) {
+    // Guardar HTML en Redis temporalmente para usarlo al firmar
+    await redisCmd('SET', `propuesta_html:${leadId}`, htmlBody, 'EX', 86400);
+    await send(chatId,
+      `¿Enviamos la propuesta para *firma electrónica* vía PandaDoc?`,
+      { reply_markup: {
+        inline_keyboard: [[
+          { text: '✍️ Enviar para firma', callback_data: `pm_sign:${leadId}` },
+          { text: '⏭ Solo borrador',     callback_data: `pm_nosign:${leadId}` },
+        ]],
+      }}
+    );
+  }
+
   console.log(`[ceo-bot/propuesta] OK — ${empresa} (leadId: ${leadId})`);
+}
+
+// ── Enviar propuesta a PandaDoc para firma ────────────────────────────────────
+async function sendToPandaDoc(leadId, chatId) {
+  const PANDADOC_KEY = process.env.PANDADOC_API_KEY;
+  if (!PANDADOC_KEY) {
+    await send(chatId, '❌ PANDADOC_API_KEY no configurada en Vercel.');
+    return;
+  }
+
+  await send(chatId, '_⏳ Creando documento en PandaDoc..._');
+
+  let page;
+  try { page = await getNotionPage(leadId); }
+  catch (err) {
+    await send(chatId, '❌ No pude obtener datos del lead desde Notion.');
+    return;
+  }
+
+  const empresa  = getProp(page, 'Empresa') || getProp(page, 'Name') || 'la empresa';
+  const contacto = getProp(page, 'Nombre')  || getProp(page, 'Contacto') || '';
+  const email    = getProp(page, 'Email')   || '';
+
+  if (!email) {
+    await send(chatId, `❌ No hay email registrado para ${empresa} — no se puede enviar a PandaDoc.`);
+    return;
+  }
+
+  // Recuperar HTML de propuesta guardado temporalmente
+  const htmlBody = await redisCmd('GET', `propuesta_html:${leadId}`);
+  if (!htmlBody) {
+    await send(chatId, '❌ El HTML de la propuesta expiró (>24h). Generá la propuesta nuevamente.');
+    return;
+  }
+
+  try {
+    // 1. Crear documento en PandaDoc desde HTML
+    const createRes = await fetch('https://api.pandadoc.com/public/v1/documents', {
+      method:  'POST',
+      headers: {
+        'Authorization': `API-Key ${PANDADOC_KEY}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({
+        name:      `Propuesta Treevü · ${empresa}`,
+        recipients: [{
+          email,
+          first_name: contacto.split(' ')[0] || contacto,
+          last_name:  contacto.split(' ').slice(1).join(' ') || '',
+          role:       'Client',
+        }],
+        content: [{ type: 'text', content: htmlBody }],
+        metadata: { lead_id: leadId },
+        parse_form_fields: false,
+      }),
+    });
+
+    if (!createRes.ok) {
+      const err = await createRes.text();
+      console.error('[ceo-bot/pandadoc] create error:', err);
+      await send(chatId, `❌ PandaDoc error al crear documento:\n\`${err.slice(0, 200)}\``);
+      return;
+    }
+
+    const doc = await createRes.json();
+    const docId = doc.id || doc.uuid;
+
+    // 2. Esperar a que el documento procese (PandaDoc necesita ~2s)
+    await new Promise(r => setTimeout(r, 3000));
+
+    // 3. Enviar al recipient para firma
+    const sendRes = await fetch(`https://api.pandadoc.com/public/v1/documents/${docId}/send`, {
+      method:  'POST',
+      headers: {
+        'Authorization': `API-Key ${PANDADOC_KEY}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({
+        message: `Hola${contacto ? ` ${contacto.split(' ')[0]}` : ''}, adjuntamos la propuesta comercial de Treevü para tu revisión y firma. Cualquier duda, estamos disponibles en hello@gettreevu.com`,
+        subject: `Propuesta Treevü · ${empresa}`,
+        silent:  false,
+      }),
+    });
+
+    if (!sendRes.ok) {
+      const err = await sendRes.text();
+      console.error('[ceo-bot/pandadoc] send error:', err);
+      await send(chatId, `❌ PandaDoc error al enviar:\n\`${err.slice(0, 200)}\``);
+      return;
+    }
+
+    const docUrl = `https://app.pandadoc.com/a/#/documents/${docId}`;
+    await send(chatId,
+      `✍️ *Propuesta enviada para firma*\n\n` +
+      `🏢 ${empresa}\n📧 ${email}\n\n` +
+      `[Ver en PandaDoc](${docUrl})\n\n` +
+      `_Recibirás notificación aquí cuando ${contacto || 'el cliente'} firme._`,
+      { parse_mode: 'Markdown', disable_web_page_preview: true }
+    );
+
+    console.log(`[ceo-bot/pandadoc] OK — doc ${docId} enviado a ${email}`);
+
+  } catch (err) {
+    console.error('[ceo-bot/pandadoc] error:', err.message);
+    await send(chatId, `❌ Error inesperado: ${err.message}`);
+  }
 }
 
 // ── Llamar a post-meeting ──────────────────────────────────────────────────────
@@ -305,6 +426,21 @@ export default async function handler(req, res) {
       // CEO omitió propuesta
       if (data.startsWith('pm_skip:')) {
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_⏭ Propuesta omitida_');
+        return res.status(200).json({ ok: true });
+      }
+
+      // CEO quiere enviar para firma vía PandaDoc
+      if (data.startsWith('pm_sign:')) {
+        const lead_id = data.slice(8);
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_✍️ Enviando a PandaDoc..._');
+        res.status(200).json({ ok: true });
+        await sendToPandaDoc(lead_id, chatId);
+        return;
+      }
+
+      // CEO prefiere solo el borrador Gmail
+      if (data.startsWith('pm_nosign:')) {
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📧 Quedó solo el borrador Gmail_');
         return res.status(200).json({ ok: true });
       }
 
