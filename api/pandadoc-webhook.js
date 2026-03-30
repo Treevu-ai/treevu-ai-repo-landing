@@ -19,6 +19,7 @@ import { captureException }                     from './lib/sentry.js';
 const BOT_TOKEN       = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID     = process.env.TELEGRAM_CHAT_ID;
 const PANDADOC_KEY    = process.env.PANDADOC_API_KEY;
+const CRON_SECRET     = process.env.CRON_SECRET;
 
 const send = (text, extra = {}) => sendMessage(BOT_TOKEN, CEO_CHAT_ID, text, extra);
 
@@ -127,6 +128,17 @@ export default async function handler(req, res) {
           } }] },
         });
         console.log(`[pandadoc] Notion actualizado → Cerrado: ${empresa}`);
+      }
+
+      // Iniciar secuencia de onboarding
+      if (email && CRON_SECRET) {
+        const sector = lead ? (getProp(lead, 'Sector') || '') : '';
+        const colabs = lead ? (getProp(lead, 'Colaboradores') || '') : '';
+        fetch('https://gettreevu.com/api/onboarding', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET}` },
+          body:    JSON.stringify({ leadId: lead?.id || leadId, empresa, email, contacto, sector, colabs }),
+        }).catch(err => console.error('[pandadoc] onboarding trigger error:', err.message));
       }
 
       // Email de bienvenida al cliente

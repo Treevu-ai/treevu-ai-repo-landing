@@ -2,6 +2,7 @@
   "version": 2,
   "builds": [
     { "src": "index.html",              "use": "@vercel/static" },
+    { "src": "dashboard.html",          "use": "@vercel/static" },
     { "src": "eva-app.png",             "use": "@vercel/static" },
     { "src": "api/submit.js",           "use": "@vercel/node" },
     { "src": "api/chat.js",             "use": "@vercel/node" },
@@ -20,7 +21,8 @@
     { "src": "api/analytics.js",         "use": "@vercel/node" },
     { "src": "api/ceo-bot.js",          "use": "@vercel/node" },
     { "src": "api/fathom-webhook.js",   "use": "@vercel/node" },
-    { "src": "api/pandadoc-webhook.js", "use": "@vercel/node" }
+    { "src": "api/pandadoc-webhook.js", "use": "@vercel/node" },
+    { "src": "api/onboarding.js",       "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/api/submit",           "dest": "/api/submit.js" },
@@ -40,6 +42,8 @@
     { "src": "/api/ceo-bot",          "dest": "/api/ceo-bot.js" },
     { "src": "/api/fathom-webhook",   "dest": "/api/fathom-webhook.js" },
     { "src": "/api/pandadoc-webhook", "dest": "/api/pandadoc-webhook.js" },
+    { "src": "/api/onboarding",       "dest": "/api/onboarding.js" },
+    { "src": "/dashboard",            "dest": "/dashboard.html" },
     { "src": "/eva-app.png",          "dest": "/eva-app.png" },
     { "src": "/(.*)",                 "dest": "/index.html" }
   ],
@@ -48,6 +52,7 @@
     { "path": "/api/followup",         "schedule": "0 14 * * *"  },
     { "path": "/api/reactivation",     "schedule": "0 14 * * 1"  },
     { "path": "/api/session-recovery", "schedule": "0 */4 * * *" },
-    { "path": "/api/reunion-reminder", "schedule": "0 * * * *"   }
+    { "path": "/api/reunion-reminder", "schedule": "0 * * * *"   },
+    { "path": "/api/onboarding",       "schedule": "0 15 * * *"  }
   ]
 }
