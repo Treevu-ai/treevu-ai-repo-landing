@@ -218,6 +218,56 @@ body {
   margin-left: var(--space-2); vertical-align: middle;
 }
 
+/* --- CATEGORÍA DEF --- */
+.categoria-def {
+  padding: 80px 0;
+  background: var(--neutral-900);
+  color: var(--white);
+}
+.categoria-inner { text-align: center; }
+.categoria-label {
+  display: inline-block;
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--brand-light);
+  margin-bottom: var(--space-4);
+}
+.categoria-title {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800; line-height: 1.15;
+  color: var(--white);
+  margin-bottom: var(--space-4);
+}
+.categoria-body {
+  font-size: 1.125rem; color: #94A3B8;
+  max-width: 600px; margin: 0 auto var(--space-8);
+  line-height: 1.7;
+}
+.categoria-blocks {
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--space-6); flex-wrap: wrap;
+  margin-bottom: var(--space-8);
+}
+.categoria-block {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: 200px; text-align: center;
+}
+.categoria-block-icon { font-size: 2rem; margin-bottom: var(--space-3); }
+.categoria-block-title { font-weight: 700; color: var(--white); margin-bottom: var(--space-2); }
+.categoria-block-text { font-size: 0.875rem; color: #94A3B8; line-height: 1.5; }
+.categoria-arrow { font-size: 1.5rem; color: var(--brand-light); font-weight: 300; }
+.categoria-footer {
+  font-size: 0.875rem; color: #64748B;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: var(--space-6);
+}
+@media (max-width: 768px) {
+  .categoria-blocks { flex-direction: column; }
+  .categoria-arrow { transform: rotate(90deg); }
+}
+
 /* --- HERO --- */
 .hero {
   padding: 80px 0 100px;
@@ -1039,6 +1089,23 @@ input[type="range"]::-moz-range-thumb {
 @media (max-width: 820px) {
   .calc-grid { grid-template-columns: 1fr; }
   .calc-results { position: static; }
+}
+
+.tab-role-intro {
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--brand);
+  margin-bottom: var(--space-4);
+}
+.hero-bullets {
+  list-style: none; padding: 0; margin: 0 0 var(--space-6);
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+.hero-bullets li {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: 0.9rem; color: var(--text-subdued);
+}
+.hero-bullet-check {
+  color: var(--brand); font-weight: 700;
 }
 
 /* ─── BENEFICIOS ─── */
@@ -2589,7 +2656,7 @@ hr { border-color: var(--border-default) !important; }
       <div class="hero-content">
         <div class="hero-badge">
           <div class="hero-badge-dot"></div>
-          <span id="hero-badge-text">Solo 4 cupos · Programa Pioneros Q2 2026</span>
+          <span id="hero-badge-text">Infraestructura de retención · Plataforma B2B2E</span>
         </div>
         <div class="hero-countdown">
           <span class="hcd-label">Cierra en</span>
@@ -2602,13 +2669,18 @@ hr { border-color: var(--border-default) !important; }
           <div class="hcd-block"><div class="hcd-num" id="hcd-s">--</div><div class="hcd-unit">seg</div></div>
         </div>
         <h1 class="hero-title">
-          Reduce rotación<br/><span class="accent">hasta 40%.</span>
+          Inteligencia financiera<br/><span class="accent">para tu fuerza laboral.</span>
         </h1>
-        <p class="hero-title-sub">Tu equipo cobra lo que<br/>ya ganó — hoy.</p>
-        <p class="hero-sub">El beneficio laboral que paga solo: cero costo para el colaborador, cero riesgo para la empresa. Motor ML predictivo incluido.</p>
+        <p class="hero-title-sub">La plataforma B2B2E que permite a tus colaboradores acceder a su salario devengado, mientras predice riesgo de rotación y optimiza tu liquidez.</p>
+        <p class="hero-sub">Diseñado para empresas de 200 a 2,000 colaboradores en Perú. Modelo B2B2E · No-custodio · Setup en 2 semanas.</p>
+        <ul class="hero-bullets">
+          <li><span class="hero-bullet-check">✓</span> Sin costo para el colaborador</li>
+          <li><span class="hero-bullet-check">✓</span> Sin deuda ni riesgo para la empresa</li>
+          <li><span class="hero-bullet-check">✓</span> Integración con nómina en días</li>
+        </ul>
         <div class="hero-ctas">
-          <a href="#contacto" class="btn btn-primary btn-lg" onclick="openPrequal(event)">Solicitar Acceso Fundador</a>
-          <a href="#calculadora" class="btn btn-outline btn-lg">Calcular mi ahorro →</a>
+          <a href="#contacto" class="btn btn-primary btn-lg" onclick="openPrequal(event)">Solicitar demo</a>
+          <a href="#calculadora" class="btn btn-outline btn-lg">Ver cómo funciona →</a>
         </div>
         <div class="hero-slots">
           <div class="hero-slots-bar"><div class="hero-slots-fill" id="hero-slots-fill"></div></div>
@@ -2783,31 +2855,63 @@ hr { border-color: var(--border-default) !important; }
   </div>
 </section>
 
+<!-- DEFINICIÓN DE CATEGORÍA -->
+<section class="categoria-def" id="categoria">
+  <div class="container">
+    <div class="categoria-inner">
+      <div class="categoria-label">¿Qué es Treevü?</div>
+      <h2 class="categoria-title">No es un beneficio.<br/>Es infraestructura de retención.</h2>
+      <p class="categoria-body">Treevü combina acceso a salario devengado con modelos predictivos para identificar y reducir el riesgo de rotación antes de que ocurra.</p>
+      <div class="categoria-blocks">
+        <div class="categoria-block">
+          <div class="categoria-block-icon">🏢</div>
+          <div class="categoria-block-title">Tu empresa</div>
+          <div class="categoria-block-text">Implementa la plataforma y configura políticas una vez.</div>
+        </div>
+        <div class="categoria-arrow">→</div>
+        <div class="categoria-block">
+          <div class="categoria-block-icon">⚡</div>
+          <div class="categoria-block-title">Treevü</div>
+          <div class="categoria-block-text">Orquesta, predice y alerta. Sin tocar el dinero.</div>
+        </div>
+        <div class="categoria-arrow">→</div>
+        <div class="categoria-block">
+          <div class="categoria-block-icon">👤</div>
+          <div class="categoria-block-title">Tus colaboradores</div>
+          <div class="categoria-block-text">Acceden a su salario ya ganado. Sin deuda. Sin fricción.</div>
+        </div>
+      </div>
+      <p class="categoria-footer">Cero costo para el colaborador · Cero custodia para Treevü · Todo el control para la empresa</p>
+    </div>
+  </div>
+</section>
+
 <!-- PROBLEMA -->
 <section class="section section-alt" id="problema">
   <div class="container">
     <div class="fade-up">
       <div class="section-tag">El Problema</div>
-      <h2 class="section-title">El estrés financiero de tus<br/>colaboradores te cuesta más de lo que crees.</h2>
-      <p class="section-subtitle">El 78% de trabajadores en Latinoamérica vive al día. Esto impacta directamente la productividad, retención y clima laboral.</p>
+      <h2 class="section-title">La rotación no es un problema de HR.<br/>Es un problema de liquidez personal.</h2>
+      <p class="section-subtitle">La principal causa de rotación no es el salario — es el timing del dinero. Las empresas reaccionan tarde, cuando el talento ya decidió irse.</p>
     </div>
     <div class="problem-grid">
       <div class="problem-card fade-up">
         <div class="problem-num">2–3 hrs</div>
-        <div class="problem-desc">por semana perdidas en gestiones financieras personales</div>
+        <div class="problem-desc">por semana por colaborador perdidas en fricción financiera — productividad que no aparece en ningún reporte</div>
         <div class="problem-source">PwC Employee Financial Wellness Survey, 2023</div>
       </div>
       <div class="problem-card fade-up">
         <div class="problem-num">+40%</div>
-        <div class="problem-desc">mayor rotación en colaboradores con estrés financiero</div>
+        <div class="problem-desc">mayor probabilidad de renuncia en colaboradores con estrés financiero activo</div>
         <div class="problem-source">SHRM Employee Benefits Survey, 2023</div>
       </div>
       <div class="problem-card fade-up">
         <div class="problem-num">S/ 8,000+</div>
-        <div class="problem-desc">costo promedio de reemplazo por colaborador en Perú</div>
+        <div class="problem-desc">costo promedio de reemplazar un colaborador en Perú — cada vez que reaccionas tarde</div>
         <div class="problem-source">Deloitte Perú — Estudio de Rotación Laboral</div>
       </div>
     </div>
+    <p class="problema-cierre"><strong>No puedes retener lo que no puedes predecir.</strong></p>
   </div>
 </section>
 
@@ -2861,30 +2965,30 @@ hr { border-color: var(--border-default) !important; }
   <div class="container">
     <div class="fade-up text-center">
       <div class="section-tag">Cómo Funciona</div>
-      <h2 class="section-title">Flujo simple. Pago directo.<br/>Sin intermediarios.</h2>
+      <h2 class="section-title">Cuatro pasos. Cero trabajo manual.<br/>Todo el control.</h2>
       <p class="section-subtitle">Treevü solo orquesta. El dinero fluye directamente del empleador al colaborador.</p>
     </div>
     <div class="flow-steps fade-up">
       <div class="flow-step">
         <div class="flow-step-num">1</div>
-        <div class="flow-step-title">Colaborador solicita</div>
-        <div class="flow-step-desc">El colaborador solicita un anticipo de su salario devengado desde la app o Telegram.</div>
+        <div class="flow-step-title">Integras con tu nómina</div>
+        <div class="flow-step-desc">Conectas Treevü a tu sistema (Mandü, Buk u otro). Configuras políticas de elegibilidad una vez. Sin IT, sin interrupciones al proceso actual.</div>
       </div>
       <div class="flow-step">
         <div class="flow-step-num">2</div>
-        <div class="flow-step-title">Treevü valida</div>
-        <div class="flow-step-desc">Verificamos elegibilidad en tiempo real: días trabajados, límite disponible y políticas de la empresa.</div>
+        <div class="flow-step-title">El ML entra en acción</div>
+        <div class="flow-step-desc">El motor analiza patrones de comportamiento financiero y emite alertas de riesgo de rotación semanas antes de que llegue la carta de renuncia.</div>
       </div>
       <div class="flow-step">
         <div class="flow-step-num">3</div>
-        <div class="flow-step-title">Pago directo</div>
-        <div class="flow-step-desc">El empleador o fondeador transfiere directamente al colaborador.</div>
-        <span class="flow-step-highlight">Treevü no toca el dinero</span>
+        <div class="flow-step-title">El colaborador accede solo</div>
+        <div class="flow-step-desc">Sin solicitudes manuales a RRHH. Sin adelantos informales. El colaborador recibe en Yape, Plin o transferencia — cuando lo necesita.</div>
+        <span class="flow-step-highlight">Treevü orquesta. El empleador transfiere directo al colaborador. Sin custodia, sin exposición financiera.</span>
       </div>
       <div class="flow-step">
         <div class="flow-step-num">4</div>
-        <div class="flow-step-title">Deducción registrada</div>
-        <div class="flow-step-desc">Se registra automáticamente la deducción en la planilla para el siguiente ciclo de pago.</div>
+        <div class="flow-step-title">La planilla se reconcilia sola</div>
+        <div class="flow-step-desc">Deducción automática en el siguiente ciclo de pago. Cero trabajo adicional para tu equipo de nómina.</div>
       </div>
     </div>
     <div class="payment-chips fade-up">
@@ -2961,27 +3065,30 @@ hr { border-color: var(--border-default) !important; }
   <div class="container">
     <div class="fade-up text-center">
       <div class="section-tag">Beneficios</div>
-      <h2 class="section-title">Impacto medible para<br/>cada área de tu empresa.</h2>
+      <h2 class="section-title">Una plataforma.<br/>Tres equipos convencidos.</h2>
     </div>
     <div class="fade-up">
       <div class="benefits-tabs">
         <button class="benefits-tab active" onclick="showTab('rrhh', this)">RRHH</button>
         <button class="benefits-tab" onclick="showTab('finanzas', this)">Finanzas</button>
-        <button class="benefits-tab" onclick="showTab('operaciones', this)">Operaciones</button>
+        <button class="benefits-tab" onclick="showTab('operaciones', this)">CEO / Gerencia</button>
       </div>
       <div id="tab-rrhh" class="benefits-panel active">
+        <p class="tab-role-intro">Para el Director/Gerente de RRHH</p>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg></div><div><div class="benefit-title">Sabes quién está pensando en irse — antes de que pase</div><div class="benefit-desc">El motor ML detecta patrones de comportamiento que predicen riesgo de renuncia con semanas de anticipación. Actúas antes, no después.</div></div></div>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div><div class="benefit-title">Tu equipo rinde más cuando no está preocupado por el dinero</div><div class="benefit-desc">El estrés financiero cuesta 2-3 horas semanales de productividad por colaborador. Treevü elimina esa fricción en dos semanas.</div></div></div>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div><div><div class="benefit-title">Un beneficio que la competencia no tiene — y el talento valora</div><div class="benefit-desc">Acceso al salario devengado sin costo para el colaborador. Diferenciador real en ofertas laborales y retención de personal clave.</div></div></div>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg></div><div><div class="benefit-title">Reduce rotación entre 12% y 40% — con datos que lo demuestran</div><div class="benefit-desc">Menos renuncias significa menos reemplazos. Con un costo de S/ 8,000+ por colaborador reemplazado, el ROI se ve desde el primer mes.</div></div></div>
       </div>
       <div id="tab-finanzas" class="benefits-panel">
+        <p class="tab-role-intro">Para el CFO / Gerente Financiero</p>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div><div><div class="benefit-title">Planificas la liquidez con 30 días de anticipación — no a ciegas</div><div class="benefit-desc">El ML predice cuánto capital necesitarás para EWA el próximo mes. Sin sorpresas, sin sobre-reserva, sin dejar cobertura corta.</div></div></div>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div><div class="benefit-title">Capital que dormía en reservas ahora trabaja para ti</div><div class="benefit-desc">El modelo optimiza el capital reservado para EWA al mínimo necesario. Liberas recursos sin comprometer la operación.</div></div></div>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div><div class="benefit-title">Cero riesgo financiero — Treevü no toca el dinero</div><div class="benefit-desc">Modelo no-custodio validado bajo D.L. N° 1499. La empresa transfiere directo al colaborador. Sin exposición regulatoria ni financiera.</div></div></div>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></div><div><div class="benefit-title">Ves el flujo EWA en tiempo real — no en el Excel de fin de mes</div><div class="benefit-desc">Dashboard con deducciones pendientes, proyecciones del próximo ciclo y alertas antes de que algo se salga del plan.</div></div></div>
       </div>
       <div id="tab-operaciones" class="benefits-panel">
+        <p class="tab-role-intro">Para el CEO / Gerencia General</p>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg></div><div><div class="benefit-title">Integración vía API con nómina</div><div class="benefit-desc">Compatibilidad inicial con Mandü y Buk. Adaptadores para otros sistemas evaluados durante la implementación.</div></div></div>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div><div><div class="benefit-title">Setup en 2 semanas o menos</div><div class="benefit-desc">Desde la firma hasta colaboradores activos en la plataforma, sin interrupciones al proceso de nómina.</div></div></div>
         <div class="benefit-card"><div class="benefit-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div><div><div class="benefit-title">Dashboard de control en tiempo real</div><div class="benefit-desc">Monitoreo de solicitudes, deducciones y alertas operativas desde un panel centralizado para el área de RRHH.</div></div></div>
@@ -3047,7 +3154,7 @@ hr { border-color: var(--border-default) !important; }
   <div class="container">
     <div class="fade-up text-center">
       <div class="section-tag">Comparativa</div>
-      <h2 class="section-title">¿Por qué Treevü y no<br/>otra alternativa?</h2>
+      <h2 class="section-title">No somos EWA. Somos inteligencia<br/>sobre comportamiento financiero.</h2>
       <p class="section-subtitle">Compara las opciones disponibles y descubre por qué el modelo Treevü es superior para tu empresa.</p>
     </div>
     <div class="table-wrapper fade-up">
@@ -3108,6 +3215,20 @@ hr { border-color: var(--border-default) !important; }
             <td><span class="icon-no">&#x2717;</span> No</td>
             <td><span class="icon-partial">~</span> Limitada</td>
           </tr>
+          <tr>
+            <td>Predicción de rotación</td>
+            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> 3 semanas de anticipación</td>
+            <td><span class="icon-no">&#x2717;</span></td>
+            <td><span class="icon-no">&#x2717;</span></td>
+            <td><span class="icon-no">&#x2717;</span></td>
+          </tr>
+          <tr>
+            <td>Data para RRHH / CFO</td>
+            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> Dashboard en tiempo real</td>
+            <td><span class="icon-no">&#x2717;</span></td>
+            <td><span class="icon-no">&#x2717;</span></td>
+            <td><span class="icon-partial">~</span> Limitada</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -3140,15 +3261,15 @@ hr { border-color: var(--border-default) !important; }
             <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--neutral-500);margin-bottom:4px;">Empresas ya confirmadas</div>
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--neutral-50);border-radius:var(--radius-sm);border:1px solid var(--neutral-100);">
               <div style="width:32px;height:32px;border-radius:6px;background:var(--brand-xlight);display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:900;color:var(--brand);flex-shrink:0;">MFG</div>
-              <div><div style="font-size:0.8rem;font-weight:700;color:var(--neutral-800);">Manufactura, La Libertad</div><div style="font-size:0.7rem;color:var(--neutral-500);">340 colaboradores · Rotación 32% anual</div></div>
+              <div><div style="font-size:0.8rem;font-weight:700;color:var(--neutral-800);">Manufactura, La Libertad</div><div style="font-size:0.7rem;color:var(--brand);font-weight:600;">Piloto activo</div></div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--neutral-50);border-radius:var(--radius-sm);border:1px solid var(--neutral-100);">
               <div style="width:32px;height:32px;border-radius:6px;background:#EFF6FF;display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:900;color:#2563EB;flex-shrink:0;">RTL</div>
-              <div><div style="font-size:0.8rem;font-weight:700;color:var(--neutral-800);">Retail, Lima Norte</div><div style="font-size:0.7rem;color:var(--neutral-500);">210 colaboradores · Objetivo: retención temporada</div></div>
+              <div><div style="font-size:0.8rem;font-weight:700;color:var(--neutral-800);">Retail, Lima Norte</div><div style="font-size:0.7rem;color:var(--brand);font-weight:600;">Piloto activo</div></div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--neutral-50);border-radius:var(--radius-sm);border:1px solid var(--neutral-100);">
               <div style="width:32px;height:32px;border-radius:6px;background:#FEF3C7;display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:900;color:#D97706;flex-shrink:0;">SVC</div>
-              <div><div style="font-size:0.8rem;font-weight:700;color:var(--neutral-800);">Servicios, Trujillo</div><div style="font-size:0.7rem;color:var(--neutral-500);">180 colaboradores · Piloto confirmado marzo 2026</div></div>
+              <div><div style="font-size:0.8rem;font-weight:700;color:var(--neutral-800);">Servicios, Trujillo</div><div style="font-size:0.7rem;color:var(--brand);font-weight:600;">Piloto activo</div></div>
             </div>
             <div style="font-size:0.7rem;color:var(--neutral-500);font-style:italic;margin-top:4px;">*Nombres omitidos por acuerdo de confidencialidad pre-piloto.</div>
           </div>
@@ -3292,8 +3413,8 @@ hr { border-color: var(--border-default) !important; }
   <div class="container">
     <div class="fade-up text-center">
       <div class="section-tag">Por qué confiar en Treevü</div>
-      <h2 class="section-title">Diseñado para el contexto<br/>regulatorio y laboral peruano.</h2>
-      <p class="section-subtitle">No somos una plataforma extranjera adaptada. Treevü nació para Perú, con el marco legal, los sistemas de pago y los hábitos laborales del mercado local.</p>
+      <h2 class="section-title">Sin fricción. Sin riesgo.<br/>Sin surpresas.</h2>
+      <p class="section-subtitle">Implementación que no interrumpe tu operación. Modelo que no genera pasivos.</p>
     </div>
     <div class="fade-up" class="confianza-grid">
       <div style="background:var(--white);border:1px solid var(--neutral-100);border-radius:var(--radius-lg);padding:32px;box-shadow:var(--shadow-sm);display:flex;gap:20px;">
@@ -3328,8 +3449,8 @@ hr { border-color: var(--border-default) !important; }
           <svg width="22" height="22" fill="none" stroke="#2563EB" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
         </div>
         <div>
-          <div style="font-family:var(--font-head);font-size:1rem;font-weight:700;color:var(--neutral-900);margin-bottom:8px;">El dinero nunca pasa por Treevü</div>
-          <p style="font-size:0.875rem;color:var(--neutral-500);line-height:1.6;margin:0;">Modelo no-custodio: Treevü orquesta, el empleador transfiere directo al colaborador. Cero exposición financiera para tu empresa, cero riesgo de custodia, cero deuda para el trabajador.</p>
+          <div style="font-family:var(--font-head);font-size:1rem;font-weight:700;color:var(--neutral-900);margin-bottom:8px;">Cero impacto en tu flujo de caja</div>
+          <p style="font-size:0.875rem;color:var(--neutral-500);line-height:1.6;margin:0;">Modelo no-custodio: Treevü orquesta, el empleador transfiere directo al colaborador. Sin fondeo requerido, sin pasivos, sin exposición regulatoria. El capital de tu empresa no se mueve hasta que el colaborador solicita.</p>
         </div>
       </div>
     </div>
@@ -3393,11 +3514,11 @@ hr { border-color: var(--border-default) !important; }
 <!-- CTA SECTION -->
 <div class="cta-section">
   <div class="container">
-    <h2 class="section-title">El bienestar financiero no es<br/>un beneficio opcional.</h2>
-    <p class="section-subtitle">Las empresas que cuidan el bolsillo de sus colaboradores retienen el talento que otras pierden. Sé parte del cambio.</p>
+    <h2 class="section-title">Empieza a predecir lo que<br/>hoy solo puedes reaccionar.</h2>
+    <p class="section-subtitle">Las empresas que implementan inteligencia de workforce este año compiten con ventaja el próximo. Cada mes sin datos es un mes reaccionando tarde.</p>
     <div class="cta-btns">
-      <a href="#contacto" class="btn btn-lg btn-white">Solicitar Acceso Fundador</a>
-      <a href="https://t.me/+51902126765" target="_blank" class="btn btn-lg btn-ghost-white">Hablar por Telegram -&gt;</a>
+      <a href="#contacto" class="btn btn-lg btn-white">Solicitar demo personalizada</a>
+      <a href="https://t.me/+51902126765" target="_blank" class="btn btn-lg btn-ghost-white">Hablar con el equipo →</a>
     </div>
   </div>
 </div>
@@ -3704,7 +3825,7 @@ calcUpdate();
 
     // Hero badge
     const badge = document.getElementById('hero-badge-text');
-    if (badge) badge.textContent = `Solo ${cupos} cupos · cierra en ${dias} días`;
+    if (badge) badge.textContent = `Infraestructura de retención · Plataforma B2B2E`;
 
     // Sección cupos
     const cuposCount = document.getElementById('cupos-count');
