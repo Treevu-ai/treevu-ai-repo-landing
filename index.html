@@ -1095,6 +1095,7 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--brand);
   margin-bottom: var(--space-4);
+  grid-column: 1 / -1;
 }
 .hero-bullets {
   list-style: none; padding: 0; margin: 0 0 var(--space-6);
@@ -3346,23 +3347,36 @@ hr { border-color: var(--border-default) !important; }
               </div>
             </div>
 
-            <!-- Ejemplos concretos -->
+            <!-- Ejemplos concretos + ROI inline -->
             <div style="border-top:1px solid rgba(37,99,235,0.15);padding-top:10px;margin-bottom:10px;">
-              <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--brand-dark);margin-bottom:6px;">Ejemplos de costo mensual total</div>
-              <div style="display:flex;flex-direction:column;gap:4px;">
-                <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;border-bottom:1px solid rgba(37,99,235,0.08);">
-                  <span style="color:var(--neutral-700);">200 colaboradores activos</span>
-                  <strong style="color:var(--neutral-900);">S/ 1,890 / mes</strong>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+                <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--brand-dark);">Costo mensual · solo activos</div>
+                <div style="font-size:0.62rem;color:var(--neutral-400);">desde S/ 7 · escala con volumen</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="padding:6px 8px;background:rgba(255,255,255,0.4);border-radius:4px;border-bottom:1px solid rgba(37,99,235,0.08);">
+                  <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:2px;">
+                    <span style="color:var(--neutral-700);">200 activos</span>
+                    <strong style="color:var(--neutral-900);">S/ 1,890 / mes</strong>
+                  </div>
+                  <div style="font-size:0.67rem;color:var(--brand-dark);">1 renuncia evitada/mes = el plan se paga 4x</div>
                 </div>
-                <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;border-bottom:1px solid rgba(37,99,235,0.08);">
-                  <span style="color:var(--neutral-700);">500 colaboradores activos</span>
-                  <strong style="color:var(--neutral-900);">S/ 3,990 / mes</strong>
+                <div style="padding:6px 8px;background:rgba(255,255,255,0.4);border-radius:4px;border-bottom:1px solid rgba(37,99,235,0.08);">
+                  <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:2px;">
+                    <span style="color:var(--neutral-700);">500 activos</span>
+                    <strong style="color:var(--neutral-900);">S/ 3,990 / mes</strong>
+                  </div>
+                  <div style="font-size:0.67rem;color:var(--brand-dark);">2 renuncias evitadas/mes = el plan se paga 4x</div>
                 </div>
-                <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;">
-                  <span style="color:var(--neutral-700);">1,000 colaboradores activos</span>
-                  <strong style="color:var(--neutral-900);">S/ 7,490 / mes</strong>
+                <div style="padding:6px 8px;background:rgba(255,255,255,0.4);border-radius:4px;">
+                  <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:2px;">
+                    <span style="color:var(--neutral-700);">1,000 activos</span>
+                    <strong style="color:var(--neutral-900);">S/ 7,490 / mes</strong>
+                  </div>
+                  <div style="font-size:0.67rem;color:var(--brand-dark);">Tramo 800+ · tarifa preferencial disponible</div>
                 </div>
               </div>
+              <div style="font-size:0.68rem;color:var(--neutral-500);margin-top:8px;font-style:italic;">Solo pagas por quienes usan el servicio ese mes.</div>
             </div>
 
             <span class="pricing-frozen" style="display:inline-block;">Precio congelado de por vida al firmar</span>
