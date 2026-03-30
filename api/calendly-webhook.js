@@ -6,11 +6,14 @@
 // URL: https://gettreevu.com/api/calendly-webhook
 // Eventos: invitee.created
 
-const NOTION_TOKEN       = process.env.NOTION_TOKEN;
-const NOTION_DATABASE_ID = "8a5cb4e6-16b9-4248-ac44-cab55c9ace6f";
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_CHAT_ID;
+import { createHmac } from 'crypto';
+
+const NOTION_TOKEN            = process.env.NOTION_API_KEY;
+const NOTION_DATABASE_ID      = "2e5f06c0295b46fbbc212bac5f6fcb3c";
+const TELEGRAM_BOT_TOKEN      = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID        = process.env.TELEGRAM_CHAT_ID;
 const CALENDLY_WEBHOOK_SECRET = process.env.CALENDLY_WEBHOOK_SECRET;
+const LEAD_WEBHOOK_SECRET     = process.env.LEAD_WEBHOOK_SECRET;
 
 async function findLeadByEmail(email) {
   const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
@@ -65,7 +68,7 @@ async function notifyTelegram(invitee, event, leadNombre) {
   msg += `🗓 ${fechaReunion}\n`;
   msg += `📋 ${event.name || 'Llamada Treevü 30 min'}\n`;
   if (leadNombre) msg += `\n_Lead identificado: ${leadNombre}_\n`;
-  msg += `\n✅ *Estado actualizado en Notion → Reunión agendada*`;
+  msg += `\n✅ *Estado actualizado en Notion → Reunión*`;
 
   const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
@@ -75,12 +78,52 @@ async function notifyTelegram(invitee, event, leadNombre) {
   if (!res.ok) console.error('[calendly] Telegram error:', res.status);
 }
 
+// ── Crear lead en CRM vía AsisTreevü cuando no existe ──────────────────────
+async function createLeadFromCalendly(invitee, eventData) {
+  if (!LEAD_WEBHOOK_SECRET) return;
+  try {
+    await fetch('https://treevu-bot.vercel.app/lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-webhook-secret': LEAD_WEBHOOK_SECRET },
+      body: JSON.stringify({
+        name:    invitee.name  || 'Invitado Calendly',
+        email:   invitee.email,
+        company: '',
+        message: `Agendó reunión vía Calendly sin lead previo. Evento: ${eventData.name || 'Llamada 30 min'}`,
+        source:  'Calendly (directo)',
+        score:   'MEDIO',
+      }),
+    });
+    console.log(`[calendly] Lead creado automáticamente: ${invitee.email}`);
+  } catch (err) {
+    console.error('[calendly] Error creando lead:', err.message);
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Verificar firma de Calendly (opcional pero recomendado)
-  // Calendly envía: Calendly-Webhook-Signature header
-  // Por ahora aceptamos todos los POST — agregar verificación HMAC en producción
+  // ── Verificar firma HMAC de Calendly ──────────────────────────────────────
+  if (CALENDLY_WEBHOOK_SECRET) {
+    const sigHeader = req.headers['calendly-webhook-signature'];
+    if (!sigHeader) {
+      console.warn('[calendly] Firma faltante — request rechazado');
+      return res.status(401).json({ error: 'Missing signature' });
+    }
+    try {
+      const parts     = Object.fromEntries(sigHeader.split(',').map(p => p.split('=')));
+      const timestamp = parts['t'];
+      const v1        = parts['v1'];
+      const payload   = `${timestamp}.${JSON.stringify(req.body)}`;
+      const expected  = createHmac('sha256', CALENDLY_WEBHOOK_SECRET).update(payload).digest('hex');
+      if (v1 !== expected) {
+        console.warn('[calendly] Firma inválida');
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+    } catch (err) {
+      console.error('[calendly] Error verificando firma:', err.message);
+    }
+  }
 
   const { event, payload } = req.body || {};
 
@@ -107,12 +150,13 @@ export default async function handler(req, res) {
 
     if (lead) {
       const nota = `Reunión agendada vía Calendly el ${new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}. Evento: ${eventData.name || 'Llamada 30 min'}`;
-      await updateLeadEstado(lead.id, 'Reunión agendada', nota);
+      await updateLeadEstado(lead.id, 'Reunion', nota);
       console.log(`[calendly] Notion actualizado: ${email} → Reunión agendada`);
       await notifyTelegram(invitee, eventData, nombre);
     } else {
-      // Lead no existe en Notion — igualmente notificar
-      console.warn(`[calendly] Lead no encontrado en Notion para: ${email}`);
+      // Lead no existe — crear automáticamente en CRM y notificar
+      console.warn(`[calendly] Lead no encontrado para ${email} — creando automáticamente`);
+      await createLeadFromCalendly(invitee, eventData);
       await notifyTelegram(invitee, eventData, null);
     }
 

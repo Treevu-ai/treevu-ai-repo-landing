@@ -1,3 +1,5 @@
+import { sendAbmNotification } from './abm-notify.js';
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_CHAT_ID;
 const NOTION_TOKEN       = process.env.NOTION_TOKEN;
@@ -13,8 +15,23 @@ const GMAIL_FROM          = process.env.GMAIL_FROM || 'hello@gettreevu.com';
 const SECTOR_MAP = {
   retail: 'Retail y consumo', manufactura: 'Manufactura', servicios: 'Servicios',
   salud: 'Salud', tecnologia: 'Tecnologia', construccion: 'Construccion/Mineria',
-  educacion: 'Educacion', otro: 'Otro'
+  educacion: 'Educacion', banca: 'Banca y finanzas', otro: 'Otro'
 };
+
+// ── Detección de género por nombre ────────────────────────────────────────────
+function detectGender(fullName) {
+  if (!fullName) return 'M';
+  const first = fullName.trim().split(/[\s,\-]+/)[0]
+    .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const maleEx    = ['joseba','nikola','luca','bautista','joshua','elia','andrea','garcia'];
+  const femaleSpec = ['isabel','pilar','carmen','belen','mercedes','ines','rocio',
+                      'flor','luz','paz','sol','esperanza','milagros','nieves',
+                      'trinidad','dolores','consuelo','amparo','fe','mar'];
+  if (maleEx.includes(first))    return 'M';
+  if (femaleSpec.includes(first)) return 'F';
+  if (first.endsWith('a'))        return 'F';
+  return 'M';
+}
 const OBJ_MAP = {
   'reducir-rotacion': 'Reducir rotacion', 'mejorar-clima': 'Mejorar clima laboral',
   'optimizar-nomina': 'Optimizar nomina', 'bienestar-financiero': 'Bienestar financiero',
@@ -31,8 +48,8 @@ function calcScoreFallback(sector, colaboradores, objetivo) {
   if (objetivo === 'reducir-rotacion') pts += 3;
   else if (['bienestar-financiero','mejorar-clima'].includes(objetivo)) pts += 2;
   else pts += 1;
-  if (['retail','manufactura'].includes(sector)) pts += 2;
-  else if (['servicios','salud','construccion'].includes(sector)) pts += 1;
+  if (['retail','manufactura','banca'].includes(sector)) pts += 2;
+  else if (['servicios','salud','construccion','tecnologia'].includes(sector)) pts += 1;
   if (pts >= 7) return { score: 'ALTO', probabilidad: 75, razon: 'Perfil ideal: sector + tamaño + objetivo alineados.', accion: 'Contactar HOY — llamada de 20 min', señales_positivas: [], señales_negativas: [], mensaje_personalizado: null };
   if (pts >= 4) return { score: 'MEDIO', probabilidad: 45, razon: 'Perfil compatible. Requiere validación adicional.', accion: 'Contactar esta semana', señales_positivas: [], señales_negativas: [], mensaje_personalizado: null };
   return { score: 'BAJO', probabilidad: 15, razon: 'Perfil fuera del ICP actual del piloto.', accion: 'Nutrir con contenido, evaluar más adelante', señales_positivas: [], señales_negativas: [], mensaje_personalizado: null };
@@ -50,7 +67,7 @@ async function scoreWithClaude({ nombre, empresa, sector, colaboradores, objetiv
 PRODUCTO:
 - Modelo no-custodio: Treevü orquesta, el empleador transfiere directo al colaborador
 - Precio piloto: S/ 7/colaborador activo/mes meses 1-2, luego S/ 490/mes dashboard + S/ 7/usuario activo
-- ICP: empresas peruanas 100-5000 colaboradores, sectores retail/manufactura/servicios/construcción
+- ICP: empresas peruanas 100-5000 colaboradores, sectores retail/manufactura/banca/servicios/construcción/tecnología
 - Decisores objetivo: Directores RRHH, CFO, CEO
 - Dolor que resuelve: rotación laboral (S/ 8,000+ por reemplazo), estrés financiero, productividad perdida
 - Diferenciador: 5 modelos ML predictivos, alerta de renuncia 3 semanas antes, cero riesgo financiero para la empresa
@@ -89,7 +106,7 @@ Responde SOLO con JSON válido, sin texto ni markdown adicional:
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
+        max_tokens: 380,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }]
       })
@@ -145,25 +162,31 @@ async function createGmailDraft({ nombre, email, empresa, sector, colaboradores,
   const { access_token } = await tokenRes.json();
 
   // 2. Construir el email
-  const primerNombre = nombre.split(' ')[0];
+  const primerNombre = nombre.split(/[\s,\-]+/)[0];
+  const genero   = detectGender(nombre);
+  const estimado = genero === 'F' ? 'estimada' : 'estimado';
+  const atento   = genero === 'F' ? 'atenta'   : 'atento';
   const apertura = mensajePersonalizado
     ? mensajePersonalizado
     : `Vi que ${empresa} opera en el sector ${SECTOR_MAP[sector] || sector} con ${colaboradores} colaboradores — un perfil donde Treevü genera impacto directo en retención y productividad.`;
 
   const subject = `Treevü × ${empresa} — Piloto EWA`;
 
-  // Costo estimado de rotación (referencia interna ICP)
+  // Costo estimado de rotación por sector
+  const ROTACION_SECTOR = { retail: 0.20, manufactura: 0.18, construccion: 0.22, banca: 0.12, servicios: 0.15, salud: 0.16, tecnologia: 0.13, educacion: 0.14 };
+  const tasaRotacion = ROTACION_SECTOR[sector] || 0.15;
   const colabNum = parseInt(colaboradores.split('-')[0].replace('+','')) || 200;
-  const rotacionEstimada = Math.round(colabNum * 0.15);
+  const rotacionEstimada = Math.round(colabNum * tasaRotacion);
   const costoEstimado = (rotacionEstimada * 8000).toLocaleString('es-PE');
+  const pctRotacion = Math.round(tasaRotacion * 100);
 
   const bodyHtml = `
-<p>Hola ${primerNombre}, espero que estés bien.</p>
+<p>Hola ${primerNombre}, ${estimado}.</p>
 
 <p>${apertura}</p>
 
 <p><strong>¿Por qué esto es urgente?</strong><br>
-Con una rotación promedio del 15% en tu sector, ${empresa} podría estar asumiendo ~S/ ${costoEstimado}/año solo en costos de reemplazo (S/ 8,000 por colaborador según estudios SHRM adaptados a Perú).</p>
+Con una rotación promedio del ${pctRotacion}% en el sector ${SECTOR_MAP[sector] || sector}, ${empresa} podría estar asumiendo ~S/ ${costoEstimado}/año solo en costos de reemplazo (S/ 8,000 por colaborador según estudios SHRM adaptados a Perú).</p>
 
 <p><strong>Lo que Treevü resuelve:</strong><br>
 ✅ Acceso anticipado al salario — sin costo para el colaborador<br>
@@ -174,7 +197,7 @@ Con una rotación promedio del 15% en tu sector, ${empresa} podría estar asumie
 <p>${razon ? `<em>${razon}</em><br><br>` : ''}¿Agendamos 30 minutos esta semana?<br>
 👉 <a href="https://calendly.com/hello-gettreevu/30min">Reserva tu espacio aquí</a></p>
 
-<p>Quedo atento,<br>
+<p>Quedo ${atento},<br>
 <strong>Equipo Treevü</strong><br>
 <a href="https://gettreevu.com">gettreevu.com</a> · hello@gettreevu.com</p>
 `.trim();
@@ -322,13 +345,24 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
-  const { nombre, email, empresa, sector, colaboradores, objetivo, problema } = req.body || {};
+  const { nombre, email, empresa, sector, colaboradores, objetivo, problema, website } = req.body || {};
+
+  // Anti-spam: honeypot (campo oculto que solo los bots llenan)
+  if (website) {
+    console.warn('[submit] Honeypot activado — bot detectado');
+    return res.status(200).json({ success: true }); // respuesta falsa para no alertar al bot
+  }
 
   if (!nombre || !email || !empresa || !sector || !colaboradores || !objetivo) {
     return res.status(400).json({ error: 'Campos requeridos faltantes' });
   }
   if (JSON.stringify(req.body).length > 10_000) {
     return res.status(400).json({ error: 'Payload demasiado grande' });
+  }
+
+  // Validar formato de email
+  if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(email)) {
+    return res.status(400).json({ error: 'Email inválido' });
   }
 
   console.log(`[submit] Lead entrante: ${empresa} | ${sector} | ${colaboradores}`);
@@ -366,25 +400,16 @@ export default async function handler(req, res) {
     );
   }
 
-  const [notionResult, telegramResult] = await Promise.allSettled([
-    saveToNotion({ nombre, email, empresa, sector, colaboradores, objetivo, problema, score, probabilidad, razon, mensajePersonalizado }),
+  // Telegram (treevubot notifica a Ricardo con análisis completo)
+  const [telegramResult] = await Promise.allSettled([
     sendToTelegram({ nombre, email, empresa, sector, colaboradores, objetivo, problema, score, probabilidad, razon, accion, senalesPositivas, senalesNegativas, mensajePersonalizado, fuenteScoring })
   ]);
-
-  if (notionResult.status   === 'rejected') console.error('[submit] Notion error:', notionResult.reason?.message);
   if (telegramResult.status === 'rejected') console.error('[submit] Telegram error:', telegramResult.reason?.message);
 
-  if (notionResult.status === 'rejected' && telegramResult.status === 'rejected') {
-    return res.status(500).json({ error: 'Error al procesar solicitud' });
-  }
-
-  // ── Notificar a AsisTreevü (guarda en Contacts DB + notificación en bot piloto) ──
-  fetch('https://treevu-bot.vercel.app/lead', {
+  // ── AsisTreevü: CRM unificado → luego notificación ABM con notionId ────
+  fetch('https://gettreevu.com/api/lead', {
     method: 'POST',
-    headers: {
-      'Content-Type':     'application/json',
-      'x-webhook-secret': 'treevu_lead_2026',
-    },
+    headers: { 'Content-Type': 'application/json', 'x-webhook-secret': process.env.LEAD_WEBHOOK_SECRET },
     body: JSON.stringify({
       name:        nombre,
       email:       email,
@@ -392,12 +417,25 @@ export default async function handler(req, res) {
       role:        nombre.includes('-') ? nombre.split('-')[1]?.trim() : '',
       sector:      SECTOR_MAP[sector] || sector,
       employees:   colaboradores,
-      message:     `[${score} · ${probabilidad}%] ${razon || ''} | Acción: ${accion || ''} | Apertura: ${mensajePersonalizado || ''}`.slice(0, 500),
+      objetivo:    OBJ_MAP[objetivo] || objetivo,
+      message:     `${razon || ''} | Reto: ${problema || 'N/A'} | Acción: ${accion || ''} | Apertura: ${mensajePersonalizado || ''}`.slice(0, 500),
       source:      'gettreevu.com',
       score:       score,
       probability: probabilidad,
     }),
-  }).catch(err => console.error('[submit] AsisTreevü webhook error:', err.message));
+  })
+  .then(r => r.json())
+  .then(data => sendAbmNotification('ALTA', {
+    nombre,
+    empresa,
+    sector:        SECTOR_MAP[sector] || sector,
+    colaboradores,
+    objetivo:      OBJ_MAP[objetivo] || objetivo,
+    score,
+    email,
+    notionId:      data.notionId,
+  }))
+  .catch(err => console.error('[submit] CRM/ABM error:', err.message));
 
   return res.status(200).json({ success: true, score, fuente_scoring: fuenteScoring });
 }

@@ -1205,6 +1205,24 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer; white-space: nowrap; transition: background 0.12s;
 }
 .vu-qr:hover { background: var(--brand-light); }
+/* ── Qualification chips ── */
+.vu-qualify { padding: 4px 0 0; }
+.vu-step-label { font-size: 0.7rem; color: var(--neutral-500); padding: 6px 14px 4px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.vu-chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 2px 12px 10px; }
+.vu-chip {
+  background: var(--brand-light, #d1fae5);
+  color: var(--brand-dark, #065f46);
+  border: 1.5px solid var(--brand, #059669);
+  border-radius: 20px;
+  padding: 6px 13px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.vu-chip:hover { background: var(--brand, #059669); color: #fff; transform: translateY(-1px); }
 @media (max-width: 480px) {
   .vu-window { width: calc(100vw - 24px); right: 12px; bottom: 84px; }
   .vu-launcher { right: 16px; bottom: 16px; }
@@ -1546,6 +1564,9 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-primary);
 }
 [data-theme="dark"] .vu-input::placeholder { color: var(--text-disabled); }
+[data-theme="dark"] .vu-chip { background: rgba(5,150,105,0.15); color: #6ee7b7; border-color: #059669; }
+[data-theme="dark"] .vu-chip:hover { background: #059669; color: #fff; }
+[data-theme="dark"] .vu-step-label { color: var(--text-muted); }
 [data-theme="dark"] .vu-qr {
   background: var(--brand-xlight);
   border-color: var(--brand-light);
@@ -1804,7 +1825,7 @@ input[type="range"]::-moz-range-thumb {
 <!-- URGENCY BAR -->
 <div class="urgency-bar">
   <strong>Programa Fundadores 2026</strong> — Fee preferencial bloqueado de por vida.
-  <span class="pill">4 cupos disponibles</span>
+  <span class="pill" id="urgency-pill">4 cupos disponibles</span>
 </div>
 
 <!-- NAV -->
@@ -1841,7 +1862,7 @@ input[type="range"]::-moz-range-thumb {
       <div class="hero-content">
         <div class="hero-badge">
           <div class="hero-badge-dot"></div>
-          Solo 4 cupos · Programa Fundadores Q2 2026
+          <span id="hero-badge-text">Solo 4 cupos · Programa Fundadores Q2 2026</span>
         </div>
         <h1 class="hero-title">
           Reduce rotación<br/><span class="accent">hasta 40%.</span>
@@ -2272,7 +2293,7 @@ input[type="range"]::-moz-range-thumb {
         <div class="cupos-counter">
           <div class="cupos-header">
             <div class="cupos-title">Cupos del programa Q2 2026</div>
-            <div class="cupos-count">Solo 4 quedan</div>
+            <div class="cupos-count" id="cupos-count">Solo 4 quedan</div>
           </div>
           <div class="cupos-track">
             <div class="cupos-fill" id="cupos-bar" style="width: 60%"></div>
@@ -2574,12 +2595,12 @@ input[type="range"]::-moz-range-thumb {
           <div class="form-header-sub">Solicita tu cupo ahora</div>
         </div>
         <div class="form-urgency">
-          <span></span> Quedan <strong>4 cupos disponibles</strong> — revisamos cada solicitud en 24 hrs.
+          <span></span> Quedan <strong id="cupos-form-text">4 cupos disponibles</strong> — <span id="dias-form-text">el programa cierra el 30 de abril</span>.
         </div>
         <div id="form-body">
           <div class="form-group">
             <label class="form-label" for="f-name">Nombre y cargo</label>
-            <input class="form-input" type="text" id="f-name" placeholder="Ana Torres — Directora de RRHH"/>
+            <input class="form-input" type="text" id="f-name" placeholder="Nombre completo y cargo"/>
           </div>
           <div class="form-group">
             <label class="form-label" for="f-email">Correo corporativo</label>
@@ -2600,6 +2621,7 @@ input[type="range"]::-moz-range-thumb {
               <option value="tecnologia">Tecnología y software</option>
               <option value="construccion">Construcción y minería</option>
               <option value="educacion">Educación</option>
+              <option value="banca">Banca y finanzas</option>
               <option value="otro">Otro</option>
             </select>
           </div>
@@ -2630,6 +2652,9 @@ input[type="range"]::-moz-range-thumb {
             <label class="form-label" for="f-problema">¿Cuál es el mayor reto con tu equipo hoy? <span style="color:var(--neutral-400,#94A3B8);font-weight:400;">(opcional)</span></label>
             <input class="form-input" type="text" id="f-problema" placeholder="Ej: Alta rotación en operaciones, ausencias frecuentes..."/>
           </div>
+          <!-- Honeypot anti-spam: oculto para humanos, los bots lo llenan -->
+          <input type="text" id="f-hp" name="website" autocomplete="off" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;"/>
+          <input type="hidden" id="f-ts" value=""/>
           <button class="form-submit" onclick="submitForm()">
             Solicitar Acceso Fundador -&gt;
           </button>
@@ -2708,6 +2733,12 @@ function toggleFaq(btn) {
   if (!isOpen) item.classList.add('open');
 }
 
+// Registrar timestamp al cargar la página (para detectar envíos demasiado rápidos)
+document.addEventListener('DOMContentLoaded', () => {
+  const tsField = document.getElementById('f-ts');
+  if (tsField) tsField.value = Date.now().toString();
+});
+
 async function submitForm() {
   const name     = document.getElementById('f-name').value.trim();
   const email    = document.getElementById('f-email').value.trim();
@@ -2716,11 +2747,17 @@ async function submitForm() {
   const size     = document.getElementById('f-size').value;
   const objetivo = document.getElementById('f-objetivo').value;
   const problema = document.getElementById('f-problema').value.trim();
+  const honeypot = document.getElementById('f-hp').value;
+  const ts       = parseInt(document.getElementById('f-ts').value || '0');
 
   if (!name || !email || !company || !sector || !size || !objetivo) {
     alert('Por favor completa todos los campos requeridos.');
     return;
   }
+  // Anti-spam: honeypot llenado = bot
+  if (honeypot) return;
+  // Anti-spam: envío en menos de 4 segundos = bot
+  if (ts && (Date.now() - ts) < 4000) return;
 
   const btn = document.querySelector('.form-submit');
   const originalText = btn.textContent;
@@ -2793,6 +2830,46 @@ const cuposObserver = new IntersectionObserver((entries) => {
 cuposObserver.observe(cuposBar);
 
 calcUpdate();
+
+// ── Countdown dinámico al cierre del programa (30 abril 2026) ─────────────
+(function () {
+  const CIERRE = new Date('2026-04-30T23:59:59-05:00'); // Lima (UTC-5)
+  const hoy    = new Date();
+  const diffMs = CIERRE - hoy;
+  const dias   = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  const cupos  = 4;
+
+  // Color de urgencia según días restantes
+  const urgBg  = dias <= 7  ? '#dc2626'
+               : dias <= 14 ? '#d97706'
+               : dias <= 21 ? '#ca8a04'
+               : null;
+
+  // 1. Pastilla en la urgency-bar superior
+  const pill = document.getElementById('urgency-pill');
+  if (pill) {
+    pill.textContent = `${dias}d restantes · ${cupos} cupos`;
+    if (urgBg) { pill.style.background = urgBg; pill.style.color = '#fff'; }
+  }
+
+  // 2. Badge del hero
+  const badge = document.getElementById('hero-badge-text');
+  if (badge) badge.textContent = `Solo ${cupos} cupos · cierra en ${dias} días`;
+
+  // 3. Contador en la sección de cupos
+  const cuposCount = document.getElementById('cupos-count');
+  if (cuposCount) cuposCount.textContent = `Solo ${cupos} quedan · ${dias}d`;
+
+  // 4. Urgencia en el formulario
+  const formCupos = document.getElementById('cupos-form-text');
+  if (formCupos) formCupos.textContent = `${cupos} cupos disponibles`;
+  const formDias = document.getElementById('dias-form-text');
+  if (formDias) {
+    formDias.textContent = dias > 0
+      ? `quedan ${dias} días para cerrar`
+      : 'el programa ya cerró';
+  }
+})();
 </script>
 
 <!-- CHATBOT VÜ -->
@@ -2810,17 +2887,18 @@ calcUpdate();
     </div>
   </div>
   <div class="vu-messages" id="vuMessages">
-    <div class="vu-msg bot">Hola. Soy Vü, el asistente de Treevü. ¿Tienes alguna duda sobre el Programa Fundadores o quieres saber si tu empresa califica?</div>
+    <div class="vu-msg bot">Hola 👋 Soy Vü. Para darte info relevante, cuéntame un poco sobre tu empresa.</div>
   </div>
   <div class="vu-typing" id="vuTyping">
     <div class="vu-dot"></div><div class="vu-dot"></div><div class="vu-dot"></div>
   </div>
-  <div class="vu-quick-replies" id="vuQuickReplies">
-    <span class="vu-qr" onclick="vuSendQuick('¿Qué es Treevü exactamente?')">¿Qué es Treevü?</span>
+  <div class="vu-qualify" id="vuQualify"></div>
+  <div class="vu-quick-replies" id="vuQuickReplies" style="display:none">
+    <span class="vu-qr" onclick="vuSendQuick('¿Cómo funciona el modelo no-custodio?')">¿Cómo funciona?</span>
     <span class="vu-qr" onclick="vuSendQuick('¿Cuánto cuesta implementarlo?')">¿Cuánto cuesta?</span>
     <span class="vu-qr" onclick="vuSendQuick('¿Cuántos cupos quedan disponibles?')">¿Quedan cupos?</span>
   </div>
-  <div class="vu-input-row">
+  <div class="vu-input-row" id="vuInputRow" style="display:none">
     <input class="vu-input" id="vuInput" type="text" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')vuSend()"/>
     <button class="vu-send" id="vuSendBtn" onclick="vuSend()">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
@@ -2830,27 +2908,131 @@ calcUpdate();
 
 
 <script>
-// Sistema prompt movido al servidor — /api/chat.js
+// ── Vü Chat — flujo guiado + libre ─────────────────────────────────────────
 
-let vuHistory = [];
-let vuOpen = false;
-let vuWaiting = false;
+const VU_STEPS = {
+  SECTOR: {
+    label: '¿En qué sector opera?',
+    options: [
+      { text: '🏭 Manufactura',  value: 'Manufactura' },
+      { text: '🛒 Retail',        value: 'Retail' },
+      { text: '⚙️ Servicios',    value: 'Servicios' },
+      { text: '🏥 Salud',         value: 'Salud' },
+      { text: '🏗️ Construcción', value: 'Construcción' },
+      { text: '📚 Educación',     value: 'Educación' },
+      { text: '💻 Tecnología',   value: 'Tecnología' },
+      { text: '🏦 Banca/Finanzas', value: 'Banca/Finanzas' },
+      { text: '❓ Otro',          value: 'Otro' },
+    ]
+  },
+  SIZE: {
+    label: '¿Cuántos colaboradores?',
+    options: [
+      { text: '50 – 200',      value: '50-200' },
+      { text: '200 – 500',     value: '200-500' },
+      { text: '500 – 1,000',   value: '500-1000' },
+      { text: '1,000 – 5,000', value: '1000-5000' },
+      { text: '5,000+',        value: '5000+' },
+    ]
+  },
+  OBJETIVO: {
+    label: '¿Principal desafío?',
+    options: [
+      { text: '📉 Reducir rotación',      value: 'Reducir rotación' },
+      { text: '💚 Bienestar financiero',  value: 'Bienestar financiero' },
+      { text: '😊 Mejorar clima laboral', value: 'Mejorar clima laboral' },
+      { text: '💰 Optimizar nómina',      value: 'Optimizar nómina' },
+      { text: '🎯 Atraer talento',        value: 'Atraer talento' },
+    ]
+  }
+};
+
+let vuHistory  = [];
+let vuOpen     = false;
+let vuWaiting  = false;
+let vuStep     = 'SECTOR';
+let vuProfile  = { sector: null, size: null, objetivo: null };
 
 function toggleVu() {
   vuOpen = !vuOpen;
   document.getElementById('vuWindow').classList.toggle('open', vuOpen);
   document.getElementById('vuLauncher').classList.toggle('open', vuOpen);
-  if (vuOpen) setTimeout(() => document.getElementById('vuInput').focus(), 300);
+  if (vuOpen && vuStep === 'CHAT') {
+    setTimeout(() => document.getElementById('vuInput').focus(), 300);
+  }
 }
 
 function vuAddMsg(text, role) {
   const msgs = document.getElementById('vuMessages');
-  const div = document.createElement('div');
-  div.className = 'vu-msg ' + role;
+  const div  = document.createElement('div');
+  div.className   = 'vu-msg ' + role;
   div.textContent = text;
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
   return div;
+}
+
+function vuShowChips(stepKey) {
+  const step = VU_STEPS[stepKey];
+  if (!step) return;
+  const qualify = document.getElementById('vuQualify');
+  qualify.innerHTML =
+    `<div class="vu-step-label">${step.label}</div>` +
+    `<div class="vu-chips">` +
+    step.options.map(o =>
+      `<span class="vu-chip" onclick="vuSelectChip('${stepKey}','${o.value}',this)">${o.text}</span>`
+    ).join('') +
+    `</div>`;
+}
+
+async function vuSelectChip(stepKey, value, el) {
+  if (vuWaiting) return;
+  // Mostrar selección como mensaje del usuario
+  vuAddMsg(el.textContent, 'user');
+
+  // Guardar en perfil
+  const key = stepKey === 'SECTOR' ? 'sector' : stepKey === 'SIZE' ? 'size' : 'objetivo';
+  vuProfile[key] = value;
+
+  // Limpiar chips
+  document.getElementById('vuQualify').innerHTML = '';
+
+  if (stepKey === 'SECTOR') {
+    vuShowChips('SIZE');
+  } else if (stepKey === 'SIZE') {
+    vuShowChips('OBJETIVO');
+  } else if (stepKey === 'OBJETIVO') {
+    // Flujo completado — mostrar input y arrancar conversación con Vü
+    vuStep = 'CHAT';
+    document.getElementById('vuInputRow').style.display = 'flex';
+    document.getElementById('vuQuickReplies').style.display = 'flex';
+
+    vuWaiting = true;
+    document.getElementById('vuTyping').classList.add('visible');
+    document.getElementById('vuMessages').scrollTop = 999999;
+
+    const ctx = `Sector: ${vuProfile.sector}, ${vuProfile.size} colaboradores, objetivo: ${vuProfile.objetivo}. ¿Cómo puede ayudarme Treevü?`;
+    vuHistory.push({ role: 'user', content: ctx });
+
+    try {
+      const res  = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: vuHistory, profile: vuProfile })
+      });
+      const data  = await res.json();
+      const reply = data.reply || 'Treevü puede ayudarte. Escríbenos a hello@gettreevu.com.';
+      document.getElementById('vuTyping').classList.remove('visible');
+      vuAddMsg(reply, 'bot');
+      vuHistory.push({ role: 'assistant', content: reply });
+    } catch(e) {
+      document.getElementById('vuTyping').classList.remove('visible');
+      vuAddMsg('Hubo un problema. Escríbenos a hello@gettreevu.com.', 'bot');
+    }
+
+    vuWaiting = false;
+    setTimeout(() => document.getElementById('vuInput').focus(), 300);
+  }
 }
 
 function vuSendQuick(text) {
@@ -2860,12 +3042,13 @@ function vuSendQuick(text) {
 }
 
 async function vuSend() {
+  if (vuStep !== 'CHAT') return;
   const input = document.getElementById('vuInput');
-  const text = input.value.trim();
+  const text  = input.value.trim();
   if (!text || vuWaiting) return;
 
   input.value = '';
-  vuWaiting = true;
+  vuWaiting   = true;
   document.getElementById('vuSendBtn').disabled = true;
   document.getElementById('vuQuickReplies').style.display = 'none';
 
@@ -2877,12 +3060,12 @@ async function vuSend() {
   document.getElementById('vuMessages').scrollTop = 999999;
 
   try {
-    const res = await fetch('/api/chat', {
+    const res  = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: vuHistory })
+      body: JSON.stringify({ messages: vuHistory, profile: vuProfile })
     });
-    const data = await res.json();
+    const data  = await res.json();
     const reply = data.reply || 'Hubo un problema. Escríbenos a hello@gettreevu.com.';
     typing.classList.remove('visible');
     vuAddMsg(reply, 'bot');
@@ -2896,6 +3079,9 @@ async function vuSend() {
   document.getElementById('vuSendBtn').disabled = false;
   input.focus();
 }
+
+// Mostrar chips de sector al abrir la página
+document.addEventListener('DOMContentLoaded', () => vuShowChips('SECTOR'));
 </script>
 
 

@@ -7,7 +7,11 @@
     { "src": "api/daily-summary.js",      "use": "@vercel/node" },
     { "src": "api/followup.js",           "use": "@vercel/node" },
     { "src": "api/calendly-webhook.js",   "use": "@vercel/node" },
-    { "src": "api/setup-calendly.js",     "use": "@vercel/node" }
+    { "src": "api/setup-calendly.js",     "use": "@vercel/node" },
+    { "src": "api/telegram.js",           "use": "@vercel/node" },
+    { "src": "api/abm-bot.js",            "use": "@vercel/node" },
+    { "src": "api/abm-notify.js",         "use": "@vercel/node" },
+    { "src": "api/lead.js",               "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/api/submit",            "dest": "/api/submit.js" },
@@ -16,6 +20,9 @@
     { "src": "/api/followup",          "dest": "/api/followup.js" },
     { "src": "/api/calendly-webhook",  "dest": "/api/calendly-webhook.js" },
     { "src": "/api/setup-calendly",    "dest": "/api/setup-calendly.js" },
+    { "src": "/api/telegram",          "dest": "/api/telegram.js" },
+    { "src": "/api/abm-bot",           "dest": "/api/abm-bot.js" },
+    { "src": "/api/lead",              "dest": "/api/lead.js" },
     { "src": "/(.*)",                  "dest": "/index.html" }
   ],
   "crons": [
