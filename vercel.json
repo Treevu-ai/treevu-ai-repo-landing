@@ -20,6 +20,7 @@
     { "src": "api/reunion-reminder.js", "use": "@vercel/node" },
     { "src": "api/analytics.js",         "use": "@vercel/node" },
     { "src": "api/ceo-bot.js",          "use": "@vercel/node" },
+    { "src": "api/router.js",           "use": "@vercel/node" },
     { "src": "api/fathom-webhook.js",   "use": "@vercel/node" },
     { "src": "api/pandadoc-webhook.js", "use": "@vercel/node" },
     { "src": "api/onboarding.js",       "use": "@vercel/node" }
@@ -40,6 +41,7 @@
     { "src": "/api/reunion-reminder", "dest": "/api/reunion-reminder.js" },
     { "src": "/api/analytics",         "dest": "/api/analytics.js" },
     { "src": "/api/ceo-bot",          "dest": "/api/ceo-bot.js" },
+    { "src": "/api/router",           "dest": "/api/router.js" },
     { "src": "/api/fathom-webhook",   "dest": "/api/fathom-webhook.js" },
     { "src": "/api/pandadoc-webhook", "dest": "/api/pandadoc-webhook.js" },
     { "src": "/api/onboarding",       "dest": "/api/onboarding.js" },
