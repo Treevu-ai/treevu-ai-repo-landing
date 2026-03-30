@@ -1373,7 +1373,17 @@ async function handleHelp() {
   msg += `${urgencia} Piloto Q2: *${cerrados}/${CUPOS_TOTAL}* firmados · *${diasCierre}d* para cierre\n`;
   msg += `${div}\n_¿Qué hacemos?_`;
 
-  await send(msg, { reply_markup: KB_MENU });
+  // Borrar menú anterior si existe
+  const prevMsgId = await redisCmd('GET', `menu_msg:${CHAT_ID}`).catch(() => null);
+  if (prevMsgId) {
+    await tg(TOKEN, 'deleteMessage', { chat_id: CHAT_ID, message_id: parseInt(prevMsgId) }).catch(() => {});
+  }
+
+  // Enviar nuevo menú y guardar su message_id
+  const sent = await send(msg, { reply_markup: KB_MENU });
+  if (sent?.result?.message_id) {
+    await redisCmd('SET', `menu_msg:${CHAT_ID}`, String(sent.result.message_id), 'EX', 86400);
+  }
 }
 
 // ── Lo que puedo hacer por ti ──────────────────────────────────────────────────
