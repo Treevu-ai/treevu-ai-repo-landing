@@ -2640,14 +2640,14 @@ hr { border-color: var(--border-default) !important; }
     <div class="nav-inner">
       <a href="#top" class="nav-logo">Tree<span>vü</span></a>
       <ul class="nav-links">
-        <li><a href="#aplica">¿Para quién?</a></li>
-        <li><a href="#calculadora">Mi ahorro</a></li>
-        <li><a href="#ml-engine">Predicción</a></li>
-        <li><a href="#confianza">Seguridad</a></li>
+        <li><a href="#aplica">¿Califica?</a></li>
+        <li><a href="#calculadora">Calculadora</a></li>
+        <li><a href="#ml-engine">Predicción ML</a></li>
+        <li><a href="#confianza">Confianza</a></li>
         <li><a href="#piloto">Pioneros</a></li>
-        <li><a href="#contacto">Solicitar acceso</a></li>
+        <li><a href="#contacto">Agenda demo</a></li>
       </ul>
-      <a href="#contacto" class="btn btn-primary nav-cta">Acceso Fundador</a>
+      <a href="#contacto" class="btn btn-primary nav-cta" onclick="openPrequal(event)">Agenda una demo</a>
 <button class="nav-mobile-toggle" onclick="document.querySelector('.nav-links').style.display=document.querySelector('.nav-links').style.display==='flex'?'none':'flex'">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
       </button>
@@ -3284,10 +3284,10 @@ hr { border-color: var(--border-default) !important; }
           </div>
         </div>
         <ul class="founders-benefits">
-          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>100–300 colaboradores</strong> — Grupo controlado para medir impacto real en rotación y productividad.</span></li>
-          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>3 meses de duración</strong> — Tiempo suficiente para generar datos significativos y entrenar modelos ML.</span></li>
-          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Sin costo de setup</strong> — La implementación del programa no tiene costo adicional.</span></li>
-          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Acceso prioritario</strong> — Siempre los primeros en probar y moldear el producto.</span></li>
+          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>200–2,000 colaboradores</strong> — Grupo selecto de empresas con rotación mayor al 15% o estrés financiero visible.</span></li>
+          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Nómina con API</strong> — Mandü, Buk u otro sistema integrable. El equipo técnico evalúa sin costo.</span></li>
+          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Sin costo de setup</strong> — Implementación completa sin cargo adicional. Soporte local incluido.</span></li>
+          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Tarifa congelada de por vida</strong> — El fee que firmas hoy aplica para siempre, independiente del crecimiento del producto.</span></li>
         </ul>
       </div>
       <div class="fade-up">
@@ -3351,16 +3351,16 @@ hr { border-color: var(--border-default) !important; }
               <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--brand-dark);margin-bottom:6px;">Ejemplos de costo mensual total</div>
               <div style="display:flex;flex-direction:column;gap:4px;">
                 <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;border-bottom:1px solid rgba(37,99,235,0.08);">
-                  <span style="color:var(--neutral-700);">100 colaboradores activos</span>
-                  <strong style="color:var(--neutral-900);">S/ 1,190 / mes</strong>
+                  <span style="color:var(--neutral-700);">200 colaboradores activos</span>
+                  <strong style="color:var(--neutral-900);">S/ 1,890 / mes</strong>
                 </div>
                 <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;border-bottom:1px solid rgba(37,99,235,0.08);">
-                  <span style="color:var(--neutral-700);">250 colaboradores activos</span>
-                  <strong style="color:var(--neutral-900);">S/ 2,240 / mes</strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;">
                   <span style="color:var(--neutral-700);">500 colaboradores activos</span>
                   <strong style="color:var(--neutral-900);">S/ 3,990 / mes</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:4px 0;">
+                  <span style="color:var(--neutral-700);">1,000 colaboradores activos</span>
+                  <strong style="color:var(--neutral-900);">S/ 7,490 / mes</strong>
                 </div>
               </div>
             </div>
@@ -3368,36 +3368,11 @@ hr { border-color: var(--border-default) !important; }
             <span class="pricing-frozen" style="display:inline-block;">Precio congelado de por vida al firmar</span>
           </div>
 
-          <!-- Precios Post-Piloto (SaaS) -->
-          <div class="pricing-card" style="opacity:0.85;padding:14px 18px;">
-            <div style="margin-bottom:12px;border-bottom:1px solid rgba(0,0,0,0.05);padding-bottom:8px;">
-              <div class="pricing-label" style="margin-bottom:4px;color:var(--neutral-700)">Precios Post-Piloto (SaaS)</div>
-              <div style="font-size:0.75rem;color:var(--neutral-500);">Planes de suscripción al término del piloto</div>
-            </div>
-            
-            <div style="display:flex;flex-direction:column;gap:12px;">
-              <!-- Plan Essential -->
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div>
-                  <div style="font-size:0.75rem;font-weight:800;color:var(--neutral-700);">Plan Essential</div>
-                  <div style="font-size:0.7rem;color:var(--neutral-500);">Acceso base, integraciones</div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-size:0.85rem;font-weight:800;color:var(--neutral-900);">S/ 790 + S/ 12<span style="font-size:0.65rem;color:var(--neutral-500);font-weight:400;">/user</span></div>
-                </div>
-              </div>
-              
-              <!-- Plan Pro -->
-              <div style="display:flex;justify-content:space-between;align-items:center;background:var(--brand-xlight);padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--brand-light);">
-                <div>
-                  <div style="font-size:0.75rem;font-weight:800;color:var(--brand-dark);">Plan Pro (Predictivo ML)</div>
-                  <div style="font-size:0.7rem;color:var(--brand);">Motor predictivo full, alertas</div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-size:0.85rem;font-weight:800;color:var(--brand-dark);">S/ 1,500 + S/ 15<span style="font-size:0.65rem;font-weight:400;">/user</span></div>
-                </div>
-              </div>
-            </div>
+          <!-- Continuidad post-piloto: enterprise custom -->
+          <div style="background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:var(--radius-md);padding:16px 20px;">
+            <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--neutral-500);margin-bottom:8px;">Continuidad post-piloto</div>
+            <div style="font-size:0.875rem;color:var(--neutral-700);line-height:1.6;margin-bottom:10px;">Modelo SaaS alineado al uso — suscripción base más fee por colaborador activo. Dos planes disponibles: <strong>Essential</strong> (acceso base + integraciones) y <strong>Pro ML</strong> (motor predictivo completo + alertas de rotación).</div>
+            <div style="font-size:0.8rem;color:var(--neutral-500);border-top:1px solid var(--neutral-200);padding-top:10px;">Presupuesto personalizado según escala y sector. <a href="mailto:hello@gettreevu.com" style="color:var(--brand);font-weight:600;">hello@gettreevu.com</a></div>
           </div>
 
         </div>
@@ -3471,50 +3446,43 @@ hr { border-color: var(--border-default) !important; }
   <div class="container">
     <div class="fade-up text-center">
       <div class="section-tag">Preguntas Frecuentes</div>
-      <h2 class="section-title">Resuelve tus dudas<br/>antes de solicitar acceso.</h2>
+      <h2 class="section-title">Lo que RRHH y Finanzas<br/>preguntan siempre primero.</h2>
     </div>
     <div class="faq-list fade-up">
       <div class="faq-item open">
         <button class="faq-question" onclick="toggleFaq(this)">
-          ¿Treevü es un préstamo?
+          ¿Treevü otorga préstamos a mis colaboradores?
           <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>
-        <div class="faq-answer">No. Treevü es acceso al salario ya trabajado. El colaborador recibe dinero que ya devengó — sin intereses, sin deuda, sin comisiones ocultas. Es un beneficio laboral, no un producto crediticio.</div>
+        <div class="faq-answer">No. Treevü permite que tus colaboradores accedan a una parte de su salario ya trabajado — no genera deuda nueva ni cobra intereses. A diferencia de muchos modelos EWA tradicionales que funcionan como préstamos de corto plazo, aquí el colaborador simplemente retira lo que ya ganó.</div>
       </div>
       <div class="faq-item">
         <button class="faq-question" onclick="toggleFaq(this)">
-          ¿Necesitan licencia de la SBS?
+          ¿Quién maneja el dinero cuando un colaborador pide un adelanto?
           <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>
-        <div class="faq-answer">Nuestro modelo no-custodio no requiere licencia financiera. No custodiamos dinero. Operamos al amparo del D.L. N° 1499 y el sandbox regulatorio SBS Res. N° 2429-2021.</div>
+        <div class="faq-answer">La empresa transfiere directamente al colaborador desde su propia cuenta. Treevü no custodia fondos ni presta dinero, lo que reduce significativamente la exposición regulatoria típica de los modelos que sí intermedian el flujo. Operamos al amparo del D.L. N° 1499 y el sandbox SBS Res. N° 2429-2021.</div>
       </div>
       <div class="faq-item">
         <button class="faq-question" onclick="toggleFaq(this)">
-          ¿Cuánto cuesta implementar?
+          ¿Cómo impacta esto en el flujo de caja de la empresa?
           <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>
-        <div class="faq-answer">El programa pioneros no tiene costo de setup. El modelo de negocio es SaaS diferenciado: <strong>Plan Essential</strong> (S/ 790 base + S/ 12 user/mes) o <strong>Plan Pro</strong> con Motor ML Full (S/ 1,500 base + S/ 15 user/mes). Las empresas pioneras acceden a condiciones preferenciales de por vida. Escríbenos a hello@gettreevu.com para un presupuesto personalizado.</div>
+        <div class="faq-answer">Nuestros modelos de predicción estiman la demanda de adelantos y el capital mínimo que deberías reservar para operar el beneficio sin inmovilizar caja de más. Finanzas planifica con 30 días de anticipación — no reacciona a demanda imprevista.</div>
       </div>
       <div class="faq-item">
         <button class="faq-question" onclick="toggleFaq(this)">
-          ¿Funciona con mi sistema de nómina?
+          ¿En qué se diferencia de un adelanto de sueldo tradicional?
           <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>
-        <div class="faq-answer">Nos integramos vía API. Compatibilidad inicial con Mandü y Buk, con adaptadores para otros sistemas. El equipo técnico evalúa la integración durante el proceso de implementación.</div>
+        <div class="faq-answer">Un adelanto tradicional suele ser manual, discrecional y poco predecible. Treevü estandariza las reglas, automatiza la operación y añade inteligencia predictiva para que RRHH y Finanzas entiendan el impacto en rotación, productividad y caja — antes de que el problema llegue al escritorio.</div>
       </div>
       <div class="faq-item">
         <button class="faq-question" onclick="toggleFaq(this)">
-          ¿Qué pasa si un empleado se va antes de fin de mes?
+          ¿Qué resultados concretos ven otras empresas al implementarlo?
           <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>
-        <div class="faq-answer">La deducción se registra en la planilla automáticamente. El riesgo de no-pago es del empleador, no de Treevü (modelo no-custodio). Los límites de adelanto están diseñados para minimizar este riesgo.</div>
-      </div>
-      <div class="faq-item">
-        <button class="faq-question" onclick="toggleFaq(this)">
-          ¿Cuánto tarda la implementación?
-          <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
-        </button>
-        <div class="faq-answer">El programa se configura en 2 semanas o menos. Incluye integración con nómina, capacitación del equipo y configuración de reglas de la empresa.</div>
+        <div class="faq-answer">Programas de acceso al salario devengado reportan mejoras en bienestar financiero del colaborador, reducción del uso de créditos caros y, en varios casos, menor rotación y mayor productividad al disminuir el estrés por liquidez. El ROI de Treevü se ve desde el primer trimestre: el ahorro en reemplazo supera el costo de la plataforma.</div>
       </div>
     </div>
   </div>
