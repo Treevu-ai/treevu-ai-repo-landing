@@ -8,7 +8,10 @@
 //        -d "url=https://gettreevu.com/api/ceo-bot"
 
 import { sendMessage, answerCallback, editMessage } from './lib/telegram.js';
-import { redisCmd } from './lib/redis.js';
+import { redisCmd }                                 from './lib/redis.js';
+import { getNotionPage, getProp, notionPatch }       from './lib/notion.js';
+import { askClaude }                                 from './lib/anthropic.js';
+import { getGmailToken, gmailDraft }                 from './lib/gmail.js';
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -58,6 +61,128 @@ function kbInteres(leadId) {
   };
 }
 
+// ── Propuesta automática con Claude ──────────────────────────────────────────
+function kbPropuesta(leadId) {
+  return {
+    inline_keyboard: [[
+      { text: '📄 Generar propuesta', callback_data: `pm_prop:${leadId}` },
+      { text: '⏭ Omitir',            callback_data: `pm_skip:${leadId}` },
+    ]],
+  };
+}
+
+// Pricing: S/ 490 base + S/ 7 por colab estimado (30% adopción)
+function estimarPrecio(colabsStr = '') {
+  const n = parseInt((colabsStr || '').split('-')[0].replace('+', '')) || 0;
+  if (!n) return null;
+  const adopcion = Math.round(n * 0.30);
+  const mensual  = adopcion * 7 + 490;
+  return { colaboradores: n, adopcion, mensual };
+}
+
+async function generateProposal(leadId, chatId) {
+  await send(chatId, '_⏳ Generando propuesta con Claude..._');
+
+  let page;
+  try { page = await getNotionPage(leadId); }
+  catch (err) {
+    console.error('[ceo-bot/propuesta] Notion error:', err.message);
+    await send(chatId, '❌ No pude obtener los datos del lead desde Notion.');
+    return;
+  }
+
+  const empresa     = getProp(page, 'Empresa')       || getProp(page, 'Name') || 'la empresa';
+  const contacto    = getProp(page, 'Nombre')         || getProp(page, 'Contacto') || '';
+  const email       = getProp(page, 'Email')          || '';
+  const sector      = getProp(page, 'Sector')         || '';
+  const colabs      = getProp(page, 'Colaboradores')  || '';
+  const objetivo    = getProp(page, 'Objetivo')       || '';
+  const dolor       = getProp(page, 'Notas')          || getProp(page, 'Dolor') || '';
+  const siguientePaso = getProp(page, 'Siguiente_paso') || '';
+
+  const precio = estimarPrecio(colabs);
+  const precioStr = precio
+    ? `S/ ${precio.mensual.toLocaleString('es-PE')}/mes (${precio.adopcion} usuarios × S/ 7 + S/ 490 base)`
+    : 'a cotizar según adopción';
+
+  const system = `Eres el equipo comercial de Treevü, una plataforma de Earned Wage Access (EWA) para empresas peruanas.
+Treevü permite a los trabajadores retirar su sueldo ganado antes del día de pago, sin costo para la empresa.
+Beneficios clave: reduce rotación 15-40%, mejora clima laboral, cero costo financiero para la empresa, implementación en 48h.
+Precio: S/ 7 por usuario activo/mes + S/ 490 mensual de plataforma. Implementación y soporte incluidos.
+Escribe en español formal peruano. Sé conciso, orientado a resultados, sin relleno corporativo.`;
+
+  const userPrompt = `Genera una propuesta comercial en HTML para enviar por email a ${contacto || 'el contacto'} de ${empresa}.
+
+Datos del prospecto:
+- Empresa: ${empresa}
+- Sector: ${sector}
+- Colaboradores: ${colabs}
+- Objetivo principal: ${objetivo}
+- Dolor detectado en reunión: ${dolor || '(no especificado)'}
+- Siguiente paso acordado: ${siguientePaso || 'por definir'}
+- Precio estimado: ${precioStr}
+
+El HTML debe incluir:
+1. Saludo personalizado
+2. Resumen del dolor que mencionaron (1 párrafo)
+3. Cómo Treevü lo resuelve (2-3 bullets concretos con datos)
+4. Inversión mensual estimada (precio calculado arriba)
+5. ROI estimado: ahorro en rotación (costo de reemplazar 1 empleado = 3-6 meses de sueldo)
+6. Próximos pasos claros (máximo 3 pasos)
+7. CTA: agendar diagnóstico o firmar NDA
+8. Firma: equipo Treevü, hello@gettreevu.com
+
+Usa un estilo limpio con colores corporativos (#0f4c81 azul, #10b981 verde). No uses imágenes externas.
+Devuelve SOLO el HTML del body (sin <html>, <head>).`;
+
+  const htmlBody = await askClaude(userPrompt, { system, maxTokens: 2500 });
+  if (!htmlBody) {
+    await send(chatId, '❌ Claude no pudo generar la propuesta. Intentá de nuevo en un momento.');
+    return;
+  }
+
+  // Gmail draft
+  let draftUrl = null;
+  if (email) {
+    const token = await getGmailToken();
+    if (token) {
+      const draft = await gmailDraft(token, {
+        to:       email,
+        subject:  `Propuesta Treevü · ${empresa}`,
+        bodyHtml: htmlBody,
+      });
+      if (draft?.id) {
+        draftUrl = `https://mail.google.com/mail/#drafts/${draft.id}`;
+      }
+    }
+  }
+
+  // Update Notion: estado → Propuesta
+  try {
+    await notionPatch(leadId, {
+      Estado: { select: { name: 'Propuesta' } },
+    });
+  } catch (err) {
+    console.warn('[ceo-bot/propuesta] no pudo actualizar estado Notion:', err.message);
+  }
+
+  const draftLine = draftUrl
+    ? `\n\n📧 [Abrir borrador Gmail](${draftUrl})`
+    : email
+      ? '\n\n⚠️ No se pudo crear el borrador Gmail (verificá el token).'
+      : '\n\n⚠️ Sin email registrado — propuesta no enviada por Gmail.';
+
+  await send(chatId,
+    `✅ *Propuesta generada para ${empresa}*\n` +
+    `• Sector: ${sector || '—'} · Colabs: ${colabs || '—'}\n` +
+    `• Precio estimado: ${precioStr}\n` +
+    `• Estado Notion → Propuesta${draftLine}`,
+    { parse_mode: 'Markdown', disable_web_page_preview: true }
+  );
+
+  console.log(`[ceo-bot/propuesta] OK — ${empresa} (leadId: ${leadId})`);
+}
+
 // ── Llamar a post-meeting ──────────────────────────────────────────────────────
 async function callPostMeeting(lead_id, notas) {
   try {
@@ -90,6 +215,14 @@ async function completarPostMeeting(chatId, state) {
     state.fecha_siguiente ? `• Próx. paso: ${state.fecha_siguiente}` : null,
   ].filter(Boolean).join('\n');
   await send(chatId, `✅ *Post-reunión registrado*\n\n${resumen}\n\n_Notion actualizado · follow-up en proceso_`);
+
+  // Ofrecer propuesta automática para deals que avanzan
+  if (['diagnostico', 'nda', 'seguimiento'].includes(state.siguiente_paso) && (state.interes || 0) >= 3) {
+    await send(chatId,
+      `¿Querés que genere la *propuesta comercial* automáticamente para este lead?`,
+      { reply_markup: kbPropuesta(state.lead_id) }
+    );
+  }
 }
 
 // ── Handler principal ─────────────────────────────────────────────────────────
@@ -157,6 +290,21 @@ export default async function handler(req, res) {
         } else {
           await completarPostMeeting(chatId, { ...state, interes });
         }
+        return res.status(200).json({ ok: true });
+      }
+
+      // CEO solicitó generar propuesta
+      if (data.startsWith('pm_prop:')) {
+        const lead_id = data.slice(8);
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📄 Generando propuesta..._');
+        res.status(200).json({ ok: true }); // responder a Telegram antes de la llamada larga
+        await generateProposal(lead_id, chatId);
+        return;
+      }
+
+      // CEO omitió propuesta
+      if (data.startsWith('pm_skip:')) {
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_⏭ Propuesta omitida_');
         return res.status(200).json({ ok: true });
       }
 
