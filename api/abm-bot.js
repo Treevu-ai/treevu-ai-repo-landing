@@ -79,8 +79,8 @@ async function clearCeoState(chatId) {
   await redisCmd('DEL', `ceobot:${chatId}`);
 }
 
-const PM_SIG_MAP   = { d: 'diagnostico', n: 'nda', s: 'seguimiento', f: 'no_fit' };
-const PM_SIG_LABEL = { d: '🟢 Diagnóstico', n: '🔵 NDA', s: '🟡 Seguimiento', f: '❌ No fit' };
+const PM_SIG_MAP   = { d: 'diagnostico', n: 'nda', s: 'seguimiento', f: 'no_fit', c: 'cerrado' };
+const PM_SIG_LABEL = { d: '🟢 Diagnóstico', n: '🔵 NDA', s: '🟡 Seguimiento', f: '❌ No fit', c: '✅ Cerrado' };
 
 function kbSiguientePM(leadId) {
   return {
@@ -89,6 +89,7 @@ function kbSiguientePM(leadId) {
        { text: '🔵 NDA',         callback_data: `pm_sig:n:${leadId}` }],
       [{ text: '🟡 Seguimiento', callback_data: `pm_sig:s:${leadId}` },
        { text: '❌ No fit',      callback_data: `pm_sig:f:${leadId}` }],
+      [{ text: '✅ Cerrado',     callback_data: `pm_sig:c:${leadId}` }],
     ],
   };
 }
@@ -123,6 +124,38 @@ async function completarCeoPostMeeting(chatId, state) {
     state.fecha_siguiente ? `• Próx. paso: ${state.fecha_siguiente}` : null,
   ].filter(Boolean).join('\n');
   await sendMessage(TOKEN, chatId, `✅ *Post-reunión registrado*\n\n${resumen}\n\n_Notion actualizado · follow-up en proceso_`);
+}
+
+// ── CEO: cierre directo sin flujo post-meeting ────────────────────────────────
+async function triggerCierreABM(leadId, chatId) {
+  try {
+    const { getNotionPage } = await import('./lib/notion.js');
+    const lead     = await getNotionPage(leadId).catch(() => null);
+    const empresa  = lead ? (getProp(lead, 'Empresa') || leadId) : leadId;
+    const email    = lead ? (getProp(lead, 'Email')   || '')     : '';
+    const contacto = lead ? (getProp(lead, 'Nombre')  || getProp(lead, 'Contacto') || '') : '';
+
+    if (lead) {
+      await notionPatch(leadId, { Estado: { select: { name: 'Cerrado' } } });
+    }
+
+    if (email && process.env.CRON_SECRET) {
+      fetch('https://gettreevu.com/api/onboarding', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
+        body:    JSON.stringify({ leadId, empresa, email, contacto }),
+      }).catch(err => console.error('[abm-bot] onboarding trigger error:', err.message));
+    }
+
+    await sendMessage(TOKEN, chatId,
+      `🎉 *¡Deal cerrado — ${empresa}!*\n\n` +
+      `✅ Notion → Cerrado\n` +
+      (email ? `📧 Secuencia onboarding iniciada para ${email}` : `⚠️ Sin email — onboarding no disparado`)
+    );
+  } catch (err) {
+    console.error('[abm-bot] triggerCierreABM error:', err.message);
+    await sendMessage(TOKEN, chatId, '❌ Error al registrar cierre.');
+  }
 }
 
 // Wrapper para answerCallback y editMessage sin repetir token
@@ -1248,12 +1281,15 @@ async function handleObjecion(tipo) {
 const KB_MENU = {
   inline_keyboard: [
     [{ text: '📋 Acciones de hoy',    callback_data: 'menu:hoy' },
+     { text: '🧠 ¿Qué hago hoy?',    callback_data: 'menu:nextstep' }],
+    [{ text: '📅 Agenda 14 días',     callback_data: 'menu:agenda' },
      { text: '⚡ Alertas KPI',        callback_data: 'menu:alertas' }],
     [{ text: '📊 Estado pipeline',    callback_data: 'menu:estado' },
-     { text: '🧠 ¿Qué hago hoy?',    callback_data: 'menu:nextstep' }],
-    [{ text: '🔍 Buscar lead',        callback_data: 'menu:buscar' },
-     { text: '🤖 Lo que puedo hacer', callback_data: 'menu:autonomo' }],
-    [{ text: '📖 Todos los comandos', callback_data: 'menu:comandos' }],
+     { text: '🔍 Buscar lead',        callback_data: 'menu:buscar' }],
+    [{ text: '🗓 Registrar reunión',  callback_data: 'menu:reunion' },
+     { text: '📝 Resultado reunión',  callback_data: 'menu:resultado' }],
+    [{ text: '🤖 Lo que puedo hacer', callback_data: 'menu:autonomo' },
+     { text: '📖 Comandos',           callback_data: 'menu:comandos' }],
   ],
 };
 
@@ -1530,17 +1566,27 @@ export default async function handler(req, res) {
       await editMessage(TOKEN, cbChatId, cq.message.message_id, (cq.message.text || '') + '\n\n_✏️ Registrando resultado..._');
       await sendMessage(TOKEN, cbChatId, '*¿Cuál fue el resultado de la reunión?*', { reply_markup: kbSiguientePM(lead_id) });
     } else if (cq.data?.startsWith('pm_sig:')) {
-      // CEO: siguiente paso seleccionado → pedir dolor
+      // CEO: siguiente paso seleccionado
       const parts    = cq.data.split(':');
       const sigAbrev = parts[1];
       const lead_id  = parts.slice(2).join(':');
       const sig      = PM_SIG_MAP[sigAbrev] || 'seguimiento';
       const sigLabel = PM_SIG_LABEL[sigAbrev] || sig;
       const cbChatId = String(cq.message.chat.id);
-      await setCeoState(cbChatId, { step: 'awaiting_dolor', lead_id, siguiente_paso: sig });
-      await editMessage(TOKEN, cbChatId, cq.message.message_id,
-        `*Resultado: ${sigLabel}* ✓\n\n¿Cuál fue el *dolor principal* que mencionaron?\n_(Texto libre)_`
-      );
+
+      if (sigAbrev === 'c') {
+        // Cerrado directo — sin flujo de dolor/objeciones
+        await editMessage(TOKEN, cbChatId, cq.message.message_id,
+          `*Resultado: ${sigLabel}* ✓\n\n_Procesando cierre..._`
+        );
+        await triggerCierreABM(lead_id, cbChatId);
+      } else {
+        // Resto de casos → pedir dolor
+        await setCeoState(cbChatId, { step: 'awaiting_dolor', lead_id, siguiente_paso: sig });
+        await editMessage(TOKEN, cbChatId, cq.message.message_id,
+          `*Resultado: ${sigLabel}* ✓\n\n¿Cuál fue el *dolor principal* que mencionaron?\n_(Texto libre)_`
+        );
+      }
     } else if (cq.data?.startsWith('e:')) {
       await handleEstadoButton(cq);
     } else if (cq.data?.startsWith('r:')) {
@@ -1556,6 +1602,8 @@ export default async function handler(req, res) {
         else if (action === 'decision')   await handleDecision();
         else if (action === 'reporte')    await handleReporte();
         else if (action === 'agenda')     await handleAgenda();
+        else if (action === 'reunion')    await send('Usa `/reunion [empresa]` para registrar una reunión.\n_Ejemplo: `/reunion Alicorp`_');
+        else if (action === 'resultado')  await send('Usa `/resultado [empresa]` para registrar el resultado.\n_Ejemplo: `/resultado Alicorp`_');
         else if (action === 'cuenta')     await handleCuenta();
         else if (action === 'autonomo')   await handleAutonomo();
         else if (action === 'inicio')     await handleHelp();
@@ -1563,7 +1611,7 @@ export default async function handler(req, res) {
         else if (action === 'comandos')   await send(
           `*Todos los comandos:*\n\n` +
           `📊 \`/estado\` \`/alerta\` \`/reporte\` \`/nextstep\` \`/pipeline\`\n` +
-          `🎯 \`/hoy\` \`/manana\` \`/semana\` \`/agenda\`\n` +
+          `🎯 \`/hoy\` \`/manana\` \`/agenda\`\n` +
           `🔄 \`/iniciar [empresa]\` \`/mensaje [empresa]\` \`/resultado [empresa]\` \`/reunion [empresa]\`\n` +
           `🔍 \`/buscar\` \`/leads\` \`/leads alto\` \`/leads reunion\` \`/contactos\`\n` +
           `📌 \`/actualizar [empresa] [estado]\`\n` +
@@ -1617,7 +1665,7 @@ export default async function handler(req, res) {
     else if (text === '/reporte')                     await handleReporte();
     else if (text === '/nextstep')                    await handleNextStep();
     else if (text === '/cronograma')                  await handleCronograma();
-    else if (text === '/semana')                      await handleSemana();
+    else if (text === '/semana')                      await handleAgenda(); // alias
     else if (text === '/bloqueantes')                 await handleBloqueantes();
     else if (text === '/decision')                    await handleDecision();
     else if (text.startsWith('/leads'))               await handleLeads(text.replace('/leads', '').trim().toLowerCase());
