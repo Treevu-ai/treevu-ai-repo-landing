@@ -358,7 +358,7 @@ body {
 
 /* --- HERO --- */
 .hero {
-  padding: 96px 0 80px;
+  padding: 64px 0 64px;
   background: #FFFFFF;
   position: relative; overflow: hidden;
 }
@@ -375,7 +375,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 480px;
   gap: 64px;
-  align-items: center;
+  align-items: start;
 }
 .hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
@@ -539,8 +539,9 @@ body {
 .metric-amber { color: #D97706; }
 
 @media (max-width: 900px) {
-  .hero-inner { grid-template-columns: 1fr; gap: 40px; }
-  .hero-stats { grid-template-columns: repeat(2, 1fr); order: -1; }
+  .hero-inner { grid-template-columns: 1fr; gap: 36px; }
+  .hero-right { order: -1; }
+  .hero-stats { grid-template-columns: repeat(2, 1fr); }
   .hero-stat { padding: 24px 20px; }
   .hero-stat-num { font-size: 2.25rem; }
 }
@@ -652,8 +653,9 @@ body {
 .metric-amber { color: #D97706; }
 
 @media (max-width: 900px) {
-  .hero-inner { grid-template-columns: 1fr; gap: 40px; }
-  .hero-stats { grid-template-columns: repeat(2, 1fr); order: -1; }
+  .hero-inner { grid-template-columns: 1fr; gap: 36px; }
+  .hero-right { order: -1; }
+  .hero-stats { grid-template-columns: repeat(2, 1fr); }
   .hero-stat { padding: 24px 20px; }
   .hero-stat-num { font-size: 2.25rem; }
 }
@@ -669,7 +671,6 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  align-self: center;
 }
 .hero-stat {
   background: var(--white);
@@ -2712,14 +2713,18 @@ hr { border-color: var(--border-default) !important; }
 
 /* ── COUNTDOWN HERO ── */
 .hero-countdown {
-  display: flex; gap: 10px; margin: 18px 0 4px; align-items: center; flex-wrap: wrap;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: 14px 16px; margin-top: 12px;
 }
-.hcd-label { font-size: .75rem; color: var(--neutral-500); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
-.hcd-block { background: var(--neutral-900); color: #fff; border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 54px; }
-.hcd-num { font-size: 1.5rem; font-weight: 800; font-family: var(--font-head); line-height: 1; }
-.hcd-unit { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6; margin-top: 2px; }
-.hcd-sep { font-size: 1.4rem; font-weight: 700; color: var(--brand); line-height: 1; padding-bottom: 10px; }
+.hcd-label { font-size: .72rem; color: var(--neutral-500); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; flex: 1; min-width: 100%; margin-bottom: 6px; }
+.hcd-block { background: var(--neutral-900); color: #fff; border-radius: 6px; padding: 6px 10px; text-align: center; min-width: 48px; }
+.hcd-num { font-size: 1.25rem; font-weight: 800; font-family: var(--font-head); line-height: 1; }
+.hcd-unit { font-size: .58rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6; margin-top: 2px; }
+.hcd-sep { font-size: 1.1rem; font-weight: 700; color: var(--brand); line-height: 1; }
+.hero-right { display: flex; flex-direction: column; }
 [data-theme="dark"] .hcd-block { background: #1e293b; }
+[data-theme="dark"] .hero-countdown { background: #0f172a; border-color: #1e293b; }
 
 /* ── CUPOS PROGRESS HERO ── */
 .hero-slots {
@@ -2820,20 +2825,10 @@ hr { border-color: var(--border-default) !important; }
           <div class="hero-badge-dot"></div>
           <span id="hero-badge-text">EWA no custodio · B2B2E · Motor predictivo ML</span>
         </div>
-        <div class="hero-countdown">
-          <span class="hcd-label">Cierra en</span>
-          <div class="hcd-block"><div class="hcd-num" id="hcd-d">--</div><div class="hcd-unit">días</div></div>
-          <span class="hcd-sep">:</span>
-          <div class="hcd-block"><div class="hcd-num" id="hcd-h">--</div><div class="hcd-unit">hrs</div></div>
-          <span class="hcd-sep">:</span>
-          <div class="hcd-block"><div class="hcd-num" id="hcd-m">--</div><div class="hcd-unit">min</div></div>
-          <span class="hcd-sep">:</span>
-          <div class="hcd-block"><div class="hcd-num" id="hcd-s">--</div><div class="hcd-unit">seg</div></div>
-        </div>
         <h1 class="hero-title">
           Retén al talento<br/><span class="accent">que no puedes perder.</span>
         </h1>
-        <p class="hero-title-sub">Infraestructura de bienestar financiero con inteligencia predictiva de rotación. Para empresas de 50 a 5,000 colaboradores en Perú.</p>
+        <p class="hero-title-sub">EWA + inteligencia predictiva de rotación para empresas de 50 a 5,000 colaboradores en Perú.</p>
         <ul class="hero-bullets">
           <li><span class="hero-bullet-check">✓</span> El colaborador accede a lo que ya ganó — sin deuda, sin intereses</li>
           <li><span class="hero-bullet-check">✓</span> Tu empresa controla los fondos — Treevü no custodia nada</li>
@@ -2877,24 +2872,36 @@ hr { border-color: var(--border-default) !important; }
         </div>
       </div><!-- /hero-content -->
 
-      <div class="hero-stats fade-up">
-        <div class="hero-stat">
-          <div class="hero-stat-num"><span class="accent">−40%</span></div>
-          <div class="hero-stat-label">Reducción de rotación con EWA activo</div>
+      <div class="hero-right">
+        <div class="hero-stats fade-up">
+          <div class="hero-stat">
+            <div class="hero-stat-num"><span class="accent">−40%</span></div>
+            <div class="hero-stat-label">Reducción de rotación con EWA activo</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-num">S/ 8K<span class="accent">+</span></div>
+            <div class="hero-stat-label">Costo promedio de reemplazar un colaborador</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-num"><span class="accent">30</span> días</div>
+            <div class="hero-stat-label">Anticipación en la predicción de rotación</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-num"><span class="accent">5</span> ML</div>
+            <div class="hero-stat-label">Modelos predictivos: rotación, demanda, riesgo financiero y más</div>
+          </div>
+        </div><!-- /hero-stats -->
+        <div class="hero-countdown">
+          <span class="hcd-label">Programa Pioneros 2026 — cierra en</span>
+          <div class="hcd-block"><div class="hcd-num" id="hcd-d">--</div><div class="hcd-unit">días</div></div>
+          <span class="hcd-sep">:</span>
+          <div class="hcd-block"><div class="hcd-num" id="hcd-h">--</div><div class="hcd-unit">hrs</div></div>
+          <span class="hcd-sep">:</span>
+          <div class="hcd-block"><div class="hcd-num" id="hcd-m">--</div><div class="hcd-unit">min</div></div>
+          <span class="hcd-sep">:</span>
+          <div class="hcd-block"><div class="hcd-num" id="hcd-s">--</div><div class="hcd-unit">seg</div></div>
         </div>
-        <div class="hero-stat">
-          <div class="hero-stat-num">S/ 8K<span class="accent">+</span></div>
-          <div class="hero-stat-label">Costo promedio de reemplazar un colaborador</div>
-        </div>
-        <div class="hero-stat">
-          <div class="hero-stat-num"><span class="accent">30</span> días</div>
-          <div class="hero-stat-label">Anticipación en la predicción de rotación</div>
-        </div>
-        <div class="hero-stat">
-          <div class="hero-stat-num"><span class="accent">5</span> ML</div>
-          <div class="hero-stat-label">Modelos predictivos: rotación, demanda, riesgo financiero y más</div>
-        </div>
-      </div><!-- /hero-stats -->
+      </div><!-- /hero-right -->
 
     </div><!-- /hero-inner -->
   </div>
