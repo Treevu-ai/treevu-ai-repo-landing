@@ -225,6 +225,7 @@ body {
   color: var(--white);
 }
 .categoria-inner { text-align: center; }
+.categoria-inner .categoria-blocks { text-align: left; }
 .categoria-label {
   display: inline-block;
   font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em;
@@ -243,29 +244,116 @@ body {
   line-height: 1.7;
 }
 .categoria-blocks {
-  display: flex; align-items: center; justify-content: center;
-  gap: var(--space-6); flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 0;
+  align-items: stretch;
   margin-bottom: var(--space-8);
 }
 .categoria-block {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  width: 200px; text-align: center;
+  border-radius: var(--radius-xl);
+  padding: 40px 36px;
+  text-align: left;
+  transition: background var(--transition-base), border-color var(--transition-base);
+  position: relative;
 }
-.categoria-block-icon { font-size: 2rem; margin-bottom: var(--space-3); }
-.categoria-block-title { font-weight: 700; color: var(--white); margin-bottom: var(--space-2); }
-.categoria-block-text { font-size: 0.875rem; color: #94A3B8; line-height: 1.5; }
-.categoria-arrow { font-size: 1.5rem; color: var(--brand-light); font-weight: 300; }
+.categoria-block:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.2);
+}
+.categoria-block--center {
+  background: rgba(37,99,235,0.15);
+  border-color: rgba(59,130,246,0.35);
+}
+.categoria-block--center:hover {
+  background: rgba(37,99,235,0.22);
+  border-color: rgba(59,130,246,0.55);
+}
+.categoria-block-icon {
+  font-size: 2.25rem;
+  margin-bottom: 20px;
+  display: block;
+}
+.categoria-block-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.02em;
+}
+.categoria-block-text {
+  font-size: 0.9375rem;
+  color: #94A3B8;
+  line-height: 1.65;
+  margin-bottom: 20px;
+}
+.categoria-block-bullets {
+  list-style: none;
+  padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.categoria-block-bullets li {
+  font-size: 0.8125rem;
+  color: #94A3B8;
+  padding-left: 18px;
+  position: relative;
+  line-height: 1.5;
+}
+.categoria-block-bullets li::before {
+  content: '→';
+  position: absolute; left: 0;
+  color: var(--brand-light);
+  font-size: 0.75rem;
+}
+.categoria-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  position: relative;
+}
+.categoria-connector::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(59,130,246,0.4), rgba(255,255,255,0.06));
+}
+.categoria-connector-icon {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(37,99,235,0.2);
+  border: 1px solid rgba(59,130,246,0.4);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--brand-light);
+  font-size: 1rem;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
 .categoria-footer {
   font-size: 0.875rem; color: #64748B;
   border-top: 1px solid rgba(255,255,255,0.08);
   padding-top: var(--space-6);
+  text-align: center;
 }
-@media (max-width: 768px) {
-  .categoria-blocks { flex-direction: column; }
-  .categoria-arrow { transform: rotate(90deg); }
+@media (max-width: 900px) {
+  .categoria-blocks {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  .categoria-connector {
+    padding: 8px 0;
+    justify-content: center;
+  }
+  .categoria-connector::before {
+    top: 0; bottom: 0; left: 50%; right: auto;
+    width: 1px; height: 100%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(59,130,246,0.4), rgba(255,255,255,0.06));
+  }
+  .categoria-connector-icon { transform: rotate(90deg); }
 }
 
 /* --- HERO --- */
@@ -285,8 +373,8 @@ body {
 }
 .hero-inner {
   display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 72px;
+  grid-template-columns: 1fr 480px;
+  gap: 64px;
   align-items: center;
 }
 .hero-badge {
@@ -453,14 +541,14 @@ body {
 @media (max-width: 900px) {
   .hero-inner { grid-template-columns: 1fr; gap: 40px; }
   .hero-stats { grid-template-columns: repeat(2, 1fr); order: -1; }
-  .hero-stat { padding: 20px 16px; }
-  .hero-stat-num { font-size: 2rem; }
+  .hero-stat { padding: 24px 20px; }
+  .hero-stat-num { font-size: 2.25rem; }
 }
 @media (max-width: 480px) {
   .hero-title { font-size: clamp(2.25rem, 9vw, 3rem); }
   .hero-stats { gap: 10px; }
-  .hero-stat { padding: 14px 12px; }
-  .hero-stat-num { font-size: 1.75rem; }
+  .hero-stat { padding: 18px 14px; }
+  .hero-stat-num { font-size: 1.875rem; }
 }
 
 
@@ -566,49 +654,61 @@ body {
 @media (max-width: 900px) {
   .hero-inner { grid-template-columns: 1fr; gap: 40px; }
   .hero-stats { grid-template-columns: repeat(2, 1fr); order: -1; }
-  .hero-stat { padding: 20px 16px; }
-  .hero-stat-num { font-size: 2rem; }
+  .hero-stat { padding: 24px 20px; }
+  .hero-stat-num { font-size: 2.25rem; }
 }
 @media (max-width: 480px) {
   .hero-title { font-size: clamp(2.25rem, 9vw, 3rem); }
   .hero-stats { gap: 10px; }
-  .hero-stat { padding: 14px 12px; }
-  .hero-stat-num { font-size: 1.75rem; }
+  .hero-stat { padding: 18px 14px; }
+  .hero-stat-num { font-size: 1.875rem; }
 }
 
 /* ── HERO STATS (right column, 2×2 grid) ── */
 .hero-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 14px;
   align-self: center;
 }
 .hero-stat {
   background: var(--white);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  padding: 28px 24px;
+  padding: 36px 28px 32px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--transition-base), border-color var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+.hero-stat::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-light));
+  opacity: 0;
+  transition: opacity var(--transition-base);
 }
 .hero-stat:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--border-brand);
 }
+.hero-stat:hover::after { opacity: 1; }
 .hero-stat-num {
   font-family: var(--font-head);
-  font-size: 2.5rem;
+  font-size: 3.25rem;
   font-weight: 900;
   color: var(--text-strong);
   line-height: 1;
-  letter-spacing: -0.045em;
-  margin-bottom: 8px;
+  letter-spacing: -0.05em;
+  margin-bottom: 10px;
 }
 .hero-stat-num .accent { color: var(--brand); }
 .hero-stat-label {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   color: var(--text-dim);
-  line-height: 1.45;
+  line-height: 1.5;
   font-weight: 500;
 }
 
@@ -2859,21 +2959,43 @@ hr { border-color: var(--border-default) !important; }
       <p class="categoria-body">Treevü combina EWA no custodio B2B2E con un motor de machine learning que analiza el comportamiento financiero de tu equipo. Tu empresa anticipa la rotación, planifica la liquidez y cuida al talento — sin asumir deuda ni custodia de fondos.</p>
       <div class="categoria-blocks">
         <div class="categoria-block">
-          <div class="categoria-block-icon">🏢</div>
+          <span class="categoria-block-icon">🏢</span>
           <div class="categoria-block-title">Tu empresa</div>
-          <div class="categoria-block-text">Define políticas, controla fondos, recibe dashboards e inteligencia predictiva.</div>
+          <p class="categoria-block-text">Define las reglas, aprueba los límites y mantiene el control total — sin exposición financiera ni carga operativa.</p>
+          <ul class="categoria-block-bullets">
+            <li>Políticas de adelanto por cargo y antigüedad</li>
+            <li>Dashboard en tiempo real + alertas predictivas</li>
+            <li>Cero deuda, cero custodia de fondos</li>
+            <li>Reporte de impacto para directorio</li>
+          </ul>
         </div>
-        <div class="categoria-arrow">→</div>
-        <div class="categoria-block">
-          <div class="categoria-block-icon">⚡</div>
+        <div class="categoria-connector">
+          <div class="categoria-connector-icon">→</div>
+        </div>
+        <div class="categoria-block categoria-block--center">
+          <span class="categoria-block-icon">⚡</span>
           <div class="categoria-block-title">Treevü orquesta</div>
-          <div class="categoria-block-text">Valida saldo devengado, procesa la transferencia y genera predicciones de rotación. Sin tocar los fondos.</div>
+          <p class="categoria-block-text">Valida el saldo devengado, procesa la transferencia instantánea y alimenta el motor predictivo de rotación. Sin intermediar fondos.</p>
+          <ul class="categoria-block-bullets">
+            <li>Validación automática de saldo ganado vs. límite</li>
+            <li>Transferencia en &lt;60 seg vía Yape, Plin o CCE</li>
+            <li>Motor ML: score de riesgo de fuga por colaborador</li>
+            <li>Alertas 30 días antes de que el talento decida irse</li>
+          </ul>
         </div>
-        <div class="categoria-arrow">→</div>
+        <div class="categoria-connector">
+          <div class="categoria-connector-icon">→</div>
+        </div>
         <div class="categoria-block">
-          <div class="categoria-block-icon">👤</div>
+          <span class="categoria-block-icon">👤</span>
           <div class="categoria-block-title">Tus colaboradores</div>
-          <div class="categoria-block-text">Acceden a lo que ya ganaron vía Yape, Plin o CCE — el día que lo necesitan.</div>
+          <p class="categoria-block-text">Acceden a lo que ya ganaron — el día que lo necesitan. Sin trámites, sin intereses, sin deuda.</p>
+          <ul class="categoria-block-bullets">
+            <li>Solicitud en segundos desde el celular</li>
+            <li>Cobro vía Yape, Plin o cuenta bancaria</li>
+            <li>Sin préstamos ni costos ocultos</li>
+            <li>Descuento automático en siguiente planilla</li>
+          </ul>
         </div>
       </div>
       <p class="categoria-footer">Modelo 100% no custodio — Treevü nunca toca los fondos · La empresa transfiere directamente</p>
