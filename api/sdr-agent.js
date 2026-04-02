@@ -304,16 +304,10 @@ export default async function handler(req, res) {
       const firstName = (name || 'equipo').split(/[\s,]+/)[0];
       const mensaje = `Hola ${firstName}, vi tu perfil y me interesó lo que hacen en ${company || 'la empresa'}. En Treevü ayudamos a reducir rotación con acceso anticipado al salario — cero costo para la empresa. ¿Tiene sentido conversar 15 minutos?`;
 
-      // Guardar en Notion
-      try {
-        await saveToNotion({ name, role, email, company, industry: orgIndustry, employees, linkedinUrl }, mensaje);
-        added.push({ name, company, role, email: email ? '✓' : '—', linkedin: linkedinUrl ? '✓' : '—' });
-        if (companyKey) addedCompanies.add(companyKey);
-        console.log(`[sdr-agent] ✓ ${company} — ${name}`);
-      } catch (err) {
-        errors.push({ company, error: err.message });
-        console.error(`[sdr-agent] Notion error ${company}:`, err.message);
-      }
+      // Guardar en Notion (TEST: skip save para diagnosticar cuelgue)
+      added.push({ name, company, role, email: email ? '✓' : '—', linkedin: linkedinUrl ? '✓' : '—' });
+      if (companyKey) addedCompanies.add(companyKey);
+      console.log(`[sdr-agent] ✓ ${company} — ${name}`);
 
       // (sin pausa — Notion maneja rate limit con reintentos)
     }
