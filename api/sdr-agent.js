@@ -60,7 +60,6 @@ const ROLES_TARGET = [
 
 async function searchApollo({ keywords, location, industry, size }) {
   const body = {
-    api_key:              APOLLO_KEY,
     q_keywords:           keywords || 'gerente recursos humanos',
     person_locations:     [location || 'Lima, Peru'],
     contact_email_status: ['verified', 'guessed', 'unavailable', 'bounced', 'pending_manual_fulfillment'],
@@ -78,8 +77,12 @@ async function searchApollo({ keywords, location, industry, size }) {
 
   const res = await fetch('https://api.apollo.io/v1/mixed_people/search', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
-    body:    JSON.stringify(body),
+    headers: {
+      'Content-Type':  'application/json',
+      'Cache-Control': 'no-cache',
+      'X-Api-Key':     APOLLO_KEY,
+    },
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
