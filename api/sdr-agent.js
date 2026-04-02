@@ -246,8 +246,6 @@ async function saveToNotion(lead, mensaje) {
 // ── Handler principal ─────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
-  // PING test — confirmar que el endpoint responde sin ejecutar nada
-  res.setHeader('X-SDR-Version', '898cc37');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const auth = req.headers.authorization || '';
@@ -268,15 +266,13 @@ export default async function handler(req, res) {
   const errors    = [];
   const debug_log = [];
 
-  // DIAG: early return test
-  if (req.query?.diag === '1') {
-    return res.status(200).json({ diag: 'ok', ts: Date.now() });
-  }
-
   try {
     // 1. Buscar en LinkedIn vía Tavily
     debug_log.push(`TAVILY_KEY: ${TAVILY_KEY ? TAVILY_KEY.slice(0,12)+'...' : 'MISSING'}`);
-    const people = await searchLinkedIn({ keywords, location, industry, size });
+    const [people, existingCompanies] = await Promise.all([
+      searchLinkedIn({ keywords, location, industry, size }),
+      fetchExistingCompanies(),
+    ]);
     debug_log.push(`profiles_found: ${people.length}`);
     people.slice(0,3).forEach(p => debug_log.push(`  ${p.name} | ${p.company || '(no company)'}`));
 
@@ -300,22 +296,26 @@ export default async function handler(req, res) {
       // Saltar si no tiene empresa o nombre
       if (!name && !company) { skipped.push({ reason: 'sin datos', name, company }); continue; }
 
-      // Deduplicar dentro del run actual
+      // Deduplicar contra CRM existente y run actual
       const companyKey = company.toLowerCase().trim();
+      if (isCompanyDup(company, existingCompanies)) {
+        skipped.push({ company, name, reason: 'ya en CRM' }); continue;
+      }
       if (companyKey && addedCompanies.has(companyKey)) {
         skipped.push({ company, name, reason: 'duplicado en run' }); continue;
       }
 
-      // Generar mensaje (template rápido — personalizar con Claude manualmente si se necesita)
+      // Generar mensaje de primer contacto
       const firstName = (name || 'equipo').split(/[\s,]+/)[0];
       const mensaje = `Hola ${firstName}, vi tu perfil y me interesó lo que hacen en ${company || 'la empresa'}. En Treevü ayudamos a reducir rotación con acceso anticipado al salario — cero costo para la empresa. ¿Tiene sentido conversar 15 minutos?`;
 
-      // Guardar en Notion (TEST: skip save para diagnosticar cuelgue)
+      // Guardar en Notion CRM
+      await saveToNotion({ name, role, email, company, industry: orgIndustry, employees, linkedinUrl }, mensaje)
+        .catch(err => errors.push({ company, error: err.message }));
+
       added.push({ name, company, role, email: email ? '✓' : '—', linkedin: linkedinUrl ? '✓' : '—' });
       if (companyKey) addedCompanies.add(companyKey);
       console.log(`[sdr-agent] ✓ ${company} — ${name}`);
-
-      // (sin pausa — Notion maneja rate limit con reintentos)
     }
 
   } catch (err) {
@@ -357,13 +357,3 @@ export default async function handler(req, res) {
 // Vercel: extender timeout a 60s para permitir Tavily + Claude + Notion
 export const config = { maxDuration: 60 };
 
-// Convierte número de empleados a rango Apollo
-function rangeEmployees(n) {
-  if (n <= 50)   return '1,50';
-  if (n <= 200)  return '51,200';
-  if (n <= 500)  return '201,500';
-  if (n <= 1000) return '501,1000';
-  if (n <= 5000) return '1001,5000';
-  return '5001,10000';
-}
-// Wed Apr  1 23:28:30 HPS 2026

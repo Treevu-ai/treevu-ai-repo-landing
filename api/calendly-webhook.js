@@ -13,6 +13,9 @@ import { sendMessage }               from './lib/telegram.js';
 import { captureException }          from './lib/sentry.js';
 import { redisCmd }                  from './lib/redis.js';
 
+// Necesario para acceder al raw body y verificar la firma HMAC correctamente
+export const config = { api: { bodyParser: false } };
+
 async function storeReunionRedis(lead, startTime) {
   if (!startTime) return;
   const ts = Math.floor(new Date(startTime).getTime() / 1000);
@@ -128,8 +131,29 @@ async function createLeadFromCalendly(invitee, eventData) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // ── Leer raw body (necesario para verificar firma HMAC) ───────────────────
+  let rawBody = '';
+  try {
+    rawBody = await new Promise((resolve, reject) => {
+      let data = '';
+      req.on('data', chunk => { data += chunk; });
+      req.on('end', () => resolve(data));
+      req.on('error', reject);
+    });
+  } catch (err) {
+    return res.status(400).json({ error: 'Error reading request body' });
+  }
+
+  let parsedBody;
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+
   // ── Verificar firma HMAC de Calendly ──────────────────────────────────────
-  if (CALENDLY_WEBHOOK_SECRET) {
+  const webhookSecret = CALENDLY_WEBHOOK_SECRET?.trim();
+  if (webhookSecret) {
     const sigHeader = req.headers['calendly-webhook-signature'];
     if (!sigHeader) {
       console.warn('[calendly] Firma faltante — request rechazado');
@@ -139,8 +163,8 @@ export default async function handler(req, res) {
       const parts     = Object.fromEntries(sigHeader.split(',').map(p => p.split('=')));
       const timestamp = parts['t'];
       const v1        = parts['v1'];
-      const payload   = `${timestamp}.${JSON.stringify(req.body)}`;
-      const expected  = createHmac('sha256', CALENDLY_WEBHOOK_SECRET).update(payload).digest('hex');
+      const payload   = `${timestamp}.${rawBody}`;
+      const expected  = createHmac('sha256', webhookSecret).update(payload).digest('hex');
       if (v1 !== expected) {
         console.warn('[calendly] Firma inválida');
         return res.status(401).json({ error: 'Invalid signature' });
@@ -151,7 +175,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const { event, payload } = req.body || {};
+  const { event, payload } = parsedBody || {};
 
   // ── invitee.cancelled: revertir CRM + limpiar Redis ──────────────────────
   if (event === 'invitee.cancelled') {

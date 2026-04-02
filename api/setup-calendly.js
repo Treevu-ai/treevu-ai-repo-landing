@@ -89,23 +89,39 @@ export default async function handler(req, res) {
     console.log(`[setup-calendly] User URI: ${userUri}`);
     console.log(`[setup-calendly] Org URI:  ${orgUri}`);
 
-    // Paso 2: listar webhooks existentes
-    const existingRes = await fetch(
+    // Paso 2: listar webhooks existentes — buscar con ambos filtros
+    const queries = [
       `https://api.calendly.com/webhook_subscriptions?organization=${encodeURIComponent(orgUri)}&scope=user`,
-      { headers: { 'Authorization': `Bearer ${CALENDLY_TOKEN}` } }
-    );
-    const existingData = await existingRes.json();
-    const existing = existingData.collection?.find(w => w.callback_url === WEBHOOK_URL);
+      `https://api.calendly.com/webhook_subscriptions?user=${encodeURIComponent(userUri)}&scope=user`,
+    ];
+    let existing = null;
+    for (const query of queries) {
+      const existingRes = await fetch(query, { headers: { 'Authorization': `Bearer ${CALENDLY_TOKEN}` } });
+      if (!existingRes.ok) continue;
+      const existingData = await existingRes.json();
+      console.log(`[setup-calendly] Webhooks encontrados (${query.split('?')[1]}):`, JSON.stringify(existingData.collection?.map(w => ({ uri: w.uri, url: w.callback_url, state: w.state }))));
+      existing = existingData.collection?.find(w => w.callback_url === WEBHOOK_URL);
+      if (existing) break;
+    }
 
     // Si ya existe, borrarlo para poder re-registrar con signing_key
     if (existing) {
       const webhookUri = existing.uri;
       const webhookId = webhookUri.split('/').pop();
-      await fetch(`https://api.calendly.com/webhook_subscriptions/${webhookId}`, {
+      const delRes = await fetch(`https://api.calendly.com/webhook_subscriptions/${webhookId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${CALENDLY_TOKEN}` }
       });
+      if (!delRes.ok) {
+        const delErr = await delRes.text();
+        console.error(`[setup-calendly] Error eliminando webhook: ${delErr}`);
+        return res.status(400).json({ error: `No se pudo eliminar webhook existente: ${delErr}` });
+      }
       console.log(`[setup-calendly] Webhook anterior eliminado: ${webhookId}`);
+      // Esperar propagación
+      await new Promise(r => setTimeout(r, 1000));
+    } else {
+      console.log('[setup-calendly] No se encontró webhook existente con esa URL en ninguna query.');
     }
 
     // Paso 3: registrar el webhook (con signing_key si está disponible)
