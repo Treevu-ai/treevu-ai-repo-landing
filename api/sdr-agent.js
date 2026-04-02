@@ -302,14 +302,9 @@ export default async function handler(req, res) {
         skipped.push({ company, name, reason: 'ya en CRM' }); continue;
       }
 
-      // Generar mensaje
-      let mensaje = '';
-      try {
-        mensaje = await generateOutreach({ name, role, company, industry: orgIndustry, employees });
-      } catch (err) {
-        console.warn(`[sdr-agent] Claude error para ${company}:`, err.message);
-        mensaje = `Hola ${name?.split(' ')[0] || 'equipo'}, ¿conversamos sobre bienestar financiero en ${company}?`;
-      }
+      // Generar mensaje (template rápido — personalizar con Claude manualmente si se necesita)
+      const firstName = (name || 'equipo').split(/[\s,]+/)[0];
+      const mensaje = `Hola ${firstName}, vi tu perfil y me interesó lo que hacen en ${company || 'la empresa'}. En Treevü ayudamos a reducir rotación con acceso anticipado al salario — cero costo para la empresa. ¿Tiene sentido conversar 15 minutos?`;
 
       // Guardar en Notion
       try {
