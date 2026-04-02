@@ -79,7 +79,6 @@ export async function sendAbmNotification(type, data) {
     ? { reply_markup: buildKeyboard(data.notionId) }
     : {};
 
-  const res = await sendMessage(token, chatId, lines.join('\n'), extra);
-  if (!res.ok) throw new Error(`[abm-notify] Telegram error: ${JSON.stringify(res)}`);
-  return res;
+  // Notificaciones en tiempo real movidas al daily-summary para un único mensaje diario
+  return;
 }

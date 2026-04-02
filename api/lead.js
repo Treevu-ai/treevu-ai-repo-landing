@@ -212,7 +212,7 @@ export default async function handler(req, res) {
 
     if (matchPage) {
       console.log(`[lead] Match outbound encontrado para: ${company}`);
-      notifyMatch(company, matchPage, name, email).catch(() => {});
+      // notifyMatch movida al daily-summary — sin alerta en tiempo real
     }
     return res.status(200).json({ success: true, notionId: page.id });
   } catch (err) {

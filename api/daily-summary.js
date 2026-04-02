@@ -61,6 +61,25 @@ async function getAccionesHoy() {
   } catch { return []; }
 }
 
+// ── Cadencias vencidas (D7 sin reunión confirmada) ───────────────────────────
+async function getCadenciasVencidas() {
+  if (!NOTION.TOKEN) return [];
+  const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+  try {
+    const data = await notionQuery(NOTION_EJECUCION_DB, {
+      and: [
+        { property: 'Día 7 (WhatsApp)',   date:     { before: ayer } },
+        { property: 'Reunión Confirmada', checkbox: { equals: false } },
+        { property: 'Estado',             select:   { equals: 'En cadencia' } },
+      ],
+    }, 10);
+    return (data.results || []).map(l => ({
+      empresa: l.properties?.['Empresa']?.title?.[0]?.plain_text || 'Sin empresa',
+      decisor: l.properties?.['Decisor']?.rich_text?.[0]?.plain_text || '',
+    }));
+  } catch { return []; }
+}
+
 // ── MRR potencial estimado ────────────────────────────────────────────────────
 function calcMrrEstimado(leads) {
   let mrr = 0;
@@ -84,8 +103,12 @@ async function getPipelineStats() {
   const all   = await queryNotion(null);
   const leads = all.results || [];
 
-  const hoy    = new Date().toISOString().split('T')[0];
-  const hace7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const hoy     = new Date().toISOString().split('T')[0];
+  const ayer    = new Date(Date.now() -  1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const hace2d  = new Date(Date.now() -  2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const hace7d  = new Date(Date.now() -  7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const hace45d = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const isMonday = new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Lima' }) === 'Monday';
 
   const stats = {
     total: leads.length,
@@ -94,10 +117,13 @@ async function getPipelineStats() {
     cuposUsados: 0,
     leadsHoy: [],
     leadsSemana: 0,
-    altoPendientes: [],   // { nombre, empresa, estado, dias }
-    enCierre: [],         // { nombre, empresa, estado }
+    altoPendientes: [],
+    enCierre: [],
     mrrPotencial: 0,
     mrrActual: 0,
+    newLeads24h:        [],   // leads creados desde ayer
+    followupPendiente:  [],   // ALTO/MEDIO + Nuevo/Contactado + >48h
+    reactivacionFrios:  [],   // ALTO/MEDIO + inactivo 45d+ (solo lunes)
   };
 
   for (const lead of leads) {
@@ -133,6 +159,22 @@ async function getPipelineStats() {
     // Cupos
     if (estado === 'Cerrado') stats.cuposUsados++;
 
+    const email = lead.properties?.['Email']?.email || '';
+
+    // Nuevos (últimas 24h)
+    if (creado >= ayer) stats.newLeads24h.push({ nombre, empresa, score, email });
+
+    // Follow-up pendiente (ALTO/MEDIO, sin avanzar, >48h)
+    if (['ALTO','MEDIO'].includes(score) && ['Nuevo','Contactado'].includes(estado) && creado <= hace2d) {
+      stats.followupPendiente.push({ nombre, empresa, score, email });
+    }
+
+    // Reactivación fríos (solo lunes, 45d+ inactivos)
+    if (isMonday && ['ALTO','MEDIO'].includes(score) && ['Nuevo','Contactado','Descartado'].includes(estado) && creado <= hace45d) {
+      const dias = Math.floor((Date.now() - new Date(lead.created_time).getTime()) / (1000 * 60 * 60 * 24));
+      stats.reactivacionFrios.push({ nombre, empresa, score, email, dias });
+    }
+
     lead._score        = score;
     lead._estado       = estado;
     lead._colaboradores = getProp(lead, 'Colaboradores') || '';
@@ -148,7 +190,7 @@ async function getPipelineStats() {
 }
 
 // ── Mensaje Telegram ──────────────────────────────────────────────────────────
-async function sendTelegramSummary(stats, reuniones, accionesHoy = [], health = {}) {
+async function sendTelegramSummary(stats, accionesHoy = [], cadenciasVencidas = [], health = {}) {
   const hoy = new Date().toLocaleDateString('es-PE', {
     weekday: 'long', day: 'numeric', month: 'long',
     timeZone: 'America/Lima'
@@ -164,17 +206,6 @@ async function sendTelegramSummary(stats, reuniones, accionesHoy = [], health = 
 
   // ── Encabezado ──
   let msg = `☀️ *Buenos días — ${hoy}*\n${div}\n\n`;
-
-  // ── Reuniones de hoy ──
-  msg += `📅 *Reuniones hoy*\n`;
-  if (reuniones.length) {
-    for (const r of reuniones) {
-      msg += `· ${r.hora} — ${r.invitado || r.tipo}\n`;
-    }
-  } else {
-    msg += `_Sin reuniones agendadas_\n`;
-  }
-  msg += '\n';
 
   // ── ABM: acciones de hoy ──
   msg += `${div}\n`;
@@ -207,15 +238,35 @@ async function sendTelegramSummary(stats, reuniones, accionesHoy = [], health = 
   msg += `\n${div}\n`;
   msg += `🎯 *Fundadores Q2*   ${stats.cuposUsados} ocupados · *${cuposRestantes} disponibles*\n`;
 
-  // ── Nuevos hoy ──
+  // ── Nuevos leads (24h) ──
   msg += `\n${div}\n`;
-  if (stats.leadsHoy.length) {
-    msg += `✨ *Nuevos hoy (${stats.leadsHoy.length})*\n`;
-    for (const l of stats.leadsHoy) {
-      msg += `${SCORE_EMOJI[l.score] || '·'} ${l.nombre} · ${l.empresa}\n`;
+  if (stats.newLeads24h.length) {
+    msg += `✨ *Nuevos leads (${stats.newLeads24h.length})*\n`;
+    for (const l of stats.newLeads24h) {
+      msg += `${SCORE_EMOJI[l.score] || '·'} ${l.nombre}${l.empresa ? ` · ${l.empresa}` : ''}\n`;
     }
   } else {
-    msg += `_Sin leads nuevos hoy_\n`;
+    msg += `_Sin leads nuevos en 24h_\n`;
+  }
+
+  // ── Follow-up pendiente ──
+  if (stats.followupPendiente.length) {
+    msg += `\n${div}\n`;
+    msg += `⏰ *Follow-up pendiente (${stats.followupPendiente.length})*\n`;
+    msg += `_ALTO/MEDIO sin contacto en +48h_\n`;
+    for (const l of stats.followupPendiente) {
+      msg += `${SCORE_EMOJI[l.score]} ${l.nombre}${l.empresa ? ` · ${l.empresa}` : ''}${l.email ? `\n   📧 ${l.email}` : ''}\n`;
+    }
+  }
+
+  // ── Cadencias vencidas ──
+  if (cadenciasVencidas.length) {
+    msg += `\n${div}\n`;
+    msg += `⚠️ *Cadencias vencidas (${cadenciasVencidas.length})*\n`;
+    msg += `_D7 superado sin reunión confirmada_\n`;
+    for (const c of cadenciasVencidas) {
+      msg += `🏢 ${c.empresa}${c.decisor ? ` · ${c.decisor}` : ''}\n`;
+    }
   }
 
   // ── En cierre ──
@@ -235,6 +286,16 @@ async function sendTelegramSummary(stats, reuniones, accionesHoy = [], health = 
       const diasStr = l.dias === 0 ? 'hoy' : l.dias === 1 ? '1 día' : `${l.dias} días`;
       const urgencia = l.dias >= 3 ? '🔴' : '🟠';
       msg += `${urgencia} ${l.nombre} · ${l.empresa} · _sin contacto: ${diasStr}_\n`;
+    }
+  }
+
+  // ── Reactivación semanal (solo lunes) ──
+  if (stats.reactivacionFrios.length) {
+    msg += `\n${div}\n`;
+    msg += `♻️ *Reactivación semanal (${stats.reactivacionFrios.length})*\n`;
+    msg += `_Leads ALTO/MEDIO inactivos +45 días_\n`;
+    for (const l of stats.reactivacionFrios) {
+      msg += `${SCORE_EMOJI[l.score]} ${l.nombre}${l.empresa ? ` · ${l.empresa}` : ''} · _${l.dias}d inactivo_\n`;
     }
   }
 
@@ -278,15 +339,16 @@ export default async function handler(req, res) {
 
   try {
     console.log('[daily-summary] Generando resumen...');
-    const [stats, accionesHoy, gmailOk] = await Promise.all([
+    const [stats, accionesHoy, cadenciasVencidas, gmailOk] = await Promise.all([
       getPipelineStats(),
       getAccionesHoy(),
+      getCadenciasVencidas(),
       checkGmail(),
     ]);
     const health = { gmail: gmailOk };
     if (!gmailOk) console.warn('[daily-summary] ⚠️ Gmail token inválido o ausente');
-    await sendTelegramSummary(stats, [], accionesHoy, health);
-    console.log(`[daily-summary] Enviado OK — ${stats.total} leads, ${accionesHoy.length} acciones ABM hoy`);
+    await sendTelegramSummary(stats, accionesHoy, cadenciasVencidas, health);
+    console.log(`[daily-summary] Enviado OK — ${stats.total} leads, ${accionesHoy.length} acciones ABM, ${stats.newLeads24h.length} nuevos, ${stats.followupPendiente.length} followup pendiente`);
     return res.status(200).json({ success: true, total: stats.total });
   } catch (err) {
     console.error('[daily-summary] Error:', err.message);

@@ -108,42 +108,8 @@ export default async function handler(req, res) {
     const header = `♻️ *Reactivación semanal — ${leads.length} lead(s) fríos*\n` +
       `_${semana}_\n\nLeads ALTO/MEDIO sin actividad en +${DIAS_INACTIVIDAD} días. Sugerencias abajo 👇`;
 
-    const targets = [TELEGRAM_CEO_ID, TELEGRAM_ABM_ID].filter(Boolean);
-    await Promise.all(targets.map(id => sendMessage(TELEGRAM_BOT_TOKEN, id, header)));
-
-    for (const lead of leads) {
-      const nombre  = getProp(lead, 'Nombre y Cargo') || 'Sin nombre';
-      const empresa = getProp(lead, 'Empresa')        || '';
-      const score   = getProp(lead, 'Score')          || 'MEDIO';
-      const estado  = getProp(lead, 'Estado')         || 'Nuevo';
-      const email   = getProp(lead, 'Email')          || '';
-      const dias    = Math.floor(
-        (Date.now() - new Date(lead.last_edited_time).getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      const mensaje = await generateReactivationMessage(lead);
-
-      let card = `${SCORE_EMOJI[score] || '·'} *${nombre}*\n`;
-      if (empresa) card += `🏢 ${empresa}\n`;
-      if (email)   card += `📧 ${email}\n`;
-      card += `📌 ${estado} · _inactivo ${dias} días_\n\n`;
-      card += mensaje
-        ? `💬 *Sugerencia:*\n\`\`\`\n${mensaje}\n\`\`\``
-        : `_Sin sugerencia generada — revisa manualmente_`;
-
-      const keyboard = {
-        inline_keyboard: [[
-          { text: '📨 Marcar contactado', callback_data: `reac:c:${lead.id}` },
-          { text: '❌ Descartar',         callback_data: `reac:d:${lead.id}` },
-        ]],
-      };
-
-      await Promise.all(
-        targets.map(id => sendMessage(TELEGRAM_BOT_TOKEN, id, card, { reply_markup: keyboard }))
-      );
-    }
-
-    console.log(`[reactivation] OK — ${leads.length} sugerencias enviadas`);
+    // Notificaciones Telegram movidas al daily-summary (8am) — un único mensaje diario
+    console.log(`[reactivation] OK — ${leads.length} leads fríos (notificación vía daily-summary)`);
     return res.status(200).json({ success: true, reactivados: leads.length });
 
   } catch (err) {

@@ -496,16 +496,7 @@ export default async function handler(req, res) {
       ).catch(() => {});
     }
 
-    const [leads, vencidos, reunionesHoy] = await Promise.all([
-      getLeadsPendingFollowup(),
-      getCadenciasVencidas(),
-      getBriefReunionesHoy(),
-    ]);
-    await Promise.all([
-      sendFollowupAlert(leads),
-      sendCadenciaVencidaAlert(vencidos),
-      sendBriefReuniones(reunionesHoy),
-    ]);
+    // Alertas de pipeline movidas al daily-summary (8am) para un único mensaje diario
 
     // runReactivation() removido — lo maneja exclusivamente /api/reactivation (cron lunes)
     const [postMeetingSeqs, nurturingEnviados, propuestasVencidas, proposalCadencia] = await Promise.all([
