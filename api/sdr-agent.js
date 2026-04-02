@@ -226,7 +226,7 @@ export default async function handler(req, res) {
     console.log(`[sdr-agent] Tavily/LinkedIn devolvió ${people.length} perfiles`);
 
     if (!people.length) {
-      return res.status(200).json({ message: 'No se encontraron prospectos en Apollo', added: 0, skipped: 0 });
+      return res.status(200).json({ message: 'No se encontraron prospectos. Verificá TAVILY_API_KEY en Vercel.', added: 0, skipped: 0 });
     }
 
     // 2. Procesar cada prospecto
