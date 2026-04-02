@@ -25,7 +25,7 @@
     { "src": "api/pandadoc-webhook.js", "use": "@vercel/node" },
     { "src": "api/onboarding.js",         "use": "@vercel/node" },
     { "src": "api/content-reminder.js",  "use": "@vercel/node" },
-    { "src": "api/sdr-agent.js",         "use": "@vercel/node" }
+    { "src": "api/sdr-agent.js",         "use": "@vercel/node", "config": { "maxDuration": 60 } }
   ],
   "routes": [
     { "src": "/api/submit",           "dest": "/api/submit.js" },
@@ -62,7 +62,4 @@
     { "path": "/api/onboarding",        "schedule": "0 15 * * *"  },
     { "path": "/api/content-reminder", "schedule": "0 12 * * 1-5" }
   ],
-  "functions": {
-    "api/sdr-agent.js": { "maxDuration": 60 }
-  }
 }
