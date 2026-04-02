@@ -14,6 +14,7 @@ import { sendMessage }               from './lib/telegram.js';
 import { redisCmd }                  from './lib/redis.js';
 import { captureException }          from './lib/sentry.js';
 import { PROGRAMA }                  from './lib/constants.js';
+import { askClaude }                 from './lib/anthropic.js';
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -145,6 +146,80 @@ const SEQUENCES = [
   },
 ];
 
+// ── Personalizar email D+1 con Claude ────────────────────────────────────────
+async function personalizeD1(d) {
+  const prompt = `Personaliza este email de bienvenida de Treevü para ${d.empresa} (${d.sector || 'empresa peruana'}, ~${d.colabs || '?'} colaboradores).
+
+Mantén la estructura base pero:
+- Primer párrafo: menciona el sector específico y un beneficio concreto para ellos
+- Lista de "¿qué necesitamos?": adapta el lenguaje al tamaño/sector
+- Tono: cálido y ejecutivo, no genérico
+
+Devuelve SOLO el HTML del body (sin <html><head>). Máximo 400 palabras.`;
+
+  const base = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
+  <div style="background:#0f4c81;padding:28px 32px;border-radius:8px 8px 0 0">
+    <h2 style="color:#fff;margin:0;font-size:20px">Bienvenidos a Treevü · Próximos pasos — ${d.empresa}</h2>
+  </div>
+  <div style="padding:28px 32px;border:1px solid #e5e7eb;border-radius:0 0 8px 8px">
+    <p>Hola${d.contacto ? ` ${d.contacto.split(' ')[0]}` : ''},</p>
+    <p>Estamos emocionados de comenzar con ${d.empresa}. Aquí el plan para los primeros días:</p>
+    <ul>
+      <li><strong>Hoy:</strong> Nuestro equipo técnico te escribirá para agendar integración con nómina</li>
+      <li><strong>D+2:</strong> Integración lista (máx. 2 horas)</li>
+      <li><strong>D+3:</strong> Capacitación al equipo de RRHH</li>
+      <li><strong>D+5:</strong> Lanzamiento a colaboradores</li>
+    </ul>
+    <p><strong>¿Qué necesitamos de tu lado?</strong></p>
+    <ul>
+      <li>Contacto del responsable de Nómina</li>
+      <li>Sistema de nómina (Softnet, SAP, T-Registro, etc.)</li>
+      <li>Número de colaboradores a activar en fase 1</li>
+    </ul>
+    <p>Responde este email y arrancamos hoy.</p>
+    <p>Saludos,<br><strong>Equipo Treevü</strong> · <a href="mailto:hello@gettreevu.com">hello@gettreevu.com</a></p>
+  </div>
+</div>`.trim();
+
+  try {
+    const result = await askClaude(prompt, { maxTokens: 800 });
+    return result || base;
+  } catch {
+    return base;
+  }
+}
+
+// ── Detectar fricción y alertar al CEO ───────────────────────────────────────
+async function checkFriction(leadId, d, nowTs) {
+  const d1SentKey  = `ob_d1:${leadId}`;
+  const fricKey    = `ob_fric:${leadId}`;
+  const d1Sent     = await redisCmd('GET', d1SentKey);
+  const fricAlerted = await redisCmd('GET', fricKey);
+
+  if (!d1Sent || fricAlerted) return;
+
+  const startedAt   = d.startedAt || 0;
+  const horasDesdD1 = (nowTs - startedAt) / 3600;
+
+  // Si pasaron 48h desde el inicio y D+1 fue enviado → posible fricción
+  if (horasDesdD1 >= 48) {
+    await redisCmd('SET', fricKey, '1', 'EX', 86400 * 7);
+    const msg = `⚠️ *Fricción en onboarding — ${d.empresa}*\n` +
+      `_Sin respuesta al email D+1 (${Math.round(horasDesdD1)}h)_\n\n` +
+      `📧 ${d.email}\n` +
+      `¿Hacemos seguimiento directo?`;
+    await sendMessage(BOT_TOKEN, CEO_CHAT_ID, msg, {
+      reply_markup: {
+        inline_keyboard: [[
+          { text: '📞 Llamar ahora',    callback_data: `ob_fric:call:${leadId}` },
+          { text: '✅ Ya lo contacté',  callback_data: `ob_fric:ok:${leadId}`   },
+        ]],
+      },
+    });
+  }
+}
+
 // ── Iniciar onboarding para un lead ──────────────────────────────────────────
 async function startOnboarding({ leadId, empresa, email, contacto, sector, colabs }) {
   if (!email) {
@@ -190,7 +265,10 @@ async function processSequences() {
       try { d = JSON.parse(raw); } catch { continue; }
       if (!d.email) continue;
 
-      const sent = await gmailSend(token, seq.build(d));
+      const emailData = seq.key === 'ob_d1'
+        ? { ...seq.build(d), bodyHtml: await personalizeD1(d) }
+        : seq.build(d);
+      const sent = await gmailSend(token, emailData);
       if (sent) {
         await redisCmd('SET', `${seq.key}:${leadId}`, '1', 'EX', 2592000);
         total++;
@@ -199,6 +277,18 @@ async function processSequences() {
       }
     }
   }
+  // Detección de fricción: revisar onboardings activos en D+2 a D+5
+  const activeIds = await redisCmd('ZRANGEBYSCORE', 'onboardings',
+    nowTs - 5 * 24 * 3600, nowTs - 2 * 24 * 3600);
+  for (const leadId of (activeIds || [])) {
+    const raw = await redisCmd('GET', `onboarding:${leadId}`);
+    if (!raw) continue;
+    try {
+      const d = JSON.parse(raw);
+      await checkFriction(leadId, d, nowTs);
+    } catch { /* continuar */ }
+  }
+
   return total;
 }
 

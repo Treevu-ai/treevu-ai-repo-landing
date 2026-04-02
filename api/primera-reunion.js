@@ -148,7 +148,30 @@ function getSectorIntel(sector, employees) {
   return { ...data, renuncias, ahorroEstimado, employees };
 }
 
-async function generarBriefing(lead) {
+async function researchCompany(empresa, sector) {
+  const TAVILY_KEY = process.env.TAVILY_API_KEY;
+  if (!TAVILY_KEY || !empresa) return null;
+  try {
+    const res = await fetch('https://api.tavily.com/search', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        api_key:        TAVILY_KEY,
+        query:          `${empresa} Peru empresa empleados ${sector || ''}`,
+        search_depth:   'basic',
+        max_results:    3,
+        include_answer: true,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const answer = data.answer || '';
+    const snippets = (data.results || []).map(r => r.content?.slice(0, 200)).filter(Boolean).join(' | ');
+    return (answer + ' ' + snippets).slice(0, 600) || null;
+  } catch { return null; }
+}
+
+async function generarBriefing(lead, researchContext) {
   const intel = getSectorIntel(lead.sector, lead.colaboradores);
 
   const system = `Eres el asistente estratégico del CEO de Treevü, plataforma EWA B2B para empresas peruanas.
@@ -195,7 +218,7 @@ Genera un briefing operativo. Responde SOLO con JSON válido:
 - Reto propio: ${lead.reto || 'No especificado'}
 - Score CRM: ${lead.score || 'N/A'}${lead.probabilidad ? ` (${lead.probabilidad}% fit)` : ''}
 - Notas previas: ${lead.notas || 'Sin notas'}
-- Decisor probable: ${intel.perfil_decisor}`;
+- Decisor probable: ${intel.perfil_decisor}${researchContext ? `\n\nInvestigación web de la empresa (usa esto para personalizar):\n${researchContext}` : ''}`;
 
   try {
     const raw = await askClaude(user, { system, maxTokens: 700 });
@@ -555,8 +578,12 @@ export default async function handler(req, res) {
     // ── PRE-MEETING ────────────────────────────────────────────────────────────
     if (action === 'pre-meeting') {
       // Critical path: generate briefing → send Telegram (must finish within 10s)
-      const briefing = await generarBriefing(lead);
-      await enviarBriefingTelegram(lead, briefing, fecha_reunion);
+      const [researchCtx, briefing] = await Promise.all([
+        researchCompany(lead.empresa, lead.sector),
+        Promise.resolve(null), // placeholder para paralelismo
+      ]);
+      const briefingFinal = await generarBriefing(lead, researchCtx);
+      await enviarBriefingTelegram(lead, briefingFinal, fecha_reunion);
 
       // Non-critical: Gmail agenda draft (fire-and-forget — avoids Vercel timeout)
       getGmailToken()

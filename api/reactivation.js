@@ -11,7 +11,8 @@ import { askClaude }            from './lib/anthropic.js';
 import { detectGender }         from './lib/validators.js';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_ABM_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
+const TELEGRAM_ABM_ID    = process.env.TELEGRAM_ABM_CHAT_ID;
+const TELEGRAM_CEO_ID    = process.env.TELEGRAM_CHAT_ID;
 const CRON_SECRET        = process.env.CRON_SECRET;
 
 const DIAS_INACTIVIDAD = 45;
@@ -35,11 +36,11 @@ async function getLeadsFrios() {
           { property: 'Estado', select: { equals: 'Contactado' } },
         ],
       },
-      { timestamp: 'created_time', created_time: { before: hace45d } },
+      { timestamp: 'last_edited_time', last_edited_time: { before: hace45d } },
     ],
   };
 
-  const sorts = [{ timestamp: 'created_time', direction: 'ascending' }];
+  const sorts = [{ timestamp: 'last_edited_time', direction: 'ascending' }];
   const data  = await notionQuery(NOTION.CRM_DB, filter, MAX_LEADS, sorts);
   return data.results || [];
 }
@@ -104,11 +105,11 @@ export default async function handler(req, res) {
     const semana = new Date().toLocaleDateString('es-PE', {
       weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Lima',
     });
-    await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
-      `♻️ *Reactivación semanal — ${leads.length} lead(s) fríos*\n` +
-      `_${semana}_\n\n` +
-      `Leads ALTO/MEDIO sin actividad en +${DIAS_INACTIVIDAD} días. Sugerencias abajo 👇`
-    );
+    const header = `♻️ *Reactivación semanal — ${leads.length} lead(s) fríos*\n` +
+      `_${semana}_\n\nLeads ALTO/MEDIO sin actividad en +${DIAS_INACTIVIDAD} días. Sugerencias abajo 👇`;
+
+    const targets = [TELEGRAM_CEO_ID, TELEGRAM_ABM_ID].filter(Boolean);
+    await Promise.all(targets.map(id => sendMessage(TELEGRAM_BOT_TOKEN, id, header)));
 
     for (const lead of leads) {
       const nombre  = getProp(lead, 'Nombre y Cargo') || 'Sin nombre';
@@ -117,7 +118,7 @@ export default async function handler(req, res) {
       const estado  = getProp(lead, 'Estado')         || 'Nuevo';
       const email   = getProp(lead, 'Email')          || '';
       const dias    = Math.floor(
-        (Date.now() - new Date(lead.created_time).getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - new Date(lead.last_edited_time).getTime()) / (1000 * 60 * 60 * 24)
       );
 
       const mensaje = await generateReactivationMessage(lead);
@@ -130,7 +131,16 @@ export default async function handler(req, res) {
         ? `💬 *Sugerencia:*\n\`\`\`\n${mensaje}\n\`\`\``
         : `_Sin sugerencia generada — revisa manualmente_`;
 
-      await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, card);
+      const keyboard = {
+        inline_keyboard: [[
+          { text: '📨 Marcar contactado', callback_data: `reac:c:${lead.id}` },
+          { text: '❌ Descartar',         callback_data: `reac:d:${lead.id}` },
+        ]],
+      };
+
+      await Promise.all(
+        targets.map(id => sendMessage(TELEGRAM_BOT_TOKEN, id, card, { reply_markup: keyboard }))
+      );
     }
 
     console.log(`[reactivation] OK — ${leads.length} sugerencias enviadas`);
