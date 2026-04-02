@@ -246,6 +246,8 @@ async function saveToNotion(lead, mensaje) {
 // ── Handler principal ─────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
+  // PING test — confirmar que el endpoint responde sin ejecutar nada
+  res.setHeader('X-SDR-Version', '898cc37');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const auth = req.headers.authorization || '';
