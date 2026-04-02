@@ -15,8 +15,17 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
   let lastErr;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     if (DELAYS[attempt]) await new Promise(r => setTimeout(r, DELAYS[attempt]));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000); // 8s per request
     let res;
-    try { res = await fetch(url, options); } catch (err) { lastErr = err; continue; }
+    try {
+      res = await fetch(url, { ...options, signal: controller.signal });
+    } catch (err) {
+      lastErr = err;
+      continue;
+    } finally {
+      clearTimeout(timer);
+    }
     if (res.ok) return res;
     if (res.status === 429 || res.status >= 500) {
       lastErr = new Error(`Notion ${res.status}: ${await res.text()}`);
