@@ -9,7 +9,8 @@
 
 import { sendMessage, answerCallback, editMessage } from './lib/telegram.js';
 import { redisCmd }                                 from './lib/redis.js';
-import { getNotionPage, getProp, notionPatch }       from './lib/notion.js';
+import { getNotionPage, getProp, notionPatch, notionQuery } from './lib/notion.js';
+import { NOTION, ESTADO_EMOJI }                             from './lib/constants.js';
 import { askClaude }                                 from './lib/anthropic.js';
 import { getGmailToken, gmailDraft }                 from './lib/gmail.js';
 
@@ -402,6 +403,164 @@ async function completarPostMeeting(chatId, state) {
   }
 }
 
+// ── Panel de control: comandos y Q&A ─────────────────────────────────────────
+
+async function handleHelp(chatId) {
+  await send(chatId,
+    `*Panel de Control Treevü* 🎛️\n\n` +
+    `*Comandos:*\n` +
+    `📊 /pipeline — resumen del CRM por etapa\n` +
+    `🔔 /followup — leads que necesitan atención hoy\n` +
+    `❓ /help — este menú\n\n` +
+    `*Modo Q&A:*\nEscribí cualquier pregunta sobre el pipeline y te respondo con contexto real del CRM.\n\n` +
+    `_Ej: "¿qué leads están calientes?" · "¿cuántos deals tengo en propuesta?" · "¿quién no respondió esta semana?"_`,
+    { parse_mode: 'Markdown' }
+  );
+}
+
+async function handlePipeline(chatId) {
+  await send(chatId, '_Consultando pipeline en Notion..._');
+
+  let pages = [];
+  try {
+    const res = await notionQuery(NOTION.CRM_DB, {
+      property: 'Estado',
+      select: { does_not_equal: 'Descartado' },
+    }, 100, [{ property: 'Estado', direction: 'ascending' }]);
+    pages = res.results || [];
+  } catch (err) {
+    await send(chatId, `❌ Error consultando Notion: ${err.message}`);
+    return;
+  }
+
+  // Agrupar por estado
+  const grupos = {};
+  for (const p of pages) {
+    const estado = getProp(p, 'Estado') || 'Sin estado';
+    if (!grupos[estado]) grupos[estado] = [];
+    grupos[estado].push(p);
+  }
+
+  const ordenEstados = ['Nuevo', 'Contactado', 'Reunion', 'Propuesta', 'Cerrado'];
+  const total = pages.length;
+
+  let msg = `*Pipeline Treevü* 📊\n_${total} lead${total !== 1 ? 's' : ''} activos_\n\n`;
+
+  for (const estado of ordenEstados) {
+    const items = grupos[estado] || [];
+    if (!items.length) continue;
+    const emoji = ESTADO_EMOJI[estado] || '•';
+    msg += `${emoji} *${estado}* (${items.length})\n`;
+    // Mostrar top 3 por estado
+    items.slice(0, 3).forEach(p => {
+      const empresa = getProp(p, 'Empresa') || getProp(p, 'Name') || '—';
+      const score   = getProp(p, 'Score')   || '';
+      const scoreEmoji = score === 'ALTO' ? '🔥' : score === 'MEDIO' ? '🟡' : '';
+      msg += `   ${scoreEmoji} ${empresa}\n`;
+    });
+    if (items.length > 3) msg += `   _...y ${items.length - 3} más_\n`;
+    msg += '\n';
+  }
+
+  // Otros estados
+  for (const [estado, items] of Object.entries(grupos)) {
+    if (!ordenEstados.includes(estado)) {
+      msg += `• *${estado}* (${items.length})\n`;
+    }
+  }
+
+  await send(chatId, msg, { parse_mode: 'Markdown' });
+}
+
+async function handleFollowup(chatId) {
+  await send(chatId, '_Buscando leads que necesitan atención..._');
+
+  let pages = [];
+  try {
+    const res = await notionQuery(NOTION.CRM_DB, {
+      and: [
+        { property: 'Estado', select: { does_not_equal: 'Cerrado' } },
+        { property: 'Estado', select: { does_not_equal: 'Descartado' } },
+      ],
+    }, 50, [{ property: 'last_edited_time', direction: 'ascending' }]);
+    pages = res.results || [];
+  } catch (err) {
+    await send(chatId, `❌ Error consultando Notion: ${err.message}`);
+    return;
+  }
+
+  if (!pages.length) {
+    await send(chatId, '✅ No hay leads pendientes de atención.');
+    return;
+  }
+
+  const hoy = new Date();
+  const hace7dias = new Date(hoy - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Leads sin actividad en +7 días
+  const pendientes = pages.filter(p => {
+    const editado = p.last_edited_time || '';
+    return editado < hace7dias;
+  });
+
+  if (!pendientes.length) {
+    await send(chatId, '✅ Todos los leads tienen actividad reciente (< 7 días).');
+    return;
+  }
+
+  let msg = `*Follow-up pendiente* 🔔\n_${pendientes.length} lead${pendientes.length !== 1 ? 's' : ''} sin actividad en +7 días_\n\n`;
+
+  pendientes.slice(0, 10).forEach(p => {
+    const empresa = getProp(p, 'Empresa') || getProp(p, 'Name') || '—';
+    const estado  = getProp(p, 'Estado')  || '—';
+    const score   = getProp(p, 'Score')   || '';
+    const scoreE  = score === 'ALTO' ? '🔥' : score === 'MEDIO' ? '🟡' : '🔵';
+    const dias    = Math.floor((hoy - new Date(p.last_edited_time)) / (1000 * 60 * 60 * 24));
+    msg += `${scoreE} *${empresa}* — ${estado} (${dias}d sin actividad)\n`;
+  });
+
+  if (pendientes.length > 10) msg += `\n_...y ${pendientes.length - 10} más_`;
+
+  await send(chatId, msg, { parse_mode: 'Markdown' });
+}
+
+async function handleQA(chatId, pregunta) {
+  await send(chatId, '_Consultando pipeline..._');
+
+  let contexto = '';
+  try {
+    const res = await notionQuery(NOTION.CRM_DB, {
+      property: 'Estado',
+      select: { does_not_equal: 'Descartado' },
+    }, 30, [{ property: 'last_edited_time', direction: 'descending' }]);
+    const pages = res.results || [];
+
+    contexto = pages.map(p => {
+      const empresa = getProp(p, 'Empresa') || getProp(p, 'Name') || '—';
+      const estado  = getProp(p, 'Estado')  || '—';
+      const score   = getProp(p, 'Score')   || '—';
+      const sector  = getProp(p, 'Sector')  || '—';
+      const colabs  = getProp(p, 'Colaboradores') || '—';
+      const notas   = getProp(p, 'Notas')   || '';
+      const dias    = Math.floor((Date.now() - new Date(p.last_edited_time)) / (1000 * 60 * 60 * 24));
+      return `- ${empresa} | ${estado} | Score: ${score} | Sector: ${sector} | Colabs: ${colabs} | Última actividad: hace ${dias}d${notas ? ` | Notas: ${notas.slice(0,80)}` : ''}`;
+    }).join('\n');
+  } catch (err) {
+    console.error('[ceo-bot/qa] Notion error:', err.message);
+    contexto = '(no se pudo obtener el pipeline)';
+  }
+
+  const respuesta = await askClaude(pregunta, {
+    system: `Eres el asesor de ventas del CEO de Treevü, startup EWA peruana B2B. El CEO te hace preguntas sobre su pipeline de ventas.
+Responde de forma directa, concisa y accionable. Usa bullet points cuando ayude. Máximo 5 líneas.
+Contexto del pipeline actual:
+${contexto}`,
+    maxTokens: 400,
+  });
+
+  await send(chatId, respuesta || '❌ No pude procesar tu pregunta. Intentá de nuevo.');
+}
+
 // ── Handler principal ─────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
@@ -511,9 +670,28 @@ export default async function handler(req, res) {
     if (chatId !== String(CEO_CHAT_ID)) return res.status(200).json({ ok: true });
 
     const text  = message.text.trim();
+
+    // ── Comandos (no requieren estado activo) ─────────────────────────────────
+    if (text === '/help' || text === '/start') {
+      await handleHelp(chatId);
+      return res.status(200).json({ ok: true });
+    }
+    if (text === '/pipeline' || text === '/resumen') {
+      await handlePipeline(chatId);
+      return res.status(200).json({ ok: true });
+    }
+    if (text === '/followup') {
+      await handleFollowup(chatId);
+      return res.status(200).json({ ok: true });
+    }
+
     const state = await getState(chatId);
 
-    if (!state) return res.status(200).json({ ok: true });
+    // ── Modo Q&A libre (sin estado activo) ────────────────────────────────────
+    if (!state) {
+      if (!text.startsWith('/')) await handleQA(chatId, text);
+      return res.status(200).json({ ok: true });
+    }
 
     if (state.step === 'awaiting_dolor') {
       await setState(chatId, { ...state, step: 'awaiting_objeciones', dolor_principal: text });
