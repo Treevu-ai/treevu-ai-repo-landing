@@ -152,22 +152,30 @@ function parseLinkedInResults(results) {
   return people;
 }
 
-// ── Deduplicación contra CRM ──────────────────────────────────────────────────
+// ── Deduplicación contra CRM (una sola query, dedup en memoria) ───────────────
 
-async function isAlreadyInCRM(email, company) {
-  if (email) {
-    try {
-      const r = await notionQuery(NOTION.CRM_DB,
-        { property: 'Email', email: { equals: email.toLowerCase().trim() } }, 1);
-      if (r.results?.length) return true;
-    } catch { /* continuar */ }
+async function fetchExistingCompanies() {
+  try {
+    // Trae los últimos 100 leads del CRM para dedup en memoria
+    const r = await notionQuery(NOTION.CRM_DB, null, 100, [
+      { timestamp: 'created_time', direction: 'descending' },
+    ]);
+    const companies = new Set();
+    for (const page of r.results || []) {
+      const emp = page.properties?.['Empresa']?.rich_text?.[0]?.plain_text?.toLowerCase().trim();
+      if (emp && emp.length > 3) companies.add(emp);
+    }
+    return companies;
+  } catch {
+    return new Set(); // Si falla, no deduplicar (mejor agregar duplicado que no agregar nada)
   }
-  if (company && company.length > 3 && company.toLowerCase() !== 'linkedin') {
-    try {
-      const r = await notionQuery(NOTION.CRM_DB,
-        { property: 'Empresa', rich_text: { contains: company.slice(0, 50) } }, 1);
-      if (r.results?.length) return true;
-    } catch { /* continuar */ }
+}
+
+function isCompanyDup(company, existingSet) {
+  if (!company || company.length <= 3) return false;
+  const cLow = company.toLowerCase().trim();
+  for (const existing of existingSet) {
+    if (existing.includes(cLow) || cLow.includes(existing)) return true;
   }
   return false;
 }
@@ -270,9 +278,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: 'No se encontraron prospectos.', added: 0, skipped: 0, debug: debug_log });
     }
 
-    // 2. Procesar cada prospecto (limitar candidatos para no agotar timeout)
-    const MAX_CANDIDATES = max_leads * 4; // revisar hasta 4× leads pedidos
-    for (const person of people.slice(0, MAX_CANDIDATES)) {
+    // 2. Dedup en memoria (1 sola query Notion)
+    const existingCompanies = await fetchExistingCompanies();
+    debug_log.push(`crm_companies_loaded: ${existingCompanies.size}`);
+
+    // 3. Procesar cada prospecto
+    for (const person of people) {
       if (added.length >= max_leads) break;
 
       const name        = person.name        || '';
@@ -286,9 +297,10 @@ export default async function handler(req, res) {
       // Saltar si no tiene empresa o nombre
       if (!name && !company) { skipped.push({ reason: 'sin datos', name, company }); continue; }
 
-      // Deduplicar
-      const exists = await isAlreadyInCRM(email, company);
-      if (exists) { skipped.push({ company, name, reason: 'ya en CRM' }); continue; }
+      // Deduplicar en memoria
+      if (isCompanyDup(company, existingCompanies)) {
+        skipped.push({ company, name, reason: 'ya en CRM' }); continue;
+      }
 
       // Generar mensaje
       let mensaje = '';
