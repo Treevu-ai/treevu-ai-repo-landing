@@ -86,23 +86,47 @@ function parseLinkedInResults(results) {
   for (const r of results) {
     if (!r.url?.includes('linkedin.com/in/')) continue;
 
-    // Título típico: "Juan Pérez - Gerente de RRHH - Empresa | LinkedIn"
-    const titleParts = (r.title || '').replace(' | LinkedIn', '').split(' - ');
-    const name       = titleParts[0]?.trim() || '';
-    const role       = titleParts[1]?.trim() || '';
-    const company    = titleParts[2]?.trim() || '';
+    // Limpiar el título: remover "| LinkedIn" y "- LinkedIn" del final
+    const cleanTitle = (r.title || '')
+      .replace(/\s*[|\-]\s*LinkedIn\s*$/i, '')
+      .trim();
+
+    // Formato: "Nombre - Cargo en Empresa" o "Nombre - Cargo - Empresa"
+    const atMatch = cleanTitle.match(/^(.+?)\s*-\s*(.+?)\s+(?:en|at)\s+(.+)$/i);
+    let name, role, company;
+
+    if (atMatch) {
+      name    = atMatch[1].trim();
+      role    = atMatch[2].trim();
+      company = atMatch[3].trim();
+    } else {
+      const parts = cleanTitle.split(/\s*-\s*/);
+      name    = parts[0]?.trim() || '';
+      role    = parts[1]?.trim() || '';
+      company = parts.length >= 3 ? parts.slice(2).join(' ').trim() : '';
+    }
 
     if (!name) continue;
 
-    // Extraer empresa del snippet si no está en el título
-    const snippetCompany = !company
-      ? (r.content || '').match(/(?:en|at)\s+([A-Z][^\n,\.]{3,40})/)?.[1] || ''
-      : company;
+    // Si company es inválida, extraer del snippet
+    const INVALID_COMPANIES = ['linkedin', ''];
+    if (!company || INVALID_COMPANIES.includes(company.toLowerCase())) {
+      // Buscar en snippet: "en NombreEmpresa" o "at NombreEmpresa"
+      const snippetMatch = (r.content || '').match(/\ben\s+([A-ZÁÉÍÓÚÑ][^\n,\.·|]{3,40})/i);
+      company = snippetMatch?.[1]?.trim() || '';
+    }
+
+    // Filtrar resultados de otros países si no son Perú
+    const isPeru = r.url.includes('pe.linkedin.com') ||
+                   (r.content || '').toLowerCase().includes('lima') ||
+                   (r.content || '').toLowerCase().includes('peru') ||
+                   (r.content || '').toLowerCase().includes('perú');
+    if (!isPeru) continue;
 
     people.push({
       name,
       role,
-      company:     snippetCompany || company,
+      company,
       email:       '',
       linkedinUrl: r.url,
       industry:    '',
@@ -123,7 +147,7 @@ async function isAlreadyInCRM(email, company) {
       if (r.results?.length) return true;
     } catch { /* continuar */ }
   }
-  if (company) {
+  if (company && company.length > 3 && company.toLowerCase() !== 'linkedin') {
     try {
       const r = await notionQuery(NOTION.CRM_DB,
         { property: 'Empresa', rich_text: { contains: company.slice(0, 50) } }, 1);
