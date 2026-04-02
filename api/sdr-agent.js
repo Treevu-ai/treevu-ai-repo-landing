@@ -25,7 +25,6 @@ import { NOTION, SECTOR_MAP }                          from './lib/constants.js'
 import { notionCreate, notionQuery, getProp }           from './lib/notion.js';
 import { sendMessage }                                  from './lib/telegram.js';
 import { askClaude }                                    from './lib/anthropic.js';
-import { captureException }                             from './lib/sentry.js';
 
 const TAVILY_KEY     = process.env.TAVILY_API_KEY;
 const CRON_SECRET    = process.env.CRON_SECRET;
@@ -318,7 +317,6 @@ export default async function handler(req, res) {
     }
 
   } catch (err) {
-    captureException(err, { tags: { handler: 'sdr-agent' } });
     console.error('[sdr-agent] error:', err.message);
     return res.status(500).json({ error: err.message });
   }
