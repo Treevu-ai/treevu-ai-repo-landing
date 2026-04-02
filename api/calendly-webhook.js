@@ -129,6 +129,9 @@ async function createLeadFromCalendly(invitee, eventData) {
 }
 
 export default async function handler(req, res) {
+  // Calendly desactivado — usando Google Calendar para agendar reuniones
+  return res.status(200).json({ ok: true, disabled: true });
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   // ── Leer raw body (necesario para verificar firma HMAC) ───────────────────

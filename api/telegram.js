@@ -266,7 +266,7 @@ async function handleText(chatId, text, firstName, session) {
           reply_markup: {
             inline_keyboard: [[{
               text: '📅 Agendar reunión ahora',
-              url:  PROGRAMA.CALENDLY,
+              url:  PROGRAMA.BOOKING,
             }]],
           },
         }
@@ -280,7 +280,7 @@ async function handleText(chatId, text, firstName, session) {
           reply_markup: {
             inline_keyboard: [[{
               text: '📅 Agendar 20 min',
-              url:  PROGRAMA.CALENDLY,
+              url:  PROGRAMA.BOOKING,
             }]],
           },
         }

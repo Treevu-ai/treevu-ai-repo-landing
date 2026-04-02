@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh auth:*)",
+      "Bash(git checkout:*)",
+      "Bash(git credential-manager:*)",
+      "Bash(git config:*)",
+      "Read(//c/Users/acuba/**)",
+      "Bash(git-credential-manager github:*)",
+      "Bash(vercel --version)",
+      "Bash(npx vercel:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel --prod --yes)",
+      "WebFetch(domain:gettreevu.com)",
+      "Bash(curl -s https://gettreevu.com)",
+      "Bash(node:*)",
+      "Bash(git -C \"C:/Users/acuba/treevu-ai-repo-landing\" log --oneline -5)",
+      "Bash(git -C \"C:/Users/acuba/treevu-ai-repo-landing\" status --short)",
+      "Bash(git -C \"C:/Users/acuba/treevu-ai-repo-landing\" log --all --oneline)",
+      "Bash(git:*)",
+      "Bash(npm test:*)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --index-filter 'git rm --cached --ignore-unmatch .env.test 2>/dev/null; exit 0' --prune-empty HEAD)",
+      "Bash(curl:*)",
+      "Bash(node -e \"JSON.parse\\(require\\(''fs''\\).readFileSync\\(''vercel.json'',''utf8''\\)\\)\")",
+      "Bash(find C:Usersacubatreevu-ai-repo-landingwhatsapp-service -maxdepth 2 -name *.js -type f)",
+      "Bash(grep -E \"\\\\.js$\")",
+      "Bash(grep -r \"NOTION\\\\|notion.*db\\\\|hardcoded\\\\|API_URL\" /c/Users/acuba/treevu-ai-repo-landing/api/lib/*.js)",
+      "Bash(grep -n \"console.error\\\\|console.warn\\\\|throw\\\\|TODO\\\\|FIXME\\\\|WIP\" /c/Users/acuba/treevu-ai-repo-landing/api/*.js)",
+      "Bash(grep -rn \"hardcoded\\\\|localhost\\\\|3001\\\\|test\\\\|DEBUG\\\\|console\\\\.log\\\\|REMOVED\\\\|DISABLED\" /c/Users/acuba/treevu-ai-repo-landing/api/*.js)",
+      "Bash(find /c/Users/acuba/treevu-ai-repo-landing/api -name \"*.js\" -type f ! -path \"*test*\" ! -path \"*node_modules*\" -exec wc -l {})",
+      "Bash(vercel env:*)",
+      "Bash(source .env.test)",
+      "Bash(xargs sed:*)",
+      "Bash(cd:*)"
+    ]
+  }
+}

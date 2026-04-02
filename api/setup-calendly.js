@@ -9,6 +9,9 @@ const CALENDLY_WEBHOOK_SECRET = process.env.CALENDLY_WEBHOOK_SECRET;
 const WEBHOOK_URL             = 'https://gettreevu.com/api/calendly-webhook';
 
 export default async function handler(req, res) {
+  // Calendly desactivado — usando Google Calendar para agendar reuniones
+  return res.status(410).json({ disabled: true, message: 'Calendly integration removed. Using Google Calendar.' });
+
   // Seguridad: solo con secret correcto
   const secret = req.query?.secret;
   if (!secret || secret !== CRON_SECRET) {

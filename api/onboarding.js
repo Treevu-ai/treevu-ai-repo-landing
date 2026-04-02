@@ -138,7 +138,7 @@ const SEQUENCES = [
       <li>¿Qué mejorarías de la experiencia?</li>
     </ol>
     <p>Tu feedback nos ayuda a mejorar el producto. ¿Tienes 10 minutos para una llamada esta semana?</p>
-    <p><a href="${PROGRAMA.CALENDLY}" style="background:#10b981;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;">📅 Agendar check-in de 10 min</a></p>
+    <p><a href="${PROGRAMA.BOOKING}" style="background:#10b981;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;">📅 Agendar check-in de 10 min</a></p>
     <p>Saludos,<br><strong>Equipo Treevü</strong></p>
   </div>
 </div>`.trim(),

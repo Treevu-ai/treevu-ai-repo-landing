@@ -101,7 +101,7 @@ Con una rotación promedio del ${pctRotacion}% en el sector ${SECTOR_MAP[sector]
 ✅ Cero riesgo financiero para ${empresa} — modelo no-custodio<br>
 ✅ Piloto desde S/ 7/colaborador activo/mes</p>
 <p>${razon ? `<em>${razon}</em><br><br>` : ''}¿Agendamos 30 minutos esta semana?<br>
-👉 <a href="https://calendly.com/hello-gettreevu/30min">Reserva tu espacio aquí</a></p>
+👉 <a href="https://calendar.app.google/Rxprk5tCDSDivwaA9">Reserva tu espacio aquí</a></p>
 <p>Quedo ${atento},<br><strong>Equipo Treevü</strong><br>
 <a href="https://gettreevu.com">gettreevu.com</a> · hello@gettreevu.com</p>`.trim();
 

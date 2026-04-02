@@ -28,7 +28,7 @@ const NOTION_CRM_DB       = NOTION.CRM_DB;
 const NOTION_EJECUCION_DB = NOTION.EJECUCION_DB;
 const CUPOS_TOTAL         = PROGRAMA.CUPOS_TOTAL;
 const FECHA_CIERRE        = PROGRAMA.FECHA_CIERRE;
-const CALENDLY            = PROGRAMA.CALENDLY;
+const CALENDLY            = PROGRAMA.BOOKING;
 
 const ESTADO_CODES    = { C: 'Contactado', R: 'Reunion', P: 'Propuesta', X: 'Descartado' };
 const RESULTADO_CODES = { L: 'Propuesta', F: 'En cadencia', N: 'Descartado' };

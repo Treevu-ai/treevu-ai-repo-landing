@@ -12,7 +12,7 @@ export const NOTION = {
 export const PROGRAMA = {
   CUPOS_TOTAL:  10,   // slots totales del programa Fundadores
   FECHA_CIERRE: '2026-04-30',
-  CALENDLY:     'https://calendly.com/ricardocubaalvan/treev-20min',
+  BOOKING:      'https://calendar.app.google/Rxprk5tCDSDivwaA9',
 };
 
 // ── Lookup maps ───────────────────────────────────────────────────────────────

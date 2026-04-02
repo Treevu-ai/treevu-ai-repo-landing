@@ -274,7 +274,7 @@ async function runNurturingMedio() {
   Setup en 2 semanas, sin cambiar sistemas de nómina.
 </blockquote>
 <p>¿Esto es relevante para <strong>${d.company || 'tu empresa'}</strong>? Con gusto hacemos el cálculo específico para tu caso.</p>
-<p><a href="${PROGRAMA.CALENDLY}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;">📅 Ver cómo aplica a mi empresa</a></p>
+<p><a href="${PROGRAMA.BOOKING}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;">📅 Ver cómo aplica a mi empresa</a></p>
 <p>Saludos,<br><strong>Equipo Treevü</strong><br>
 <a href="https://gettreevu.com">gettreevu.com</a></p>`.trim(),
       }),
@@ -290,7 +290,7 @@ async function runNurturingMedio() {
 (en ${diasCierre} días). Los fundadores acceden a condiciones preferenciales de por vida.</p>
 <p>Si <strong>${d.company || 'tu empresa'}</strong> está evaluando opciones de bienestar financiero para
 ${d.employees || 'tus colaboradores'}, este es el momento de agendar una conversación sin compromiso.</p>
-<p><a href="${PROGRAMA.CALENDLY}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;">📅 Reservar uno de los últimos cupos</a></p>
+<p><a href="${PROGRAMA.BOOKING}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;">📅 Reservar uno de los últimos cupos</a></p>
 <p style="color:#888;font-size:12px;">Si ya no tienes interés, puedes ignorar este mensaje — no te escribiremos más.</p>
 <p>Saludos,<br><strong>Equipo Treevü</strong><br>
 <a href="https://gettreevu.com">gettreevu.com</a></p>`.trim(),

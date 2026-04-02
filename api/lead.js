@@ -44,7 +44,7 @@ function buildNurturingD0(name, email, company, sector, employees, objetivo) {
 sin costo para el colaborador, sin riesgo financiero para la empresa,
 setup en 2 semanas.</p>
 <p>¿Tienes 15 minutos esta semana para conversarlo?</p>
-<p><a href="${PROGRAMA.CALENDLY}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold;">📅 Agendar 15 minutos</a></p>
+<p><a href="${PROGRAMA.BOOKING}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold;">📅 Agendar 15 minutos</a></p>
 <p style="color:#888;font-size:12px;">Quedan ${diasCierre} días para el cierre del Programa Fundadores
 (condiciones preferenciales de por vida). Si ya coordinaste con nuestro equipo, ignora este mensaje.</p>
 <p>Saludos,<br><strong>Equipo Treevü</strong><br>
@@ -196,7 +196,7 @@ export default async function handler(req, res) {
     // WhatsApp inmediato para leads ALTO con teléfono
     if (scoreVal === 'ALTO' && phone) {
       const firstName = (name || 'equipo').split(/[\s,\-]+/)[0];
-      const waMsg = `Hola ${firstName} 👋\n\nSoy Ricardo de *Treevü*. Vi que tu empresa encaja con nuestro Programa Fundadores.\n\n¿Tienes 20 min esta semana para ver cómo reducimos rotación en *${company || 'tu empresa'}*? Quedan pocos cupos.\n\n📅 ${PROGRAMA.CALENDLY}`;
+      const waMsg = `Hola ${firstName} 👋\n\nSoy Ricardo de *Treevü*. Vi que tu empresa encaja con nuestro Programa Fundadores.\n\n¿Tienes 20 min esta semana para ver cómo reducimos rotación en *${company || 'tu empresa'}*? Quedan pocos cupos.\n\n📅 ${PROGRAMA.BOOKING}`;
       sendWhatsApp(phone, waMsg)
         .catch(err => console.error('[lead] WhatsApp ALTO:', err.message));
     }

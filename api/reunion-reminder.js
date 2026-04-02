@@ -41,7 +41,7 @@ async function checkReuniones24h(nowTs) {
     });
     const firstName = (data.nombre || '').split(/[\s,\-]+/)[0] || 'equipo';
 
-    const msg = `Hola ${firstName} 👋\n\nTe recordamos nuestra reunión *mañana ${fechaStr}*.\n\nSi necesitas reagendar, puedes hacerlo aquí: ${PROGRAMA.CALENDLY}\n\n_Equipo Treevü_`;
+    const msg = `Hola ${firstName} 👋\n\nTe recordamos nuestra reunión *mañana ${fechaStr}*.\n\nSi necesitas reagendar, puedes hacerlo aquí: ${PROGRAMA.BOOKING}\n\n_Equipo Treevü_`;
 
     const ok = await sendWhatsApp(data.phone, msg).catch(() => false);
     if (ok) {

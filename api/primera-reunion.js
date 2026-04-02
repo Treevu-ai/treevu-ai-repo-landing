@@ -481,7 +481,7 @@ ${notas.dolor_principal ? `<h3>5. Notas de la reunión</h3><p style="background:
 
 <hr style="border:1px solid #eee;margin:20px 0">
 <p>¿Alguna pregunta? Responde este correo o agendemos una llamada rápida:</p>
-<p><a href="${PROGRAMA.CALENDLY}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold">📅 Confirmar avance</a></p>
+<p><a href="${PROGRAMA.BOOKING}" style="background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold">📅 Confirmar avance</a></p>
 <p style="color:#888;font-size:12px">Treevü opera bajo supervisión SBS (sandbox regulatorio EWA). Modelo no-custodio — cero riesgo financiero para el empleador.</p>
 <p>Saludos,<br><strong>Ricardo Cuba · CEO Treevü</strong><br>
 <a href="https://gettreevu.com">gettreevu.com</a> · hello@gettreevu.com</p>
