@@ -25,9 +25,13 @@ export async function askClaude(userPrompt, { system, maxTokens = 250, messages 
     messages:   msgs,
   };
 
+  const controller = new AbortController();
+  const timeout    = setTimeout(() => controller.abort(), 20000); // 20s max
+
   try {
     const res = await fetch(API_URL, {
       method:  'POST',
+      signal:  controller.signal,
       headers: {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${apiKey}`,
@@ -45,5 +49,7 @@ export async function askClaude(userPrompt, { system, maxTokens = 250, messages 
   } catch (err) {
     console.error('[openclaw] fetch error:', err.message);
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
