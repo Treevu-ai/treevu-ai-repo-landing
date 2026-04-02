@@ -522,21 +522,23 @@ ${proximaHtml}
   return gmailSend(gmailToken, { to: lead.email, subject: asunto, bodyHtml });
 }
 
-async function actualizarCRM(leadId, notas) {
+async function actualizarCRM(leadId, notas, skipNotas = false) {
   const nuevoEstado = ESTADO_SIGUIENTE[notas.siguiente_paso] || 'Contactado';
 
-  const notaTexto = [
-    `[Post-reunión] Dolor: ${notas.dolor_principal || 'N/A'}`,
-    `Sig. paso: ${notas.siguiente_paso || 'N/A'}`,
-    notas.objeciones    ? `Objeciones: ${notas.objeciones}` : null,
-    notas.fecha_siguiente ? `Próx. reunión: ${notas.fecha_siguiente}` : null,
-    notas.interes       ? `Interés: ${notas.interes}/5` : null,
-  ].filter(Boolean).join(' · ');
+  const patch = { 'Estado': { select: { name: nuevoEstado } } };
 
-  return notionPatch(leadId, {
-    'Estado': { select:    { name: nuevoEstado } },
-    'Notas':  { rich_text: [{ text: { content: notaTexto } }] },
-  });
+  if (!skipNotas) {
+    const notaTexto = [
+      `[Post-reunión] Dolor: ${notas.dolor_principal || 'N/A'}`,
+      `Sig. paso: ${notas.siguiente_paso || 'N/A'}`,
+      notas.objeciones      ? `Objeciones: ${notas.objeciones}` : null,
+      notas.fecha_siguiente ? `Próx. reunión: ${notas.fecha_siguiente}` : null,
+      notas.interes         ? `Interés: ${notas.interes}/5` : null,
+    ].filter(Boolean).join(' · ');
+    patch['Notas'] = { rich_text: [{ text: { content: notaTexto } }] };
+  }
+
+  return notionPatch(leadId, patch);
 }
 
 async function notificarPostMeeting(lead, notas) {
@@ -598,11 +600,14 @@ export default async function handler(req, res) {
     if (action === 'post-meeting') {
       if (!notas) return res.status(400).json({ error: 'notas requeridas para post-meeting' });
 
+      // silent: true cuando lo dispara fathom-webhook — evita doble notificación y no pisa las notas de Fathom
+      const silent = req.body?.silent === true;
+
       // Critical path: generate follow-up copy → update CRM → notify CEO (must finish within 10s)
       const followUp = await generarFollowUp(lead, notas);
       await Promise.all([
-        actualizarCRM(lead_id, notas),
-        notificarPostMeeting(lead, notas),
+        actualizarCRM(lead_id, notas, silent),
+        silent ? Promise.resolve() : notificarPostMeeting(lead, notas),
       ]);
 
       // Non-critical: Gmail — envía follow-up + genera draft propuesta si diagnostico

@@ -20,6 +20,7 @@ import { captureException }              from './lib/sentry.js';
 const BOT_TOKEN       = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID     = process.env.TELEGRAM_CHAT_ID;
 const FATHOM_SECRET   = process.env.FATHOM_WEBHOOK_SECRET;
+const CRON_SECRET     = process.env.CRON_SECRET;
 const GMAIL_FROM      = process.env.GMAIL_FROM || 'hello@gettreevu.com';
 
 const send = (text) => sendMessage(BOT_TOKEN, CEO_CHAT_ID, text);
@@ -71,6 +72,33 @@ Devuelve SOLO el JSON, sin markdown.`;
   if (!raw) return null;
   try { return JSON.parse(raw.trim()); }
   catch { return { resumen: raw.trim() }; }
+}
+
+// ── Auto-trigger post-meeting en primera-reunion ─────────────────────────────
+async function triggerPostMeeting(leadId, insights) {
+  if (!CRON_SECRET || !leadId) return;
+  const interesMap = { ALTO: 5, MEDIO: 3, BAJO: 2 };
+  const siguientePaso = insights.nivel_interes === 'ALTO' ? 'diagnostico' : 'seguimiento';
+  try {
+    await fetch('https://gettreevu.com/api/primera-reunion', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET}` },
+      body: JSON.stringify({
+        action:  'post-meeting',
+        lead_id: leadId,
+        silent:  true,   // no pisar notas de Fathom ni duplicar notificación Telegram
+        notas: {
+          dolor_principal: insights.dolor_confirmado || '',
+          siguiente_paso:  siguientePaso,
+          objeciones:      insights.objeciones || '',
+          interes:         interesMap[insights.nivel_interes] || 3,
+        },
+      }),
+    });
+    console.log(`[fathom] Post-meeting auto-triggered: ${leadId} → ${siguientePaso}`);
+  } catch (err) {
+    console.error('[fathom] triggerPostMeeting error:', err.message);
+  }
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -155,6 +183,15 @@ export default async function handler(req, res) {
     if (recordingUrl)               msg += `\n🎬 [Ver grabación](${recordingUrl})\n`;
     if (lead)                       msg += `\n${div}\n_Notas guardadas en Notion_`;
     else                            msg += `\n${div}\n_Lead no encontrado en CRM para ${prospectEmail}_`;
+
+    // Auto-trigger post-meeting: Gmail draft follow-up + propuesta si ALTO + Redis D+1/D+3/D+7
+    if (lead && insights?.nivel_interes) {
+      triggerPostMeeting(lead.id, insights).catch(() => {});
+      msg += `\n📧 _Draft de follow-up generándose en Gmail..._`;
+      if (insights.nivel_interes === 'ALTO') {
+        msg += `\n📄 _Propuesta en draft (Programa Fundadores)_`;
+      }
+    }
 
     await send(msg);
 
