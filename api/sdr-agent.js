@@ -242,12 +242,14 @@ export default async function handler(req, res) {
   const added     = [];
   const skipped   = [];
   const errors    = [];
+  const debug_log = [];
 
   try {
     // 1. Buscar en LinkedIn vía Tavily
-    console.log(`[sdr-agent] Buscando: industry=${industry} size=${size} location=${location}`);
+    debug_log.push(`TAVILY_KEY: ${TAVILY_KEY ? TAVILY_KEY.slice(0,12)+'...' : 'MISSING'}`);
     const people = await searchLinkedIn({ keywords, location, industry, size });
-    console.log(`[sdr-agent] Tavily/LinkedIn devolvió ${people.length} perfiles`);
+    debug_log.push(`profiles_found: ${people.length}`);
+    people.slice(0,3).forEach(p => debug_log.push(`  ${p.name} | ${p.company || '(no company)'}`));
 
     if (!people.length) {
       return res.status(200).json({ message: 'No se encontraron prospectos. Verificá TAVILY_API_KEY en Vercel.', added: 0, skipped: 0 });
@@ -267,11 +269,11 @@ export default async function handler(req, res) {
       const orgIndustry = person.organization?.industry || industry || '';
 
       // Saltar si no tiene empresa o nombre
-      if (!name && !company) { skipped.push({ reason: 'sin datos' }); continue; }
+      if (!name && !company) { skipped.push({ reason: 'sin datos', name, company }); continue; }
 
       // Deduplicar
       const exists = await isAlreadyInCRM(email, company);
-      if (exists) { skipped.push({ company, reason: 'ya en CRM' }); continue; }
+      if (exists) { skipped.push({ company, name, reason: 'ya en CRM' }); continue; }
 
       // Generar mensaje
       let mensaje = '';
@@ -323,10 +325,12 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({
-    added:   added.length,
-    skipped: skipped.length,
-    errors:  errors.length,
-    leads:   added,
+    added:      added.length,
+    skipped:    skipped.length,
+    errors:     errors.length,
+    leads:      added,
+    skipped_detail: skipped.slice(0, 5),
+    debug:      debug_log,
     duration_s: parseFloat(duration),
   });
 }
