@@ -278,11 +278,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: 'No se encontraron prospectos.', added: 0, skipped: 0, debug: debug_log });
     }
 
-    // 2. Dedup en memoria (1 sola query Notion)
-    const existingCompanies = await fetchExistingCompanies();
-    debug_log.push(`crm_companies_loaded: ${existingCompanies.size}`);
-
-    // 3. Procesar cada prospecto
+    // 2. Procesar cada prospecto
+    const addedCompanies = new Set(); // dedup dentro de este run
     for (const person of people) {
       if (added.length >= max_leads) break;
 
@@ -297,9 +294,10 @@ export default async function handler(req, res) {
       // Saltar si no tiene empresa o nombre
       if (!name && !company) { skipped.push({ reason: 'sin datos', name, company }); continue; }
 
-      // Deduplicar en memoria
-      if (isCompanyDup(company, existingCompanies)) {
-        skipped.push({ company, name, reason: 'ya en CRM' }); continue;
+      // Deduplicar dentro del run actual
+      const companyKey = company.toLowerCase().trim();
+      if (companyKey && addedCompanies.has(companyKey)) {
+        skipped.push({ company, name, reason: 'duplicado en run' }); continue;
       }
 
       // Generar mensaje (template rápido — personalizar con Claude manualmente si se necesita)
@@ -310,14 +308,14 @@ export default async function handler(req, res) {
       try {
         await saveToNotion({ name, role, email, company, industry: orgIndustry, employees, linkedinUrl }, mensaje);
         added.push({ name, company, role, email: email ? '✓' : '—', linkedin: linkedinUrl ? '✓' : '—' });
+        if (companyKey) addedCompanies.add(companyKey);
         console.log(`[sdr-agent] ✓ ${company} — ${name}`);
       } catch (err) {
         errors.push({ company, error: err.message });
         console.error(`[sdr-agent] Notion error ${company}:`, err.message);
       }
 
-      // Pequeña pausa para no saturar Notion API
-      await new Promise(r => setTimeout(r, 300));
+      // (sin pausa — Notion maneja rate limit con reintentos)
     }
 
   } catch (err) {
