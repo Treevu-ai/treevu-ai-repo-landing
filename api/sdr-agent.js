@@ -56,29 +56,36 @@ const ROLE_QUERIES = [
 async function searchLinkedIn({ keywords, location, industry, size }) {
   if (!TAVILY_KEY) throw new Error('TAVILY_API_KEY no configurada');
 
-  const loc        = location || 'Lima Peru';
-  const indKw      = INDUSTRY_KEYWORDS[industry] || industry || '';
-  const roleKw     = keywords || ROLE_QUERIES[Math.floor(Math.random() * ROLE_QUERIES.length)];
-  const sizeHint   = size === '501,1000' ? 'empresa mediana grande' :
-                     size === '1001,5000' ? 'empresa grande' : 'empresa mediana';
+  const loc    = (location || 'Lima Peru').replace(/,/g, '');
+  const indKw  = INDUSTRY_KEYWORDS[industry] || industry || '';
 
-  const query = `site:linkedin.com/in "${roleKw}" "${loc}" ${indKw} ${sizeHint}`;
+  // Intentar hasta 3 roles distintos hasta obtener resultados
+  const roles = keywords
+    ? [keywords]
+    : [...ROLE_QUERIES].sort(() => Math.random() - 0.5).slice(0, 3);
 
-  const res = await fetch('https://api.tavily.com/search', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      api_key:        TAVILY_KEY,
-      query,
-      search_depth:   'basic',
-      max_results:    20,
-      include_answer: false,
-    }),
-  });
+  for (const roleKw of roles) {
+    const query = `site:linkedin.com/in ${roleKw} ${loc} ${indKw}`.trim();
 
-  if (!res.ok) throw new Error(`Tavily ${res.status}`);
-  const data = await res.json();
-  return parseLinkedInResults(data.results || []);
+    const res = await fetch('https://api.tavily.com/search', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key:        TAVILY_KEY,
+        query,
+        search_depth:   'basic',
+        max_results:    20,
+        include_answer: false,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Tavily ${res.status}`);
+    const data    = await res.json();
+    const results = parseLinkedInResults(data.results || []);
+    if (results.length > 0) return results;
+  }
+
+  return [];
 }
 
 function parseLinkedInResults(results) {
@@ -116,12 +123,9 @@ function parseLinkedInResults(results) {
       company = snippetMatch?.[1]?.trim() || '';
     }
 
-    // Filtrar resultados de otros países si no son Perú
-    const isPeru = r.url.includes('pe.linkedin.com') ||
-                   (r.content || '').toLowerCase().includes('lima') ||
-                   (r.content || '').toLowerCase().includes('peru') ||
-                   (r.content || '').toLowerCase().includes('perú');
-    if (!isPeru) continue;
+    // Filtrar solo si claramente es otro país (ej. .mx. .co. .ar. .br.)
+    const otherCountry = /\/(mx|co|ar|br|cl|ec|ve|bo|uy|py)\.linkedin\.com/i.test(r.url);
+    if (otherCountry) continue;
 
     people.push({
       name,
@@ -252,7 +256,7 @@ export default async function handler(req, res) {
     people.slice(0,3).forEach(p => debug_log.push(`  ${p.name} | ${p.company || '(no company)'}`));
 
     if (!people.length) {
-      return res.status(200).json({ message: 'No se encontraron prospectos. Verificá TAVILY_API_KEY en Vercel.', added: 0, skipped: 0 });
+      return res.status(200).json({ message: 'No se encontraron prospectos.', added: 0, skipped: 0, debug: debug_log });
     }
 
     // 2. Procesar cada prospecto
