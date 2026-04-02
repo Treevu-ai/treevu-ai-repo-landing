@@ -27,71 +27,90 @@ import { sendMessage }                                  from './lib/telegram.js'
 import { askClaude }                                    from './lib/anthropic.js';
 import { captureException }                             from './lib/sentry.js';
 
-const APOLLO_KEY     = process.env.APOLLO_API_KEY;
+const TAVILY_KEY     = process.env.TAVILY_API_KEY;
 const CRON_SECRET    = process.env.CRON_SECRET;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID    = process.env.TELEGRAM_CHAT_ID;
 
-// ── Apollo: búsqueda de personas ─────────────────────────────────────────────
+// ── Búsqueda de prospectos vía Tavily (LinkedIn + Google) ─────────────────────
 
-const INDUSTRY_MAP = {
-  retail:        'Retail',
-  manufactura:   'Manufacturing',
-  salud:         'Hospital & Health Care',
-  tecnologia:    'Information Technology and Services',
-  construccion:  'Construction',
-  educacion:     'Education Management',
-  banca:         'Banking',
-  servicios:     'Staffing and Recruiting',
+const INDUSTRY_KEYWORDS = {
+  retail:       'retail tienda supermercado consumo masivo',
+  manufactura:  'manufactura planta producción industrial',
+  salud:        'clínica hospital salud médico',
+  tecnologia:   'tecnología software IT sistemas',
+  construccion: 'construcción minería inmobiliaria',
+  educacion:    'educación colegio universidad instituto',
+  banca:        'banco financiera seguro finanzas',
+  servicios:    'servicios outsourcing BPO call center',
 };
 
-const ROLES_TARGET = [
-  'Gerente de Recursos Humanos',
-  'Director de Recursos Humanos',
-  'Gerente de Personas',
-  'Chief People Officer',
-  'HR Manager',
-  'Gerente General',
-  'Director General',
-  'CEO',
-  'Gerente Administrativo',
-  'Gerente de Operaciones',
+const ROLE_QUERIES = [
+  'gerente recursos humanos',
+  'director recursos humanos',
+  'gerente de personas',
+  'jefe de personal',
+  'gerente general',
 ];
 
-async function searchApollo({ keywords, location, industry, size }) {
-  const body = {
-    q_keywords:           keywords || 'gerente recursos humanos',
-    person_locations:     [location || 'Lima, Peru'],
-    contact_email_status: ['verified', 'guessed', 'unavailable', 'bounced', 'pending_manual_fulfillment'],
-    per_page:             25,
-    page:                 1,
-  };
+async function searchLinkedIn({ keywords, location, industry, size }) {
+  if (!TAVILY_KEY) throw new Error('TAVILY_API_KEY no configurada');
 
-  if (industry && INDUSTRY_MAP[industry]) {
-    body.organization_industry_tag_ids = [INDUSTRY_MAP[industry]];
-  }
+  const loc        = location || 'Lima Peru';
+  const indKw      = INDUSTRY_KEYWORDS[industry] || industry || '';
+  const roleKw     = keywords || ROLE_QUERIES[Math.floor(Math.random() * ROLE_QUERIES.length)];
+  const sizeHint   = size === '501,1000' ? 'empresa mediana grande' :
+                     size === '1001,5000' ? 'empresa grande' : 'empresa mediana';
 
-  if (size) {
-    body.organization_num_employees_ranges = [size];
-  }
+  const query = `site:linkedin.com/in "${roleKw}" "${loc}" ${indKw} ${sizeHint}`;
 
-  const res = await fetch('https://api.apollo.io/v1/mixed_people/search', {
+  const res = await fetch('https://api.tavily.com/search', {
     method:  'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Cache-Control': 'no-cache',
-      'X-Api-Key':     APOLLO_KEY,
-    },
-    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      api_key:        TAVILY_KEY,
+      query,
+      search_depth:   'basic',
+      max_results:    20,
+      include_answer: false,
+    }),
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Apollo ${res.status}: ${err.slice(0, 200)}`);
-  }
-
+  if (!res.ok) throw new Error(`Tavily ${res.status}`);
   const data = await res.json();
-  return data.people || [];
+  return parseLinkedInResults(data.results || []);
+}
+
+function parseLinkedInResults(results) {
+  const people = [];
+  for (const r of results) {
+    if (!r.url?.includes('linkedin.com/in/')) continue;
+
+    // Título típico: "Juan Pérez - Gerente de RRHH - Empresa | LinkedIn"
+    const titleParts = (r.title || '').replace(' | LinkedIn', '').split(' - ');
+    const name       = titleParts[0]?.trim() || '';
+    const role       = titleParts[1]?.trim() || '';
+    const company    = titleParts[2]?.trim() || '';
+
+    if (!name) continue;
+
+    // Extraer empresa del snippet si no está en el título
+    const snippetCompany = !company
+      ? (r.content || '').match(/(?:en|at)\s+([A-Z][^\n,\.]{3,40})/)?.[1] || ''
+      : company;
+
+    people.push({
+      name,
+      role,
+      company:     snippetCompany || company,
+      email:       '',
+      linkedinUrl: r.url,
+      industry:    '',
+      employees:   '',
+      snippet:     (r.content || '').slice(0, 300),
+    });
+  }
+  return people;
 }
 
 // ── Deduplicación contra CRM ──────────────────────────────────────────────────
@@ -125,6 +144,7 @@ async function generateOutreach(lead) {
 Contexto:
 - Industria: ${industry || 'empresa peruana'}
 - Tamaño: ${employees || 'mediana empresa'}
+- Info adicional del perfil: ${lead.snippet || 'no disponible'}
 - Tu propuesta: Treevü, plataforma EWA (Earned Wage Access) — permite a trabajadores retirar su salario ganado antes del día de pago. Cero costo para la empresa, reduce rotación 15-40%.
 
 Reglas:
@@ -200,10 +220,10 @@ export default async function handler(req, res) {
   const errors    = [];
 
   try {
-    // 1. Buscar en Apollo
+    // 1. Buscar en LinkedIn vía Tavily
     console.log(`[sdr-agent] Buscando: industry=${industry} size=${size} location=${location}`);
-    const people = await searchApollo({ keywords, location, industry, size });
-    console.log(`[sdr-agent] Apollo devolvió ${people.length} personas`);
+    const people = await searchLinkedIn({ keywords, location, industry, size });
+    console.log(`[sdr-agent] Tavily/LinkedIn devolvió ${people.length} perfiles`);
 
     if (!people.length) {
       return res.status(200).json({ message: 'No se encontraron prospectos en Apollo', added: 0, skipped: 0 });
