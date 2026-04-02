@@ -259,14 +259,13 @@ export default async function handler(req, res) {
     for (const person of people) {
       if (added.length >= max_leads) break;
 
-      const name        = [person.first_name, person.last_name].filter(Boolean).join(' ');
-      const role        = person.title || '';
-      const email       = person.email || '';
-      const company     = person.organization?.name || '';
-      const employees   = person.organization?.num_employees
-        ? rangeEmployees(person.organization.num_employees) : size;
-      const linkedinUrl = person.linkedin_url || '';
-      const orgIndustry = person.organization?.industry || industry || '';
+      const name        = person.name        || '';
+      const role        = person.role        || '';
+      const email       = person.email       || '';
+      const company     = person.company     || '';
+      const employees   = size;
+      const linkedinUrl = person.linkedinUrl || '';
+      const orgIndustry = person.industry    || industry || '';
 
       // Saltar si no tiene empresa o nombre
       if (!name && !company) { skipped.push({ reason: 'sin datos', name, company }); continue; }
