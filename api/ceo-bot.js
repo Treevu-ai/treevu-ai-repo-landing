@@ -524,6 +524,57 @@ async function handleFollowup(chatId) {
   await send(chatId, msg, { parse_mode: 'Markdown' });
 }
 
+async function handleSDR(chatId, args) {
+  // Parsear args: "retail 200+ Lima" → { industry, size, location }
+  const INDUSTRIES = ['retail', 'manufactura', 'salud', 'tecnologia', 'construccion', 'educacion', 'banca', 'servicios'];
+  const SIZE_MAP   = { '50+': '51,200', '200+': '201,500', '500+': '501,1000', '1000+': '1001,5000' };
+
+  const parts    = args.toLowerCase().split(/\s+/).filter(Boolean);
+  const industry = parts.find(p => INDUSTRIES.includes(p)) || null;
+  const sizeKey  = parts.find(p => SIZE_MAP[p]) || null;
+  const size     = sizeKey ? SIZE_MAP[sizeKey] : '201,500';
+
+  const label = [
+    industry || 'todas las industrias',
+    sizeKey  || '200+ empleados',
+    'Lima',
+  ].join(' · ');
+
+  await send(chatId, `_🎯 Iniciando SDR Agent: ${label}..._\nRecibí los resultados en unos segundos.`);
+
+  try {
+    const res = await fetch('https://gettreevu.com/api/sdr-agent', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${CRON_SECRET}`,
+      },
+      body: JSON.stringify({ industry, size, location: 'Lima, Peru', max_leads: 10, notify: false }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      await send(chatId, `❌ SDR Agent error: ${data.error || res.status}`);
+      return;
+    }
+
+    let msg = `🎯 *SDR Agent terminado*\n_${label}_\n\n`;
+    msg += `✅ *${data.added} leads* añadidos al CRM\n`;
+    msg += `⏭ ${data.skipped} omitidos (ya existían)\n`;
+    if (data.leads?.length) {
+      msg += '\n*Nuevos prospectos:*\n';
+      data.leads.slice(0, 8).forEach(l => {
+        msg += `• *${l.company}* — ${l.role || '—'}\n`;
+      });
+    }
+    msg += `\nUsá /pipeline para verlos en el CRM.`;
+    await send(chatId, msg, { parse_mode: 'Markdown' });
+
+  } catch (err) {
+    await send(chatId, `❌ Error llamando SDR Agent: ${err.message}`);
+  }
+}
+
 async function handleQA(chatId, pregunta) {
   await send(chatId, '_Consultando pipeline..._');
 
@@ -682,6 +733,10 @@ export default async function handler(req, res) {
     }
     if (text === '/followup') {
       await handleFollowup(chatId);
+      return res.status(200).json({ ok: true });
+    }
+    if (text.startsWith('/sdr')) {
+      await handleSDR(chatId, text.slice(4).trim());
       return res.status(200).json({ ok: true });
     }
 
