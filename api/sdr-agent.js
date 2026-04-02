@@ -267,6 +267,11 @@ export default async function handler(req, res) {
   const errors    = [];
   const debug_log = [];
 
+  // DIAG: early return test
+  if (req.query?.diag === '1') {
+    return res.status(200).json({ diag: 'ok', ts: Date.now() });
+  }
+
   try {
     // 1. Buscar en LinkedIn vía Tavily
     debug_log.push(`TAVILY_KEY: ${TAVILY_KEY ? TAVILY_KEY.slice(0,12)+'...' : 'MISSING'}`);
