@@ -410,7 +410,9 @@ async function handleHelp(chatId) {
     `*Panel de Control Treevü* 🎛️\n\n` +
     `*Comandos:*\n` +
     `📊 /pipeline — resumen del CRM por etapa\n` +
-    `🔔 /followup — leads que necesitan atención hoy\n` +
+    `🔔 /followup — leads sin actividad +7 días\n` +
+    `🎯 /sdr [industria] [tamaño] — busca prospectos en Apollo\n` +
+    `   _Ej: /sdr retail 200+ · /sdr manufactura 500+_\n` +
     `❓ /help — este menú\n\n` +
     `*Modo Q&A:*\nEscribí cualquier pregunta sobre el pipeline y te respondo con contexto real del CRM.\n\n` +
     `_Ej: "¿qué leads están calientes?" · "¿cuántos deals tengo en propuesta?" · "¿quién no respondió esta semana?"_`,
