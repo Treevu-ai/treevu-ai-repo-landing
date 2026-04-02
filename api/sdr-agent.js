@@ -270,8 +270,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: 'No se encontraron prospectos.', added: 0, skipped: 0, debug: debug_log });
     }
 
-    // 2. Procesar cada prospecto
-    for (const person of people) {
+    // 2. Procesar cada prospecto (limitar candidatos para no agotar timeout)
+    const MAX_CANDIDATES = max_leads * 4; // revisar hasta 4× leads pedidos
+    for (const person of people.slice(0, MAX_CANDIDATES)) {
       if (added.length >= max_leads) break;
 
       const name        = person.name        || '';
@@ -348,6 +349,9 @@ export default async function handler(req, res) {
     duration_s: parseFloat(duration),
   });
 }
+
+// Vercel: extender timeout a 60s para permitir Tavily + Claude + Notion
+export const config = { maxDuration: 60 };
 
 // Convierte número de empleados a rango Apollo
 function rangeEmployees(n) {
