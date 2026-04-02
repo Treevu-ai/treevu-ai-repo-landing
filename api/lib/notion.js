@@ -10,22 +10,24 @@ const NOTION_HEADERS = () => ({
 
 // Retry con backoff exponencial para 429 y 5xx
 // Delays: 500ms → 1500ms (max 2 reintentos adicionales = 3 intentos total)
-async function fetchWithRetry(url, options, maxRetries = 3) {
-  const DELAYS = [0, 500, 1500];
+const FETCH_TIMEOUT_MS = 7000; // 7s por request
+
+function fetchWithTimeout(url, options) {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Notion fetch timeout')), FETCH_TIMEOUT_MS)
+    ),
+  ]);
+}
+
+async function fetchWithRetry(url, options, maxRetries = 2) {
+  const DELAYS = [0, 800];
   let lastErr;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     if (DELAYS[attempt]) await new Promise(r => setTimeout(r, DELAYS[attempt]));
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000); // 8s per request
     let res;
-    try {
-      res = await fetch(url, { ...options, signal: controller.signal });
-    } catch (err) {
-      lastErr = err;
-      continue;
-    } finally {
-      clearTimeout(timer);
-    }
+    try { res = await fetchWithTimeout(url, options); } catch (err) { lastErr = err; continue; }
     if (res.ok) return res;
     if (res.status === 429 || res.status >= 500) {
       lastErr = new Error(`Notion ${res.status}: ${await res.text()}`);
