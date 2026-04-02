@@ -61,5 +61,5 @@
     { "path": "/api/reunion-reminder", "schedule": "0 * * * *"   },
     { "path": "/api/onboarding",        "schedule": "0 15 * * *"  },
     { "path": "/api/content-reminder", "schedule": "0 12 * * 1-5" }
-  ],
+  ]
 }

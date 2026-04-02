@@ -280,10 +280,11 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: 'No se encontraron prospectos.', added: 0, skipped: 0, debug: debug_log });
     }
 
-    // 2. Procesar cada prospecto
-    const addedCompanies = new Set(); // dedup dentro de este run
+    // 2. Filtrar y deduplicar candidatos
+    const candidates = [];
+    const addedCompanies = new Set();
     for (const person of people) {
-      if (added.length >= max_leads) break;
+      if (candidates.length >= max_leads) break;
 
       const name        = person.name        || '';
       const role        = person.role        || '';
@@ -293,10 +294,8 @@ export default async function handler(req, res) {
       const linkedinUrl = person.linkedinUrl || '';
       const orgIndustry = person.industry    || industry || '';
 
-      // Saltar si no tiene empresa o nombre
       if (!name && !company) { skipped.push({ reason: 'sin datos', name, company }); continue; }
 
-      // Deduplicar contra CRM existente y run actual
       const companyKey = company.toLowerCase().trim();
       if (isCompanyDup(company, existingCompanies)) {
         skipped.push({ company, name, reason: 'ya en CRM' }); continue;
@@ -305,18 +304,22 @@ export default async function handler(req, res) {
         skipped.push({ company, name, reason: 'duplicado en run' }); continue;
       }
 
-      // Generar mensaje de primer contacto
-      const firstName = (name || 'equipo').split(/[\s,]+/)[0];
-      const mensaje = `Hola ${firstName}, vi tu perfil y me interesó lo que hacen en ${company || 'la empresa'}. En Treevü ayudamos a reducir rotación con acceso anticipado al salario — cero costo para la empresa. ¿Tiene sentido conversar 15 minutos?`;
-
-      // Guardar en Notion CRM
-      await saveToNotion({ name, role, email, company, industry: orgIndustry, employees, linkedinUrl }, mensaje)
-        .catch(err => errors.push({ company, error: err.message }));
-
-      added.push({ name, company, role, email: email ? '✓' : '—', linkedin: linkedinUrl ? '✓' : '—' });
       if (companyKey) addedCompanies.add(companyKey);
-      console.log(`[sdr-agent] ✓ ${company} — ${name}`);
+      candidates.push({ name, role, email, company, employees, linkedinUrl, orgIndustry });
     }
+
+    // 3. Guardar en Notion CRM en paralelo
+    await Promise.all(candidates.map(async (c) => {
+      const firstName = (c.name || 'equipo').split(/[\s,]+/)[0];
+      const mensaje = `Hola ${firstName}, vi tu perfil y me interesó lo que hacen en ${c.company || 'la empresa'}. En Treevü ayudamos a reducir rotación con acceso anticipado al salario — cero costo para la empresa. ¿Tiene sentido conversar 15 minutos?`;
+      try {
+        await saveToNotion({ name: c.name, role: c.role, email: c.email, company: c.company, industry: c.orgIndustry, employees: c.employees, linkedinUrl: c.linkedinUrl }, mensaje);
+        added.push({ name: c.name, company: c.company, role: c.role, email: c.email ? '✓' : '—', linkedin: c.linkedinUrl ? '✓' : '—' });
+        console.log(`[sdr-agent] ✓ ${c.company} — ${c.name}`);
+      } catch (err) {
+        errors.push({ company: c.company, error: err.message });
+      }
+    }));
 
   } catch (err) {
     console.error('[sdr-agent] error:', err.message);
