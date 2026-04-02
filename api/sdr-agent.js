@@ -67,22 +67,33 @@ async function searchLinkedIn({ keywords, location, industry, size }) {
   for (const roleKw of roles) {
     const query = `site:linkedin.com/in ${roleKw} ${loc} ${indKw}`.trim();
 
-    const res = await fetch('https://api.tavily.com/search', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key:        TAVILY_KEY,
-        query,
-        search_depth:   'basic',
-        max_results:    20,
-        include_answer: false,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout    = setTimeout(() => controller.abort(), 8000);
 
-    if (!res.ok) throw new Error(`Tavily ${res.status}`);
-    const data    = await res.json();
-    const results = parseLinkedInResults(data.results || []);
-    if (results.length > 0) return results;
+    try {
+      const res = await fetch('https://api.tavily.com/search', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal:  controller.signal,
+        body: JSON.stringify({
+          api_key:        TAVILY_KEY,
+          query,
+          search_depth:   'basic',
+          max_results:    20,
+          include_answer: false,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Tavily ${res.status}`);
+      const data    = await res.json();
+      const results = parseLinkedInResults(data.results || []);
+      if (results.length > 0) return results;
+    } catch (e) {
+      if (e.name === 'AbortError') console.warn(`[sdr-agent] Tavily timeout (${roleKw})`);
+      else throw e;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   return [];
