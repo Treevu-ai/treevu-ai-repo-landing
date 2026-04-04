@@ -112,41 +112,91 @@ async function generateProposal(leadId, chatId) {
     ? `S/ ${precio.mensual.toLocaleString('es-PE')}/mes (${precio.adopcion} usuarios × S/ 7 + S/ 490 base)`
     : 'a cotizar según adopción';
 
-  const system = `Eres el equipo comercial de Treevü, una plataforma de Earned Wage Access (EWA) para empresas peruanas.
-Treevü permite a los trabajadores retirar su sueldo ganado antes del día de pago, sin costo para la empresa.
-Beneficios clave: reduce rotación 15-40%, mejora clima laboral, cero costo financiero para la empresa, implementación en 48h.
-Precio: S/ 7 por usuario activo/mes + S/ 490 mensual de plataforma. Implementación y soporte incluidos.
-Escribe en español formal peruano. Sé conciso, orientado a resultados, sin relleno corporativo.`;
+  const system = `Eres el equipo comercial de Treevü (EWA B2B, Perú). Generas el contenido de propuestas comerciales.
+Producto: Earned Wage Access — colaboradores acceden al salario ganado antes del pago, S/ 0 costo para el colaborador.
+Beneficios clave: reduce rotación 15-40%, mejora clima laboral, cero riesgo financiero para la empresa, implementación en 48h.
+Precio: S/ 7 por usuario activo/mes + S/ 490 mensual de plataforma.
+Escribe en español formal peruano. Sé conciso y orientado a resultados. Sin relleno corporativo.
+Responde SOLO con JSON válido, sin markdown adicional.`;
 
-  const userPrompt = `Genera una propuesta comercial en HTML para enviar por email a ${contacto || 'el contacto'} de ${empresa}.
-
-Datos del prospecto:
+  const userPrompt = `Genera el contenido de la propuesta para:
 - Empresa: ${empresa}
-- Sector: ${sector}
-- Colaboradores: ${colabs}
-- Objetivo principal: ${objetivo}
-- Dolor detectado en reunión: ${dolor || '(no especificado)'}
+- Contacto: ${contacto || 'el equipo'}
+- Sector: ${sector || 'no indicado'}
+- Colaboradores: ${colabs || 'no indicado'}
+- Objetivo principal: ${objetivo || 'no indicado'}
+- Dolor detectado en reunión: ${dolor || 'rotación y estrés financiero'}
 - Siguiente paso acordado: ${siguientePaso || 'por definir'}
 - Precio estimado: ${precioStr}
 
-El HTML debe incluir:
-1. Saludo personalizado
-2. Resumen del dolor que mencionaron (1 párrafo)
-3. Cómo Treevü lo resuelve (2-3 bullets concretos con datos)
-4. Inversión mensual estimada (precio calculado arriba)
-5. ROI estimado: ahorro en rotación (costo de reemplazar 1 empleado = 3-6 meses de sueldo)
-6. Próximos pasos claros (máximo 3 pasos)
-7. CTA: agendar diagnóstico o firmar NDA
-8. Firma: equipo Treevü, hello@gettreevu.com
+Devuelve este JSON:
+{
+  "saludo": "<primera línea personalizada para ${contacto || 'el equipo'}>",
+  "resumen_dolor": "<1 párrafo sobre el dolor específico que mencionaron en la reunión>",
+  "beneficios": ["<bullet 1 con dato concreto>", "<bullet 2>", "<bullet 3>"],
+  "roi": "<1 frase de ROI: ahorro estimado evitando renuncias en ${empresa}>",
+  "inversion": "<${precioStr}>",
+  "pasos": ["<paso 1>", "<paso 2>", "<paso 3 máximo>"],
+  "cta": "<llamada a la acción según siguiente paso: diagnóstico o NDA>"
+}`;
 
-Usa un estilo limpio con colores corporativos (#0f4c81 azul, #10b981 verde). No uses imágenes externas.
-Devuelve SOLO el HTML del body (sin <html>, <head>).`;
-
-  const htmlBody = await askClaude(userPrompt, { system, maxTokens: 2500 });
-  if (!htmlBody) {
-    await send(chatId, '❌ Claude no pudo generar la propuesta. Intentá de nuevo en un momento.');
-    return;
+  const contentJson = await askClaude(userPrompt, { system, maxTokens: 800 });
+  let content;
+  try {
+    const clean = (contentJson || '').replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    content = JSON.parse(clean);
+  } catch {
+    content = null;
   }
+
+  const bulletsHtml = content?.beneficios?.length
+    ? content.beneficios.map(b => `<li style="margin-bottom:6px">${b}</li>`).join('')
+    : `<li>Acceso al salario devengado sin costo para el colaborador</li>
+       <li>Motor ML predice renuncias 3 semanas antes</li>
+       <li>Setup en 2 semanas, sin cambios en sistemas de nómina</li>`;
+
+  const pasosHtml = content?.pasos?.length
+    ? content.pasos.map((p, i) => `<li><strong>Paso ${i + 1}:</strong> ${p}</li>`).join('')
+    : `<li><strong>Paso 1:</strong> Agendar diagnóstico (30 min)</li>
+       <li><strong>Paso 2:</strong> Revisar propuesta con el equipo</li>
+       <li><strong>Paso 3:</strong> Firma de acuerdo piloto</li>`;
+
+  const htmlBody = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a2e">
+  <div style="background:#0f4c81;padding:24px 32px;border-radius:8px 8px 0 0">
+    <h1 style="color:#fff;margin:0;font-size:20px">Propuesta Treevü × ${empresa}</h1>
+  </div>
+  <div style="background:#f9fafb;padding:32px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb">
+    <p>${content?.saludo || `Hola ${contacto || 'equipo'},`}</p>
+    <p>${content?.resumen_dolor || `Gracias por la reunión. Adjunto nuestra propuesta para ${empresa} basada en los puntos que conversamos.`}</p>
+
+    <h3 style="color:#0f4c81;border-bottom:2px solid #10b981;padding-bottom:6px">¿Cómo lo resuelve Treevü?</h3>
+    <ul style="padding-left:20px">${bulletsHtml}</ul>
+
+    <h3 style="color:#0f4c81;border-bottom:2px solid #10b981;padding-bottom:6px">ROI estimado</h3>
+    <p style="background:#ecfdf5;padding:12px 16px;border-radius:6px;border-left:4px solid #10b981">
+      ${content?.roi || `Evitar una sola renuncia en ${empresa} cubre más de 12 meses de inversión en Treevü.`}
+    </p>
+
+    <h3 style="color:#0f4c81;border-bottom:2px solid #10b981;padding-bottom:6px">Inversión mensual estimada</h3>
+    <p style="font-size:18px;font-weight:bold;color:#0f4c81">${content?.inversion || precioStr}</p>
+    <p style="font-size:12px;color:#6b7280">Implementación y soporte incluidos. Precio fundador congelado al firmar.</p>
+
+    <h3 style="color:#0f4c81;border-bottom:2px solid #10b981;padding-bottom:6px">Siguientes pasos</h3>
+    <ol style="padding-left:20px">${pasosHtml}</ol>
+
+    <div style="text-align:center;margin-top:28px">
+      <a href="https://calendar.app.google/Rxprk5tCDSDivwaA9"
+         style="background:#0f4c81;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold">
+        ${content?.cta || '📅 Agendar diagnóstico'}
+      </a>
+    </div>
+
+    <p style="margin-top:32px;color:#6b7280;font-size:13px">
+      Equipo Treevü · <a href="https://gettreevu.com" style="color:#0f4c81">gettreevu.com</a> · hello@gettreevu.com
+    </p>
+  </div>
+</div>`.trim();
 
   // Gmail draft
   let draftUrl = null;

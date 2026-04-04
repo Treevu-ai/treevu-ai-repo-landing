@@ -57,6 +57,21 @@ REGLAS DE ALGORITMO (obligatorias):
 - Sin hashtags genéricos (#RRHH #Peru). Máximo 3 hashtags nicho al final si aportan.
 - 150-250 palabras. Tono experto pero humano. Sin bullets con guión largo.
 
+EJEMPLO DE TONO Y ESTRUCTURA (no copies el tema, solo el estilo):
+---
+Reemplazar a un operario en Perú cuesta entre S/ 6,000 y S/ 12,000.
+
+No es solo el reclutamiento. Es el tiempo de onboarding, la productividad perdida los primeros 60 días, el estrés del equipo que cubre el puesto vacío.
+
+Lo que casi nadie mide: el 40% de esas renuncias ocurren porque el colaborador necesitaba S/ 200 antes de quincena y no tuvo a quién pedírselos.
+
+Trabajando con empresas de manufactura en Lima, vemos el mismo patrón: la deuda emocional de pedir adelantos al jefe es la primera grieta que termina en renuncia.
+
+¿Tu empresa ya mide cuánto le cuesta esa grieta al año?
+
+#EWA #RetenciónDeTalento #RRHH
+---
+
 Devuelve SOLO el texto del post, listo para copiar.`,
 
     // ── CARRUSEL INSTAGRAM ───────────────────────────────────────────────────

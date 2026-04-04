@@ -29,6 +29,8 @@ SCORING:
 - MEDIO (prob 35-65%): empresa 100-500 colab + sector compatible + objetivo parcialmente alineado
 - BAJO (prob < 35%): empresa <100 colab o sector no prioritario o objetivo poco alineado al producto
 
+Si algún campo está vacío, en blanco o es "No especificado", aplica el criterio más conservador para ese factor — no inventes datos faltantes.
+
 Responde SOLO con JSON válido, sin texto ni markdown adicional:
 {
   "score": "ALTO|MEDIO|BAJO",

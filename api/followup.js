@@ -223,8 +223,11 @@ async function runReactivation() {
       const dispuesto = genero === 'F' ? 'dispuesta' : 'dispuesto';
 
       const sugerencia = await askClaude(
-        `Eres Ricardo Cuba, fundador de Treevü (EWA B2B2E, Perú). Genera un mensaje de reactivación para ${firstName} de ${empresa || 'su empresa'} (${sector}), objetivo: ${objetivo || 'no especificado'}, inactivo ${dias} días, estado anterior: ${estado}. Treevü reduce rotación 30%. Máximo 3 líneas, español peruano, cierra con pregunta. Solo el mensaje, sin explicaciones.`,
-        { maxTokens: 200 }
+        `Lead a reactivar:\n- Nombre: ${firstName}\n- Empresa: ${empresa || 'su empresa'}\n- Sector: ${sector || 'no indicado'}\n- Objetivo: ${objetivo || 'no especificado'}\n- Inactivo: ${dias} días\n- Estado anterior: ${estado}`,
+        {
+          system: `Eres el equipo de ventas de Treevü (EWA B2B2E, Perú), redactando en nombre del fundador. Genera un mensaje de reactivación directo y cálido. Treevü reduce rotación 30%. Máximo 3 líneas, español peruano, cierra con pregunta. Solo el mensaje, sin explicaciones.`,
+          maxTokens: 200,
+        }
       );
 
       let card = `${SCORE_EMOJI[score] || '·'} *${nombre}*\n`;

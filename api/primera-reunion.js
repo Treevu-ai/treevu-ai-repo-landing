@@ -201,7 +201,7 @@ Inteligencia sectorial (${lead.sector || 'sector general'}, Peru):
 - Tip específico para esta reunión: ${intel.tip}
 - Ahorro estimado si evitan ${intel.renuncias} renuncias/año: S/ ${intel.ahorroEstimado}
 
-Genera un briefing operativo. Responde SOLO con JSON válido:
+Genera un briefing operativo. Responde SOLO con JSON válido, sin markdown:
 {
   "apertura": "<guion 30 segundos personalizado, primera persona, incluye dato sectorial>",
   "preguntas": [
@@ -216,7 +216,7 @@ Genera un briefing operativo. Responde SOLO con JSON válido:
     { "objecion": "<segunda objeción probable>", "respuesta": "<respuesta concisa>" }
   ],
   "cierre": "<frase de cierre con urgencia Founders, natural no agresiva, menciona el ahorro de S/ ${intel.ahorroEstimado}>",
-  "alerta": "<punto sensible específico de este sector/empresa a manejar con cuidado>"
+  "alerta": "<punto sensible específico de este sector/empresa a manejar con cuidado, o null si no aplica ninguno>"
 }`;
 
   const user = `Lead para preparar:
@@ -351,8 +351,8 @@ Responde SOLO con JSON válido:
     "<bullet 4: alcance tentativo del piloto>",
     "<bullet 5: riesgo mencionado y cómo se resuelve>"
   ],
-  "llamada_accion": "<frase de cierre con el siguiente paso concreto acordado>",
-  "incluir_nda": <true|false — true solo si el siguiente paso es NDA o si se mencionó revisión legal>
+  "llamada_accion": "<frase de cierre con el siguiente paso concreto acordado, o null si no hay paso claro>",
+  "incluir_nda": "<true si el siguiente paso es NDA o se mencionó revisión legal, false en caso contrario>"
 }`;
 
   const user = `Reunión realizada con:
