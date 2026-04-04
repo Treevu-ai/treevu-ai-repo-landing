@@ -414,6 +414,7 @@ async function handleHelp(chatId) {
     `🔔 /followup — leads sin actividad +7 días\n` +
     `🎯 /sdr [industria] [tamaño] — busca prospectos en LinkedIn\n` +
     `   _Ej: /sdr retail 200+ · /sdr manufactura 500+_\n` +
+    `📬 /enrich — enriquece leads SDR con email y teléfono (Apollo)\n` +
     `🧠 /cto <pregunta> — CTO Virtual: Piloto vs API, tiempos, arquitectura\n` +
     `   _Ej: /cto ¿cuánto tarda la integración con Buk?_\n` +
     `   _/cto reset — limpia el contexto de conversación_\n` +
@@ -606,6 +607,73 @@ async function handleSDR(chatId, args) {
   }
 }
 
+async function handleEnrich(chatId) {
+  await send(chatId, '_📬 Iniciando Apollo Enricher — buscando emails para leads SDR..._');
+
+  const controller = new AbortController();
+  const timeout    = setTimeout(() => controller.abort(), 58000);
+
+  try {
+    const res = await fetch('https://gettreevu.com/api/apollo-enricher', {
+      method:  'POST',
+      signal:  controller.signal,
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${CRON_SECRET}`,
+      },
+      body: JSON.stringify({ max_leads: 20, notify: false }),
+    });
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      await send(chatId, `❌ Apollo Enricher devolvió error ${res.status}. Revisá los logs en Vercel.`);
+      return;
+    }
+
+    if (!res.ok) {
+      await send(chatId, `❌ Apollo Enricher error ${res.status}: ${data.error || text.slice(0, 100)}`);
+      return;
+    }
+
+    if (data.message) {
+      await send(chatId, `📬 ${data.message}`);
+      return;
+    }
+
+    let msg = `📬 *Apollo Enricher terminado*\n\n`;
+    msg += `✅ *${data.enriched} leads* con email verificado\n`;
+    msg += `⏭ ${data.skipped} sin match en Apollo\n`;
+    if (data.errors > 0) msg += `❌ ${data.errors} errores\n`;
+
+    if (data.leads?.length) {
+      msg += '\n*Emails obtenidos:*\n';
+      data.leads.slice(0, 8).forEach(l => {
+        msg += `• *${l.company || '—'}* — ${l.name}\n  📧 ${l.email}`;
+        if (l.phone && l.phone !== '—') msg += ` · 📞 ${l.phone}`;
+        msg += '\n';
+      });
+      if (data.enriched > 8) msg += `_...y ${data.enriched - 8} más_\n`;
+      msg += `\nYa podés contactarlos desde Notion.`;
+    } else {
+      msg += `\n_Sin matches esta vez. Apollo no encontró emails para los leads actuales._`;
+    }
+
+    await send(chatId, msg, { parse_mode: 'Markdown' });
+
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      await send(chatId, `⏱ Apollo Enricher tardó más de 58s. Revisá Notion en 1 minuto — puede estar procesando en background.`);
+    } else {
+      await send(chatId, `❌ Apollo Enricher: ${err.message}`);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function handleQA(chatId, pregunta) {
   await send(chatId, '_Consultando pipeline..._');
 
@@ -768,6 +836,10 @@ export default async function handler(req, res) {
     }
     if (text.startsWith('/sdr')) {
       await handleSDR(chatId, text.slice(4).trim());
+      return res.status(200).json({ ok: true });
+    }
+    if (text === '/enrich') {
+      await handleEnrich(chatId);
       return res.status(200).json({ ok: true });
     }
     if (text.startsWith('/cto')) {
