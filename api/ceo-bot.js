@@ -13,6 +13,7 @@ import { getNotionPage, getProp, notionPatch, notionQuery } from './lib/notion.j
 import { NOTION, ESTADO_EMOJI }                             from './lib/constants.js';
 import { askClaude }                                 from './lib/anthropic.js';
 import { getGmailToken, gmailDraft }                 from './lib/gmail.js';
+import { handleCTO, clearCTOContext }                from './cto-bot.js';
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -411,11 +412,14 @@ async function handleHelp(chatId) {
     `*Comandos:*\n` +
     `📊 /pipeline — resumen del CRM por etapa\n` +
     `🔔 /followup — leads sin actividad +7 días\n` +
-    `🎯 /sdr [industria] [tamaño] — busca prospectos en Apollo\n` +
+    `🎯 /sdr [industria] [tamaño] — busca prospectos en LinkedIn\n` +
     `   _Ej: /sdr retail 200+ · /sdr manufactura 500+_\n` +
+    `🧠 /cto <pregunta> — CTO Virtual: Piloto vs API, tiempos, arquitectura\n` +
+    `   _Ej: /cto ¿cuánto tarda la integración con Buk?_\n` +
+    `   _/cto reset — limpia el contexto de conversación_\n` +
     `❓ /help — este menú\n\n` +
     `*Modo Q&A:*\nEscribí cualquier pregunta sobre el pipeline y te respondo con contexto real del CRM.\n\n` +
-    `_Ej: "¿qué leads están calientes?" · "¿cuántos deals tengo en propuesta?" · "¿quién no respondió esta semana?"_`,
+    `_Ej: "¿qué leads están calientes?" · "¿cuántos deals tengo en propuesta?"_`,
     { parse_mode: 'Markdown' }
   );
 }
@@ -739,6 +743,23 @@ export default async function handler(req, res) {
     }
     if (text.startsWith('/sdr')) {
       await handleSDR(chatId, text.slice(4).trim());
+      return res.status(200).json({ ok: true });
+    }
+    if (text.startsWith('/cto')) {
+      const query = text.slice(4).trim();
+      if (!query || query === 'reset') {
+        await clearCTOContext(chatId);
+        await send(chatId, query === 'reset'
+          ? '🔄 Contexto del CTO Agent reiniciado.'
+          : 'Uso: `/cto <pregunta>`\n_Ej: /cto ¿cuánto tarda la integración con Buk?_',
+          { parse_mode: 'Markdown' }
+        );
+      } else {
+        await send(chatId, '_🧠 Consultando CTO Agent..._');
+        res.status(200).json({ ok: true }); // responder a Telegram antes de Claude
+        await handleCTO(chatId, query, (text, opts) => send(chatId, text, opts));
+        return;
+      }
       return res.status(200).json({ ok: true });
     }
 

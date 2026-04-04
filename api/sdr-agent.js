@@ -1,37 +1,66 @@
 /**
  * api/sdr-agent.js — Agente SDR de Treevu
  *
- * Busca prospectos en Apollo → deduplica contra Notion CRM
- * → genera mensaje personalizado con Claude → carga a Notion → notifica al CEO.
+ * Busca prospectos en LinkedIn vía Tavily → deduplica contra Notion CRM + Redis
+ * → genera mensaje personalizado con Claude (estrategia configurable) → guarda en Notion → notifica al CEO.
  *
  * POST /api/sdr-agent
  * Headers: Authorization: Bearer CRON_SECRET
  * Body: {
- *   keywords?:   string,   // "gerente RRHH" (default: "gerente recursos humanos")
+ *   keywords?:   string,   // "gerente RRHH" (default: rota entre roles)
  *   location?:   string,   // "Lima, Peru" (default)
  *   industry?:   string,   // "retail" | "manufactura" | "salud" | etc.
  *   size?:       string,   // "201,500" | "501,1000" | "1001,5000" (Apollo format)
  *   max_leads?:  number,   // cuántos leads añadir (default: 10)
  *   notify?:     boolean,  // enviar resumen a Telegram (default: true)
+ *   strategy?:   string,   // "intro" | "seguimiento" | "caso_exito" | "urgencia" (default: "intro")
  * }
- *
- * Trigger manual: curl -X POST https://gettreevu.com/api/sdr-agent \
- *   -H "Authorization: Bearer $CRON_SECRET" \
- *   -H "Content-Type: application/json" \
- *   -d '{"industry":"retail","size":"201,500"}'
  */
 
 import { NOTION, SECTOR_MAP }                          from './lib/constants.js';
 import { notionCreate, notionQuery, getProp }           from './lib/notion.js';
 import { sendMessage }                                  from './lib/telegram.js';
 import { askClaude }                                    from './lib/anthropic.js';
+import { redisCmd }                                     from './lib/redis.js';
 
 const TAVILY_KEY     = process.env.TAVILY_API_KEY;
 const CRON_SECRET    = process.env.CRON_SECRET;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID    = process.env.TELEGRAM_CHAT_ID;
 
-// ── Búsqueda de prospectos vía Tavily (LinkedIn + Google) ─────────────────────
+// ── Timeout helper ────────────────────────────────────────────────────────────
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`timeout:${label} (${ms}ms)`)), ms)
+    ),
+  ]);
+}
+
+// ── Estrategias de outreach ────────────────────────────────────────────────────
+
+const STRATEGIES = {
+  intro: {
+    label: 'Primera conexión',
+    instruction: `Redacta un primer contacto natural y directo. Menciona un dolor concreto del sector (rotación, retención). Termina con una pregunta abierta de una línea para iniciar conversación.`,
+  },
+  seguimiento: {
+    label: 'Seguimiento suave',
+    instruction: `Este es un segundo contacto. No insistas en lo anterior. Ofrece una perspectiva nueva: un dato del sector o una pregunta diferente. Cambia completamente el ángulo del primer mensaje.`,
+  },
+  caso_exito: {
+    label: 'Caso de éxito',
+    instruction: `Abre con un resultado concreto y creíble: "Una empresa de tu sector redujo rotación 30% en 3 meses con Treevü sin costo para la empresa." Propón una llamada de 15 minutos para compartir cómo lo lograron.`,
+  },
+  urgencia: {
+    label: 'Cupos fundadores',
+    instruction: `Menciona que quedan pocos cupos del Programa Fundadores (fee congelado de por vida, ~40% vs precio lista). Genera urgencia sin sonar desesperado. Un solo llamado a acción claro.`,
+  },
+};
+
+// ── Búsqueda de prospectos vía Tavily ─────────────────────────────────────────
 
 const INDUSTRY_KEYWORDS = {
   retail:       'retail tienda supermercado consumo masivo',
@@ -52,13 +81,12 @@ const ROLE_QUERIES = [
   'gerente general',
 ];
 
-async function searchLinkedIn({ keywords, location, industry, size }) {
+async function searchLinkedIn({ keywords, location, industry }) {
   if (!TAVILY_KEY) throw new Error('TAVILY_API_KEY no configurada');
 
-  const loc    = (location || 'Lima Peru').replace(/,/g, '');
-  const indKw  = INDUSTRY_KEYWORDS[industry] || industry || '';
+  const loc   = (location || 'Lima Peru').replace(/,/g, '');
+  const indKw = INDUSTRY_KEYWORDS[industry] || industry || '';
 
-  // Intentar hasta 3 roles distintos hasta obtener resultados
   const roles = keywords
     ? [keywords]
     : [...ROLE_QUERIES].sort(() => Math.random() - 0.5).slice(0, 3);
@@ -103,12 +131,10 @@ function parseLinkedInResults(results) {
   for (const r of results) {
     if (!r.url?.includes('linkedin.com/in/')) continue;
 
-    // Limpiar el título: remover "| LinkedIn" y "- LinkedIn" del final
     const cleanTitle = (r.title || '')
       .replace(/\s*[|\-]\s*LinkedIn\s*$/i, '')
       .trim();
 
-    // Formato: "Nombre - Cargo en Empresa" o "Nombre - Cargo - Empresa"
     const atMatch = cleanTitle.match(/^(.+?)\s*-\s*(.+?)\s+(?:en|at)\s+(.+)$/i);
     let name, role, company;
 
@@ -125,15 +151,12 @@ function parseLinkedInResults(results) {
 
     if (!name) continue;
 
-    // Si company es inválida, extraer del snippet
     const INVALID_COMPANIES = ['linkedin', ''];
     if (!company || INVALID_COMPANIES.includes(company.toLowerCase())) {
-      // Buscar en snippet: "en NombreEmpresa" o "at NombreEmpresa"
       const snippetMatch = (r.content || '').match(/\ben\s+([A-ZÁÉÍÓÚÑ][^\n,\.·|]{3,40})/i);
       company = snippetMatch?.[1]?.trim() || '';
     }
 
-    // Filtrar solo si claramente es otro país (ej. .mx. .co. .ar. .br.)
     const otherCountry = /\/(mx|co|ar|br|cl|ec|ve|bo|uy|py)\.linkedin\.com/i.test(r.url);
     if (otherCountry) continue;
 
@@ -144,21 +167,47 @@ function parseLinkedInResults(results) {
       email:       '',
       linkedinUrl: r.url,
       industry:    '',
-      employees:   '',
       snippet:     (r.content || '').slice(0, 300),
     });
   }
   return people;
 }
 
-// ── Deduplicación contra CRM (una sola query, dedup en memoria) ───────────────
+// ── Deduplicación ─────────────────────────────────────────────────────────────
+
+// Redis: marca una URL como procesada por 30 días para evitar re-procesar en runs futuros
+const SEEN_TTL = 60 * 60 * 24 * 30; // 30 días
+
+function urlKey(url) {
+  // Clave corta y segura basada en la parte final de la URL de LinkedIn
+  const slug = url.replace(/https?:\/\/[^/]+\/in\//i, '').replace(/[^a-z0-9-]/gi, '').slice(0, 40);
+  return `sdr:seen:${slug}`;
+}
+
+async function isUrlSeen(url) {
+  try {
+    const result = await withTimeout(redisCmd('EXISTS', urlKey(url)), 3000, 'redis:exists');
+    return result === 1;
+  } catch {
+    return false; // Si Redis falla, no bloquear el run
+  }
+}
+
+async function markUrlSeen(url) {
+  try {
+    await withTimeout(redisCmd('SET', urlKey(url), '1', 'EX', SEEN_TTL), 3000, 'redis:set');
+  } catch {
+    // No crítico
+  }
+}
 
 async function fetchExistingCompanies() {
   try {
-    // Trae los últimos 100 leads del CRM para dedup en memoria
-    const r = await notionQuery(NOTION.CRM_DB, null, 100, [
-      { timestamp: 'created_time', direction: 'descending' },
-    ]);
+    const r = await withTimeout(
+      notionQuery(NOTION.CRM_DB, null, 100, [{ timestamp: 'created_time', direction: 'descending' }]),
+      8000,
+      'notion:fetchCompanies'
+    );
     const companies = new Set();
     for (const page of r.results || []) {
       const emp = page.properties?.['Empresa']?.rich_text?.[0]?.plain_text?.toLowerCase().trim();
@@ -166,7 +215,7 @@ async function fetchExistingCompanies() {
     }
     return companies;
   } catch {
-    return new Set(); // Si falla, no deduplicar (mejor agregar duplicado que no agregar nada)
+    return new Set();
   }
 }
 
@@ -181,28 +230,43 @@ function isCompanyDup(company, existingSet) {
 
 // ── Generar mensaje personalizado con Claude ──────────────────────────────────
 
-async function generateOutreach(lead) {
-  const { name, role, company, industry, employees } = lead;
-  const firstName = (name || 'equipo').split(/[\s,]+/)[0];
+async function generateOutreach(lead, strategy = 'intro') {
+  const { name, role, company, industry, snippet } = lead;
+  const firstName   = (name || 'equipo').split(/[\s,]+/)[0];
+  const strat       = STRATEGIES[strategy] || STRATEGIES.intro;
 
-  const prompt = `Redacta un mensaje de primer contacto de LinkedIn para ${firstName}, ${role || 'líder'} de ${company || 'la empresa'}.
+  const prompt = `Redacta un mensaje de contacto de LinkedIn para ${firstName}, ${role || 'líder'} de ${company || 'la empresa'}.
 
 Contexto:
 - Industria: ${industry || 'empresa peruana'}
-- Tamaño: ${employees || 'mediana empresa'}
-- Info adicional del perfil: ${lead.snippet || 'no disponible'}
-- Tu propuesta: Treevü, plataforma EWA (Earned Wage Access) — permite a trabajadores retirar su salario ganado antes del día de pago. Cero costo para la empresa, reduce rotación 15-40%.
+- Info del perfil: ${snippet || 'no disponible'}
+- Producto: Treevü, plataforma EWA (Earned Wage Access) B2B — permite a trabajadores retirar su salario ya ganado antes del día de pago. Cero costo para la empresa. Reduce rotación 15-40%.
 
-Reglas:
-- Máximo 4 líneas
-- Tono directo, no corporativo
-- Menciona un dolor concreto del sector (rotación, retención de talento)
-- Termina con una pregunta de 1 línea para abrir conversación
-- NO uses emojis ni saludos formales como "Estimado"
-- Escribe en español peruano natural`;
+Instrucción de estrategia: ${strat.instruction}
 
-  const msg = await askClaude(prompt, { maxTokens: 200 });
-  return msg || `Hola ${firstName}, vi que lideran el área de personas en ${company}. En Treevü ayudamos a empresas como la tuya a reducir rotación con acceso anticipado al salario — sin costo para la empresa. ¿Tiene sentido conversar 15 minutos?`;
+Reglas de formato:
+- Máximo 4 líneas en total
+- Tono directo y humano, no corporativo
+- Sin emojis ni saludos formales como "Estimado"
+- Escribe en español peruano natural
+- NO repitas información obvia del perfil`;
+
+  const msg = await withTimeout(
+    askClaude(prompt, { maxTokens: 200 }),
+    18000,
+    'claude:outreach'
+  ).catch(() => null);
+
+  if (msg) return msg;
+
+  // Fallback por estrategia si Claude falla
+  const fallbacks = {
+    intro:       `Hola ${firstName}, vi que lideran personas en ${company || 'tu empresa'}. En Treevü ayudamos a reducir rotación con acceso anticipado al salario — sin costo para la empresa. ¿Tiene sentido conversar 15 minutos?`,
+    seguimiento: `${firstName}, quería compartirte un ángulo diferente: el 70% de rotación en empresas peruanas ocurre en los primeros 90 días. Treevü ataca exactamente ese punto. ¿Te interesa ver cómo?`,
+    caso_exito:  `${firstName}, una empresa similar a ${company || 'la tuya'} redujo rotación 30% en 3 meses con Treevü, sin costo para la empresa. ¿15 minutos para contarte cómo?`,
+    urgencia:    `${firstName}, quedan pocos cupos del Programa Fundadores de Treevü — fee congelado de por vida vs precio de lista. ¿Vale la pena que lo revisemos antes de que cierren?`,
+  };
+  return fallbacks[strategy] || fallbacks.intro;
 }
 
 // ── Guardar en Notion CRM ─────────────────────────────────────────────────────
@@ -222,10 +286,7 @@ async function saveToNotion(lead, mensaje) {
   };
   const colabsNorm = employees ? (sizeMap[employees] || employees) : null;
 
-  const notas = [
-    mensaje,
-    linkedinUrl ? `LinkedIn: ${linkedinUrl}` : '',
-  ].filter(Boolean).join('\n');
+  const notas = [mensaje, linkedinUrl ? `LinkedIn: ${linkedinUrl}` : ''].filter(Boolean).join('\n');
 
   const properties = {
     'Nombre y Cargo': { title:     [{ text: { content: nombreCargo.slice(0, 100) } }] },
@@ -240,7 +301,7 @@ async function saveToNotion(lead, mensaje) {
   if (sectorNorm)  properties['Sector']        = { select: { name: sectorNorm } };
   if (colabsNorm)  properties['Colaboradores'] = { select: { name: colabsNorm } };
 
-  return notionCreate(NOTION.CRM_DB, properties);
+  return withTimeout(notionCreate(NOTION.CRM_DB, properties), 10000, 'notion:create');
 }
 
 // ── Handler principal ─────────────────────────────────────────────────────────
@@ -258,105 +319,139 @@ export default async function handler(req, res) {
     size      = '201,500',
     max_leads = 10,
     notify    = true,
+    strategy  = 'intro',
   } = req.body || {};
 
-  const startTime = Date.now();
-  const added     = [];
-  const skipped   = [];
-  const errors    = [];
-  const debug_log = [];
+  if (!STRATEGIES[strategy]) {
+    return res.status(400).json({ error: `strategy inválida. Usa: ${Object.keys(STRATEGIES).join(' | ')}` });
+  }
+
+  const startTime  = Date.now();
+  const added      = [];
+  const skipped    = [];
+  const errors     = [];
+  const debug_log  = [`strategy: ${strategy} (${STRATEGIES[strategy].label})`];
 
   try {
-    // 1. Buscar en LinkedIn vía Tavily
-    debug_log.push(`TAVILY_KEY: ${TAVILY_KEY ? TAVILY_KEY.slice(0,12)+'...' : 'MISSING'}`);
-    const [people, existingCompanies] = await Promise.all([
-      searchLinkedIn({ keywords, location, industry, size }),
-      fetchExistingCompanies(),
-    ]);
+    debug_log.push(`TAVILY_KEY: ${TAVILY_KEY ? TAVILY_KEY.slice(0, 12) + '...' : 'MISSING'}`);
+
+    // 1. Buscar y cargar CRM en paralelo con timeout global de 15s
+    const [people, existingCompanies] = await withTimeout(
+      Promise.all([
+        searchLinkedIn({ keywords, location, industry }),
+        fetchExistingCompanies(),
+      ]),
+      15000,
+      'init:search+crm'
+    );
+
     debug_log.push(`profiles_found: ${people.length}`);
-    people.slice(0,3).forEach(p => debug_log.push(`  ${p.name} | ${p.company || '(no company)'}`));
+    people.slice(0, 3).forEach(p => debug_log.push(`  ${p.name} | ${p.company || '(no company)'}`));
 
     if (!people.length) {
       return res.status(200).json({ message: 'No se encontraron prospectos.', added: 0, skipped: 0, debug: debug_log });
     }
 
-    // 2. Filtrar y deduplicar candidatos
-    const candidates = [];
+    // 2. Filtrar candidatos: dedup por URL (Redis) + empresa (Notion CRM)
     const addedCompanies = new Set();
+    const candidates     = [];
+
     for (const person of people) {
       if (candidates.length >= max_leads) break;
 
-      const name        = person.name        || '';
-      const role        = person.role        || '';
-      const email       = person.email       || '';
-      const company     = person.company     || '';
-      const employees   = size;
-      const linkedinUrl = person.linkedinUrl || '';
-      const orgIndustry = person.industry    || industry || '';
+      const { name = '', role = '', email = '', company = '', linkedinUrl = '' } = person;
 
-      if (!name && !company) { skipped.push({ reason: 'sin datos', name, company }); continue; }
+      if (!name && !company) {
+        skipped.push({ reason: 'sin datos', name, company }); continue;
+      }
 
-      const companyKey = company.toLowerCase().trim();
+      // Dedup por URL en Redis (evita loops entre runs)
+      if (linkedinUrl && await isUrlSeen(linkedinUrl)) {
+        skipped.push({ company, name, reason: 'ya procesado (Redis)' }); continue;
+      }
+
+      // Dedup por empresa en CRM
       if (isCompanyDup(company, existingCompanies)) {
         skipped.push({ company, name, reason: 'ya en CRM' }); continue;
       }
+
+      // Dedup por empresa dentro del run actual
+      const companyKey = company.toLowerCase().trim();
       if (companyKey && addedCompanies.has(companyKey)) {
         skipped.push({ company, name, reason: 'duplicado en run' }); continue;
       }
 
       if (companyKey) addedCompanies.add(companyKey);
-      candidates.push({ name, role, email, company, employees, linkedinUrl, orgIndustry });
+      candidates.push({ name, role, email, company, employees: size, linkedinUrl, orgIndustry: person.industry || industry || '', snippet: person.snippet || '' });
     }
 
-    // 3. Guardar en Notion CRM en paralelo
-    await Promise.all(candidates.map(async (c) => {
-      const firstName = (c.name || 'equipo').split(/[\s,]+/)[0];
-      const mensaje = `Hola ${firstName}, vi tu perfil y me interesó lo que hacen en ${c.company || 'la empresa'}. En Treevü ayudamos a reducir rotación con acceso anticipado al salario — cero costo para la empresa. ¿Tiene sentido conversar 15 minutos?`;
+    debug_log.push(`candidates_after_dedup: ${candidates.length}`);
+
+    // 3. Procesar candidatos: generar mensaje + guardar en Notion
+    //    Secuencial para evitar saturar Notion y Claude simultáneamente
+    for (const c of candidates) {
       try {
-        await saveToNotion({ name: c.name, role: c.role, email: c.email, company: c.company, industry: c.orgIndustry, employees: c.employees, linkedinUrl: c.linkedinUrl }, mensaje);
-        added.push({ name: c.name, company: c.company, role: c.role, email: c.email ? '✓' : '—', linkedin: c.linkedinUrl ? '✓' : '—' });
-        console.log(`[sdr-agent] ✓ ${c.company} — ${c.name}`);
+        const mensaje = await generateOutreach(
+          { name: c.name, role: c.role, company: c.company, industry: c.orgIndustry, snippet: c.snippet },
+          strategy
+        );
+
+        await saveToNotion(
+          { name: c.name, role: c.role, email: c.email, company: c.company, industry: c.orgIndustry, employees: c.employees, linkedinUrl: c.linkedinUrl },
+          mensaje
+        );
+
+        // Marcar URL como vista en Redis para no re-procesar en runs futuros
+        if (c.linkedinUrl) await markUrlSeen(c.linkedinUrl);
+
+        added.push({ name: c.name, company: c.company, role: c.role, linkedin: c.linkedinUrl ? '✓' : '—' });
+        console.log(`[sdr-agent] ✓ ${c.company} — ${c.name} (${strategy})`);
       } catch (err) {
         errors.push({ company: c.company, error: err.message });
+        console.error(`[sdr-agent] ✗ ${c.company}:`, err.message);
       }
-    }));
+    }
 
   } catch (err) {
     console.error('[sdr-agent] error:', err.message);
-    return res.status(500).json({ error: err.message });
+    // Responder con lo que se pudo procesar, no cortar todo
+    if (added.length === 0 && errors.length === 0) {
+      return res.status(500).json({ error: err.message, debug: debug_log });
+    }
   }
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
-  // 3. Notificar al CEO
+  // 4. Notificar al CEO
   if (notify && TELEGRAM_TOKEN && CEO_CHAT_ID && added.length > 0) {
+    const stratLabel  = STRATEGIES[strategy].label;
     const industryLabel = industry || 'general';
-    let msg = `🎯 *SDR Agent completado*\n`;
-    msg += `_${industryLabel} · ${location} · ${size} empleados_\n\n`;
-    msg += `✅ *${added.length} leads añadidos al CRM*\n`;
-    msg += `⏭ ${skipped.length} omitidos (ya en CRM o sin datos)\n\n`;
+    let msg = `🎯 *SDR Agent — ${stratLabel}*\n`;
+    msg += `_${industryLabel} · ${location} · ${size} emp_\n\n`;
+    msg += `✅ *${added.length} leads añadidos*\n`;
+    msg += `⏭ ${skipped.length} omitidos · ❌ ${errors.length} errores\n\n`;
 
     added.slice(0, 8).forEach(l => {
       msg += `• *${l.company}* — ${l.role || '—'}\n`;
     });
     if (added.length > 8) msg += `_...y ${added.length - 8} más_\n`;
 
-    msg += `\n⏱ ${duration}s · Revisá en Notion → CRM (/pipeline)`;
+    msg += `\n⏱ ${duration}s · Revisá en Notion → CRM`;
 
     sendMessage(TELEGRAM_TOKEN, CEO_CHAT_ID, msg, { parse_mode: 'Markdown' }).catch(() => {});
   }
 
   return res.status(200).json({
-    added:      added.length,
-    skipped:    skipped.length,
-    errors:     errors.length,
-    leads:      added,
+    strategy,
+    added:          added.length,
+    skipped:        skipped.length,
+    errors:         errors.length,
+    leads:          added,
     skipped_detail: skipped.slice(0, 5),
-    debug:      debug_log,
-    duration_s: parseFloat(duration),
+    debug:          debug_log,
+    duration_s:     parseFloat(duration),
   });
 }
 
-// Vercel: extender timeout a 60s para permitir Tavily + Claude + Notion
+// Vercel: 60s para permitir Tavily + Claude (x10) + Notion (x10)
 export const config = { maxDuration: 60 };
-
