@@ -16,6 +16,8 @@ import { getGmailToken, gmailDraft }                 from './lib/gmail.js';
 import { handleCTO, clearCTOContext }                from './cto-bot.js';
 import { postLinkedIn }                              from './lib/linkedin.js';
 import { scrapeCompany }                             from './lib/firecrawl.js';
+import { searchPhoto, buildPhotoQuery }              from './lib/pexels.js';
+import { postInstagram }                             from './lib/instagram.js';
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -796,7 +798,43 @@ CAPTION: [hook] | [texto] | [3-5 hashtags nicho]`;
     const ig = await genInstagram(igTipo).catch(() => null);
     if (ig) {
       const label = igTipo === 'carousel' ? '🖼 Carrusel Instagram' : '🎬 Reel Instagram';
-      await send(chatId, `${label} — *guión listo*\n\n${ig}`, { parse_mode: 'Markdown' });
+
+      // Intentar buscar imagen en Pexels para auto-post (solo para carrusel/imagen estática)
+      // Para Reels el guión es suficiente — no se puede auto-post video
+      if (igTipo === 'carousel') {
+        const photoQuery = buildPhotoQuery(tema);
+        const photo      = await searchPhoto(photoQuery).catch(() => null);
+
+        if (photo) {
+          // Extraer el caption de la IA (línea "Caption: ...")
+          const captionMatch = ig.match(/Caption:\s*(.+?)(?:\n|$)/s);
+          const caption      = captionMatch ? captionMatch[1].trim() : ig.slice(0, 500);
+
+          const igKey = `ig:draft:${chatId}:${Date.now()}`;
+          await redisCmd('SET', igKey, JSON.stringify({ imageUrl: photo.url, caption }), 'EX', 300);
+
+          await send(chatId,
+            `${label} — *draft listo*\n\n` +
+            `🖼 Imagen: [ver foto](${photo.pageUrl}) _(${photo.photographer})_\n\n` +
+            `📝 Caption:\n${caption.slice(0, 400)}`,
+            {
+              parse_mode:   'Markdown',
+              reply_markup: {
+                inline_keyboard: [[
+                  { text: '✅ Publicar en Instagram', callback_data: `ig_ok:${igKey}` },
+                  { text: '📋 Solo copiar',           callback_data: 'ig_cancel' },
+                ]],
+              },
+            }
+          );
+        } else {
+          // Sin Pexels configurado → solo guión
+          await send(chatId, `${label} — *guión listo*\n\n${ig}`, { parse_mode: 'Markdown' });
+        }
+      } else {
+        // Reel → solo guión (no se puede auto-post video)
+        await send(chatId, `${label} — *guión listo*\n\n${ig}`, { parse_mode: 'Markdown' });
+      }
     }
   }
 }
@@ -966,6 +1004,35 @@ export default async function handler(req, res) {
       await answer(cq.id);
 
       if (chatId !== String(CEO_CHAT_ID)) return res.status(200).json({ ok: true });
+
+      // CEO confirmó publicar en Instagram
+      if (data.startsWith('ig_ok:')) {
+        const draftKey = data.slice(6);
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📤 Publicando en Instagram..._');
+        try {
+          const raw = await redisCmd('GET', draftKey);
+          if (!raw) {
+            await edit(chatId, msgId, '❌ El draft expiró (>5 min). Usá /post instagram de nuevo.');
+            return res.status(200).json({ ok: true });
+          }
+          const { imageUrl, caption } = JSON.parse(raw);
+          const result = await postInstagram(imageUrl, caption);
+          await redisCmd('DEL', draftKey);
+          await edit(chatId, msgId,
+            `✅ *Publicado en Instagram*\n\n🔗 ${result.url}`,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (err) {
+          await edit(chatId, msgId, `❌ Instagram: ${err.message}`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // CEO descartó post de Instagram
+      if (data === 'ig_cancel') {
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📋 Copialo y publicalo manualmente._');
+        return res.status(200).json({ ok: true });
+      }
 
       // CEO confirmó publicar en LinkedIn
       if (data.startsWith('li_ok:')) {
