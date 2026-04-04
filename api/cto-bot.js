@@ -7,8 +7,13 @@
 import { askClaude }  from './lib/anthropic.js';
 import { redisCmd }   from './lib/redis.js';
 
-const CTX_TTL  = 60 * 60 * 2;   // 2 horas
-const MAX_MSGS = 12;             // últimos 6 turnos (user + assistant)
+const CTX_TTL   = 60 * 60 * 2;  // 2 horas
+const MAX_MSGS  = 10;            // últimos 5 turnos
+const TOKENS_FAST   = 500;       // respuesta rápida (modo por defecto)
+const TOKENS_DETAIL = 950;       // respuesta detallada (cuando se pide explícitamente)
+
+// Detecta si la pregunta requiere respuesta técnica extendida
+const DETAIL_RE = /detalle|técnico|endpoint|webhook|implementar|integrar|cómo funciona|paso a paso|fase|sandbox|auth|código|checklist|proceso completo/i;
 
 // ── Sistema prompt + knowledge base ──────────────────────────────────────────
 
@@ -197,35 +202,30 @@ Indicar "Este punto requiere revisión directa con el equipo Treevu" si:
 - Cualquier pregunta fuera del scope de este documento.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGLAS DE AUDIENCIA Y FORMATO
+AUDIENCIA Y LONGITUD
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Detecta la audiencia por el vocabulario:
-- Palabras como "webhook", "endpoint", "sandbox", "idempotencia", "auth", "payload" → CTO/técnico profundo.
-- Palabras como "cuánto tarda", "qué necesitamos", "qué riesgo hay", "cuánto cuesta" → CEO/directivo.
-- Mezcla de ambos → perfil mixto (comercial + técnico).
+Detecta la audiencia:
+- "webhook", "endpoint", "auth", "sandbox", "implementar", "código" → CTO técnico.
+- "cuánto tarda", "qué riesgo", "qué necesitamos", "cuánto cuesta" → CEO.
+- Mezcla → responde en dos bloques: primero ejecutivo, luego técnico.
 
-Para CEO/directivo:
-  Evita jerga técnica. Traduce todo a impacto: tiempo, dinero, riesgo, personas involucradas.
-  Formato: *Conclusión directa* → qué significa para el negocio → qué debe decidir → próximo paso.
-  Extensión: breve (máximo 8 bullets).
+LONGITUD — regla estricta:
+- MODO NORMAL (cualquier pregunta general): máximo 5 bullets + 1 riesgo + próximo paso. Sin introducción. Sin relleno.
+- MODO DETALLE (si la pregunta menciona "detalle", "técnico", "implementar", "endpoint", "paso a paso", "proceso completo"): respuesta extendida con fases, specs y ejemplos.
+- En AMBOS modos: termina siempre con la línea de Notion (ver abajo).
 
-Para CTO/técnico del cliente:
-  Incluye: nombres de endpoints, métodos HTTP, estructura de body relevante, eventos de webhook, casos de prueba, criterios de aceptación, consideraciones de seguridad.
-  Formato: estructurado por fases o por componente técnico.
-  Extensión: completa. No resumir si la pregunta es técnica.
+FORMATO OBLIGATORIO:
+*[respuesta directa en 1 frase]*
+• bullet 1
+• bullet 2
+• bullet 3 (máx. 5 en modo normal)
+_Riesgo principal:_ riesgo → mitigación
+_Próximo paso:_ acción · quién · cuándo
+📋 _Detalle completo → [NOTION_LINK]_
 
-Para perfil mixto:
-  Responde en dos bloques claramente separados: uno ejecutivo y uno técnico.
-
-FORMATO OBLIGATORIO DE RESPUESTA (en este orden):
-*Respuesta corta* — 1–2 frases.
-*Detalle* — bullets organizados por fase/componente (extensión según audiencia).
-*Riesgos y mitigaciones* — riesgo concreto → mitigación concreta.
-*Próximo paso* → acción · quién · ventana sugerida.
-
-Para estimaciones: siempre los 3 escenarios con supuestos explícitos.
-Responde en español. Markdown Telegram: *negrita*, _itálica_. No uses ### ni tablas Markdown (no renderizan en Telegram).`;
+Para estimaciones: los 3 escenarios (rápido / estándar / complejo) con supuesto principal de cada uno.
+Responde en español. Markdown Telegram: *negrita*, _itálica_. Sin ### ni tablas.`;
 
 
 // ── Contexto en Redis ─────────────────────────────────────────────────────────
@@ -253,20 +253,21 @@ export async function clearCTOContext(chatId) {
 // ── Handler exportado para llamar desde ceo-bot.js ───────────────────────────
 
 export async function handleCTO(chatId, pregunta, sendFn) {
-  const history = await getContext(chatId);
+  const notionUrl = process.env.NOTION_CTO_DOC_URL || '';
+  const detailMode = DETAIL_RE.test(pregunta);
+  const maxTokens  = detailMode ? TOKENS_DETAIL : TOKENS_FAST;
 
-  const messages = [
-    ...history,
-    { role: 'user', content: pregunta },
-  ];
+  // Inyectar el link real de Notion en el system prompt
+  const system = notionUrl
+    ? CTO_SYSTEM.replace('[NOTION_LINK]', notionUrl)
+    : CTO_SYSTEM.replace('📋 _Detalle completo → [NOTION_LINK]_', '');
+
+  const history  = await getContext(chatId);
+  const messages = [...history, { role: 'user', content: pregunta }];
 
   let respuesta;
   try {
-    respuesta = await askClaude(null, {
-      system:     CTO_SYSTEM,
-      messages,
-      maxTokens:  1400,
-    });
+    respuesta = await askClaude(null, { system, messages, maxTokens });
   } catch (err) {
     console.error('[cto-bot] Claude error:', err.message);
     respuesta = null;
@@ -277,11 +278,6 @@ export async function handleCTO(chatId, pregunta, sendFn) {
     return;
   }
 
-  // Guardar turno en contexto
-  await saveContext(chatId, [
-    ...messages,
-    { role: 'assistant', content: respuesta },
-  ]);
-
+  await saveContext(chatId, [...messages, { role: 'assistant', content: respuesta }]);
   await sendFn(respuesta, { parse_mode: 'Markdown' });
 }
