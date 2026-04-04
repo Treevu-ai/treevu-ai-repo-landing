@@ -26,7 +26,8 @@
     { "src": "api/onboarding.js",         "use": "@vercel/node" },
     { "src": "api/content-reminder.js",  "use": "@vercel/node" },
     { "src": "api/sdr-agent.js",         "use": "@vercel/node", "config": { "maxDuration": 60 } },
-    { "src": "api/apollo-enricher.js",   "use": "@vercel/node", "config": { "maxDuration": 60 } }
+    { "src": "api/apollo-enricher.js",   "use": "@vercel/node", "config": { "maxDuration": 60 } },
+    { "src": "api/twitter-agent.js",     "use": "@vercel/node", "config": { "maxDuration": 30 } }
   ],
   "routes": [
     { "src": "/api/submit",           "dest": "/api/submit.js" },
@@ -51,6 +52,7 @@
     { "src": "/api/content-reminder",   "dest": "/api/content-reminder.js" },
     { "src": "/api/sdr-agent",          "dest": "/api/sdr-agent.js" },
     { "src": "/api/apollo-enricher",    "dest": "/api/apollo-enricher.js" },
+    { "src": "/api/twitter-agent",      "dest": "/api/twitter-agent.js" },
     { "src": "/dashboard",            "dest": "/dashboard.html" },
     { "src": "/eva-app.png",          "dest": "/eva-app.png" },
     { "src": "/(.*)",                 "dest": "/index.html" }

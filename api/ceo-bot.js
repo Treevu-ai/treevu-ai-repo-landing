@@ -415,6 +415,7 @@ async function handleHelp(chatId) {
     `🎯 /sdr [industria] [tamaño] — busca prospectos en LinkedIn\n` +
     `   _Ej: /sdr retail 200+ · /sdr manufactura 500+_\n` +
     `📬 /enrich — enriquece leads SDR con email y teléfono (Apollo)\n` +
+    `🐦 /tweet [texto] — genera o pule un tweet y pide confirmación antes de publicar\n` +
     `🧠 /cto <pregunta> — CTO Virtual: Piloto vs API, tiempos, arquitectura\n` +
     `   _Ej: /cto ¿cuánto tarda la integración con Buk?_\n` +
     `   _/cto reset — limpia el contexto de conversación_\n` +
@@ -607,6 +608,49 @@ async function handleSDR(chatId, args) {
   }
 }
 
+async function handleTweet(chatId, rawText) {
+  await send(chatId, rawText
+    ? '_✍️ Puliendo tu tweet con Claude..._'
+    : '_🤖 Generando tweet de la semana..._'
+  );
+
+  try {
+    const res = await fetch('https://gettreevu.com/api/twitter-agent', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET}` },
+      body:    JSON.stringify({ action: 'draft', text: rawText || '' }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.draft) {
+      await send(chatId, `❌ No pude generar el draft: ${data.error || 'error desconocido'}`);
+      return;
+    }
+
+    // Guardar draft en Redis 5 minutos
+    const key = `tw:draft:${chatId}:${Date.now()}`;
+    await redisCmd('SET', key, data.draft, 'EX', 300);
+
+    const msg =
+      `📝 *Draft del tweet* (${data.chars}/280)\n\n` +
+      `_${data.draft}_\n\n` +
+      `¿Lo publicamos?`;
+
+    await send(chatId, msg, {
+      parse_mode:   'Markdown',
+      reply_markup: {
+        inline_keyboard: [[
+          { text: '✅ Publicar', callback_data: `tw_ok:${key}` },
+          { text: '❌ Cancelar', callback_data: 'tw_cancel' },
+        ]],
+      },
+    });
+
+  } catch (err) {
+    await send(chatId, `❌ Twitter Agent: ${err.message}`);
+  }
+}
+
 async function handleEnrich(chatId) {
   await send(chatId, '_📬 Iniciando Apollo Enricher — buscando emails para leads SDR..._');
 
@@ -730,6 +774,41 @@ export default async function handler(req, res) {
 
       if (chatId !== String(CEO_CHAT_ID)) return res.status(200).json({ ok: true });
 
+      // CEO confirmó publicar tweet
+      if (data.startsWith('tw_ok:')) {
+        const draftKey = data.slice(6);
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📤 Publicando..._');
+        try {
+          const raw = await redisCmd('GET', draftKey);
+          if (!raw) {
+            await edit(chatId, msgId, '❌ El draft expiró (>5 min). Usá /tweet de nuevo.');
+            return res.status(200).json({ ok: true });
+          }
+          const draftText = raw;
+          const tweetRes  = await fetch('https://gettreevu.com/api/twitter-agent', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET}` },
+            body:    JSON.stringify({ action: 'publish', text: draftText }),
+          });
+          const tweetData = await tweetRes.json();
+          if (!tweetRes.ok || !tweetData.ok) throw new Error(tweetData.error || 'error al publicar');
+          await redisCmd('DEL', draftKey);
+          await edit(chatId, msgId,
+            `✅ *Tweet publicado*\n\n_${draftText}_\n\n🔗 ${tweetData.url || 'ver en X'}`,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (err) {
+          await edit(chatId, msgId, `❌ No se pudo publicar: ${err.message}`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // CEO canceló tweet
+      if (data === 'tw_cancel') {
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_❌ Tweet cancelado._');
+        return res.status(200).json({ ok: true });
+      }
+
       // Iniciar flujo: CEO tocó "Registrar resultado"
       if (data.startsWith('pm_start:')) {
         const lead_id = data.slice(9);
@@ -840,6 +919,10 @@ export default async function handler(req, res) {
     }
     if (text === '/enrich') {
       await handleEnrich(chatId);
+      return res.status(200).json({ ok: true });
+    }
+    if (text.startsWith('/tweet')) {
+      await handleTweet(chatId, text.slice(6).trim());
       return res.status(200).json({ ok: true });
     }
     if (text.startsWith('/cto')) {
