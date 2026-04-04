@@ -252,8 +252,8 @@ Reglas de formato:
 - NO repitas información obvia del perfil`;
 
   const msg = await withTimeout(
-    askClaude(prompt, { maxTokens: 200 }),
-    18000,
+    askClaude(prompt, { maxTokens: 120 }),
+    10000,
     'claude:outreach'
   ).catch(() => null);
 
@@ -352,44 +352,43 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: 'No se encontraron prospectos.', added: 0, skipped: 0, debug: debug_log });
     }
 
-    // 2. Filtrar candidatos: dedup por URL (Redis) + empresa (Notion CRM)
+    // 2. Dedup: chequear URLs en Redis en paralelo (no secuencial)
+    const urlSeenResults = await Promise.all(
+      people.slice(0, max_leads * 3).map(p =>
+        p.linkedinUrl ? isUrlSeen(p.linkedinUrl) : Promise.resolve(false)
+      )
+    );
+
     const addedCompanies = new Set();
     const candidates     = [];
 
-    for (const person of people) {
+    for (let i = 0; i < people.length; i++) {
       if (candidates.length >= max_leads) break;
 
-      const { name = '', role = '', email = '', company = '', linkedinUrl = '' } = person;
+      const { name = '', role = '', email = '', company = '', linkedinUrl = '' } = people[i];
 
       if (!name && !company) {
         skipped.push({ reason: 'sin datos', name, company }); continue;
       }
-
-      // Dedup por URL en Redis (evita loops entre runs)
-      if (linkedinUrl && await isUrlSeen(linkedinUrl)) {
+      if (urlSeenResults[i]) {
         skipped.push({ company, name, reason: 'ya procesado (Redis)' }); continue;
       }
-
-      // Dedup por empresa en CRM
       if (isCompanyDup(company, existingCompanies)) {
         skipped.push({ company, name, reason: 'ya en CRM' }); continue;
       }
-
-      // Dedup por empresa dentro del run actual
       const companyKey = company.toLowerCase().trim();
       if (companyKey && addedCompanies.has(companyKey)) {
         skipped.push({ company, name, reason: 'duplicado en run' }); continue;
       }
 
       if (companyKey) addedCompanies.add(companyKey);
-      candidates.push({ name, role, email, company, employees: size, linkedinUrl, orgIndustry: person.industry || industry || '', snippet: person.snippet || '' });
+      candidates.push({ name, role, email, company, employees: size, linkedinUrl, orgIndustry: people[i].industry || industry || '', snippet: people[i].snippet || '' });
     }
 
     debug_log.push(`candidates_after_dedup: ${candidates.length}`);
 
-    // 3. Procesar candidatos: generar mensaje + guardar en Notion
-    //    Secuencial para evitar saturar Notion y Claude simultáneamente
-    for (const c of candidates) {
+    // 3. Procesar candidatos en PARALELO — Claude + Notion simultáneos
+    await Promise.allSettled(candidates.map(async (c) => {
       try {
         const mensaje = await generateOutreach(
           { name: c.name, role: c.role, company: c.company, industry: c.orgIndustry, snippet: c.snippet },
@@ -401,8 +400,7 @@ export default async function handler(req, res) {
           mensaje
         );
 
-        // Marcar URL como vista en Redis para no re-procesar en runs futuros
-        if (c.linkedinUrl) await markUrlSeen(c.linkedinUrl);
+        if (c.linkedinUrl) markUrlSeen(c.linkedinUrl); // fire-and-forget, no bloquea
 
         added.push({ name: c.name, company: c.company, role: c.role, linkedin: c.linkedinUrl ? '✓' : '—' });
         console.log(`[sdr-agent] ✓ ${c.company} — ${c.name} (${strategy})`);
@@ -410,7 +408,7 @@ export default async function handler(req, res) {
         errors.push({ company: c.company, error: err.message });
         console.error(`[sdr-agent] ✗ ${c.company}:`, err.message);
       }
-    }
+    }));
 
   } catch (err) {
     console.error('[sdr-agent] error:', err.message);
