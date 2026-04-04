@@ -15,6 +15,7 @@ import { askClaude }                                 from './lib/anthropic.js';
 import { getGmailToken, gmailDraft }                 from './lib/gmail.js';
 import { handleCTO, clearCTOContext }                from './cto-bot.js';
 import { postLinkedIn }                              from './lib/linkedin.js';
+import { scrapeCompany }                             from './lib/firecrawl.js';
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -419,6 +420,8 @@ async function handleHelp(chatId) {
     `🐦 /tweet [texto] — genera o pule un tweet y pide confirmación antes de publicar\n` +
     `📲 /post [linkedin|instagram] — genera contenido listo para copiar (algoritmo-aware)\n` +
     `   _/post → ambos · /post linkedin → solo LI · /post instagram → solo IG_\n` +
+    `🔍 /briefing <empresa o URL> — inteligencia pre-reunión (Firecrawl + Claude)\n` +
+    `   _Ej: /briefing Alicorp · /briefing https://alicorp.com.pe_\n` +
     `🧠 /cto <pregunta> — CTO Virtual: Piloto vs API, tiempos, arquitectura\n` +
     `   _Ej: /cto ¿cuánto tarda la integración con Buk?_\n` +
     `   _/cto reset — limpia el contexto de conversación_\n` +
@@ -608,6 +611,79 @@ async function handleSDR(chatId, args) {
     }
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function handleBriefing(chatId, input) {
+  if (!input) {
+    await send(chatId,
+      'Uso: `/briefing <empresa o URL>`\n_Ej: /briefing Alicorp · /briefing https://alicorp.com.pe_',
+      { parse_mode: 'Markdown' }
+    );
+    return;
+  }
+
+  await send(chatId, `_🔍 Investigando "${input}"..._`);
+
+  // Detectar si es URL o nombre de empresa
+  const isUrl    = /^https?:\/\//i.test(input);
+  const empresa  = isUrl ? input : input;
+
+  try {
+    // Scrape con Firecrawl
+    const webCtx = isUrl
+      ? await import('./lib/firecrawl.js').then(m => m.scrapeUrl(input)).catch(() => null)
+      : await scrapeCompany(input).catch(() => null);
+
+    const hasWeb = webCtx && webCtx.length > 80;
+
+    // Claude genera el briefing estratégico
+    const prompt = `Eres el asistente estratégico del CEO de Treevü (plataforma EWA B2B para empresas peruanas — permite a colaboradores retirar su salario ganado antes del día de pago, sin costo para ellos, sin riesgo financiero para la empresa).
+
+El CEO va a reunirse con un representante de: ${empresa}
+
+${hasWeb ? `Información del sitio web de la empresa:\n${webCtx}\n` : ''}
+
+Genera un briefing de reunión en este formato exacto (usa Markdown Telegram: *negrita*, _itálica_, sin ###):
+
+*🏢 ${isUrl ? 'Empresa' : empresa}*
+_[Describe brevemente qué hace la empresa en 1 línea. Si no hay info web, infiere del nombre.]_
+
+*📊 Fit con Treevü*
+• Sector y rotación probable
+• Tamaño estimado y perfil de colaboradores
+• Dolor más probable que resuelve Treevü
+• Score de fit: ALTO / MEDIO / BAJO — razón en 1 frase
+
+*🎯 Apertura recomendada*
+[Guión de 2-3 oraciones para abrir la reunión, personalizado, primera persona]
+
+*❓ Preguntas clave*
+1. [Pregunta sobre dolor de rotación]
+2. [Pregunta sobre adelantos informales]
+3. [Pregunta sobre proceso de decisión]
+
+*⚠️ Objeción probable*
+[La más probable] → [respuesta concisa]
+
+*💡 Dato ganador*
+[Un dato o ángulo específico que conecta con esta empresa]`;
+
+    const briefing = await askClaude(prompt, { maxTokens: 600 });
+
+    if (!briefing) {
+      await send(chatId, '❌ No pude generar el briefing. Intentá de nuevo.');
+      return;
+    }
+
+    await send(chatId, briefing, { parse_mode: 'Markdown' });
+
+    if (!hasWeb) {
+      await send(chatId, `_⚠️ Sin datos web — briefing basado en sector/nombre. Agregá la URL para más detalle: /briefing https://..._`, { parse_mode: 'Markdown' });
+    }
+
+  } catch (err) {
+    await send(chatId, `❌ Briefing: ${err.message}`);
   }
 }
 
@@ -1068,6 +1144,10 @@ export default async function handler(req, res) {
     }
     if (text.startsWith('/tweet')) {
       await handleTweet(chatId, text.slice(6).trim());
+      return res.status(200).json({ ok: true });
+    }
+    if (text.startsWith('/briefing')) {
+      await handleBriefing(chatId, text.slice(9).trim());
       return res.status(200).json({ ok: true });
     }
     if (text.startsWith('/post')) {

@@ -21,6 +21,7 @@ import { captureException }               from './lib/sentry.js';
 import { supabasePatch }                  from './lib/supabase.js';
 import { redisCmd }                       from './lib/redis.js';
 import { getGmailToken, gmailSend, gmailDraft } from './lib/gmail.js';
+import { scrapeCompany }                  from './lib/firecrawl.js';
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID     = process.env.TELEGRAM_CHAT_ID;
@@ -149,8 +150,15 @@ function getSectorIntel(sector, employees) {
 }
 
 async function researchCompany(empresa, sector) {
+  if (!empresa) return null;
+
+  // Firecrawl como primario: raspa el sitio real de la empresa para contexto profundo
+  const firecrawlCtx = await scrapeCompany(empresa, sector).catch(() => null);
+  if (firecrawlCtx && firecrawlCtx.length > 100) return firecrawlCtx.slice(0, 2000);
+
+  // Fallback: Tavily búsqueda básica
   const TAVILY_KEY = process.env.TAVILY_API_KEY;
-  if (!TAVILY_KEY || !empresa) return null;
+  if (!TAVILY_KEY) return null;
   try {
     const res = await fetch('https://api.tavily.com/search', {
       method:  'POST',
@@ -165,7 +173,7 @@ async function researchCompany(empresa, sector) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const answer = data.answer || '';
+    const answer   = data.answer || '';
     const snippets = (data.results || []).map(r => r.content?.slice(0, 200)).filter(Boolean).join(' | ');
     return (answer + ' ' + snippets).slice(0, 600) || null;
   } catch { return null; }
