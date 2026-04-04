@@ -14,6 +14,7 @@ import { NOTION, ESTADO_EMOJI }                             from './lib/constant
 import { askClaude }                                 from './lib/anthropic.js';
 import { getGmailToken, gmailDraft }                 from './lib/gmail.js';
 import { handleCTO, clearCTOContext }                from './cto-bot.js';
+import { postLinkedIn }                              from './lib/linkedin.js';
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -698,9 +699,19 @@ CAPTION: [hook] | [texto] | [3-5 hashtags nicho]`;
   if (doLinkedIn) {
     const li = await genLinkedIn().catch(() => null);
     if (li) {
+      const key = `li:draft:${chatId}:${Date.now()}`;
+      await redisCmd('SET', key, li, 'EX', 300);
       await send(chatId,
-        `💼 *LinkedIn — listo para publicar*\n_Tema: ${tema}_\n\n${li}\n\n💡 _El link va en el primer comentario._`,
-        { parse_mode: 'Markdown' }
+        `💼 *LinkedIn — draft listo*\n_Tema: ${tema}_\n\n${li}\n\n💡 _El link va en el primer comentario._`,
+        {
+          parse_mode:   'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '✅ Publicar en LinkedIn', callback_data: `li_ok:${key}` },
+              { text: '📋 Solo copiar',          callback_data: 'li_cancel' },
+            ]],
+          },
+        }
       );
     }
   }
@@ -879,6 +890,34 @@ export default async function handler(req, res) {
       await answer(cq.id);
 
       if (chatId !== String(CEO_CHAT_ID)) return res.status(200).json({ ok: true });
+
+      // CEO confirmó publicar en LinkedIn
+      if (data.startsWith('li_ok:')) {
+        const draftKey = data.slice(6);
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📤 Publicando en LinkedIn..._');
+        try {
+          const raw = await redisCmd('GET', draftKey);
+          if (!raw) {
+            await edit(chatId, msgId, '❌ El draft expiró (>5 min). Usá /post linkedin de nuevo.');
+            return res.status(200).json({ ok: true });
+          }
+          const { urn, url } = await postLinkedIn(raw);
+          await redisCmd('DEL', draftKey);
+          await edit(chatId, msgId,
+            `✅ *Publicado en LinkedIn*\n\n🔗 ${url}`,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (err) {
+          await edit(chatId, msgId, `❌ LinkedIn: ${err.message}`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // CEO descartó post de LinkedIn (solo copiar)
+      if (data === 'li_cancel') {
+        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📋 Copialo y publicalo manualmente._');
+        return res.status(200).json({ ok: true });
+      }
 
       // CEO confirmó publicar tweet
       if (data.startsWith('tw_ok:')) {
