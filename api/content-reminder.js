@@ -40,35 +40,93 @@ async function generarContenido(tipo, weekNum) {
   const tema = LINKEDIN_TEMAS[weekNum % LINKEDIN_TEMAS.length];
 
   const prompts = {
-    '💼 LinkedIn': `Eres el equipo de contenido de Treevü, startup B2B de acceso al salario devengado (EWA) en Perú.
-Escribe un post de LinkedIn sobre: "${tema}".
-Estilo: directo, datos concretos, voz de experto peruano en RRHH/finanzas.
-Estructura: gancho (1 línea), 3-4 puntos cortos, CTA suave.
-Máximo 180 palabras. Sin hashtags genéricos. Sin emojis exagerados.
-Devuelve SOLO el texto del post.`,
+    // ── LINKEDIN ─────────────────────────────────────────────────────────────
+    // Algoritmo 2026: dwell time es la señal #1. Hook → tiempo de lectura → comentario.
+    // Sin links en el cuerpo (matan alcance). Sin "me complace compartir". Una sola pregunta al final.
+    '💼 LinkedIn': `Eres el equipo de contenido de Treevü, startup B2B de EWA (acceso al salario devengado) en Perú.
 
+Escribe un post de LinkedIn sobre: "${tema}"
+
+REGLAS DE ALGORITMO (obligatorias):
+- Primera línea = gancho que corta el scroll. Dato concreto, pregunta incómoda o afirmación contrarian. Sin saludos.
+- Salto de línea después de cada 1-2 oraciones (el algoritmo premia el dwell time; los párrafos cortos hacen leer más).
+- Usa números reales cuando puedas: %, S/, días, personas.
+- Ángulo personal o de insider: "lo que nadie dice sobre...", "lo aprendí trabajando con X empresas..."
+- Cierra con UNA sola pregunta abierta (genera comentarios = señal de engagement).
+- NO pongas links (reducen alcance; van en el primer comentario).
+- Sin hashtags genéricos (#RRHH #Peru). Máximo 3 hashtags nicho al final si aportan.
+- 150-250 palabras. Tono experto pero humano. Sin bullets con guión largo.
+
+Devuelve SOLO el texto del post, listo para copiar.`,
+
+    // ── CARRUSEL INSTAGRAM ───────────────────────────────────────────────────
+    // Algoritmo 2026: swipe rate + saves son las señales clave.
+    // Slide 1 debe detener el scroll. Slide final debe generar "guardar".
     '🖼 Carrusel Instagram': `Eres el equipo de contenido de Treevü (EWA B2B, Perú).
-Genera títulos y copy corto para un carrusel de Instagram de 5 slides sobre: rotación laboral y bienestar financiero.
-Formato: slide 1 = gancho, slides 2-4 = puntos de valor, slide 5 = CTA.
-Máximo 15 palabras por slide. Tono cercano y visual.
-Devuelve SOLO los 5 slides en formato: "Slide N: [título]"`,
 
+Genera un carrusel de Instagram de 6 slides sobre: rotación laboral y bienestar financiero.
+
+REGLAS DE ALGORITMO (obligatorias):
+- Slide 1: afirmación que duela o sorprenda. Sin contexto previo. Max 8 palabras. Que detenga el scroll.
+- Slides 2-5: cada uno = UN solo punto accionable. Max 10 palabras de título + 1 línea de dato/ejemplo.
+- Slide 6: CTA que genere SAVES. Fórmula: "Guarda esto para la próxima vez que..." o "Comparte con el gerente de RRHH de tu empresa".
+- Tono: directo, peruano, B2B. Audiencia: gerentes RRHH y CEO de 200-2000 empleados.
+- Cada slide debe poder leerse en 3 segundos.
+
+Formato de respuesta:
+Slide 1: [texto]
+Slide 2: [título] — [dato/ejemplo]
+Slide 3: [título] — [dato/ejemplo]
+Slide 4: [título] — [dato/ejemplo]
+Slide 5: [título] — [dato/ejemplo]
+Slide 6: [CTA]
+Caption: [primera línea antes del "ver más" — debe obligar a hacer tap. Max 125 caracteres] + [caption completo, max 200 palabras] + [3-5 hashtags nicho]`,
+
+    // ── REEL INSTAGRAM ───────────────────────────────────────────────────────
+    // Algoritmo 2026: retention rate es todo. Los primeros 3 segundos determinan el alcance.
+    // Save > share > comment > like. El hook de texto en pantalla + hook hablado = doble impacto.
     '🎬 Reel Instagram': `Eres el equipo de contenido de Treevü (EWA B2B, Perú).
-Genera un guión breve para un Reel de Instagram de 30-45 segundos.
-Tema: cómo Treevü ayuda a las empresas a reducir rotación.
-Incluye: hook en los primeros 3 segundos, 2-3 puntos de valor, cierre con pregunta.
-Formato: [segundos] acción/texto en pantalla.
-Máximo 80 palabras total.`,
 
+Genera el guión de un Reel de Instagram de 30-45 segundos sobre cómo Treevü reduce la rotación.
+
+REGLAS DE ALGORITMO (obligatorias):
+- 0-3s: hook de texto EN PANTALLA (bold, grande) + lo que dice la voz. Deben ser distintos pero complementarios. El texto del gancho debe provocar "¿qué?" o "¿de verdad?".
+- 3-30s: desarrollo en 3 puntos máximo. Cada punto = 1 dato concreto + visual sugerido.
+- 30-45s: cierre con pregunta o dato sorprendente que invite a guardar o comentar.
+- Sugiere el audio: tipo de música o mood (no nombre específico para no violar derechos).
+- El guión hablado debe sonar natural, no leído.
+
+Formato:
+[0-3s] TEXTO EN PANTALLA: "..." | VOZ: "..."
+[3-15s] VOZ: "..." | VISUAL: [descripción]
+[15-28s] VOZ: "..." | VISUAL: [descripción]
+[28-40s] VOZ: "..." | VISUAL: [descripción]
+[40-45s] VOZ: "..." (cierre)
+AUDIO SUGERIDO: [mood/tipo]
+CAPTION: [primera línea hook] + [caption] + [3-5 hashtags nicho]`,
+
+    // ── STORY + BTS ──────────────────────────────────────────────────────────
+    // Stories: autenticidad > producción. BTS genera confianza y humaniza la marca.
+    // Algoritmo premia las respuestas (DMs) y los taps en el link/sticker.
     '📸 Story + Behind the Scenes': `Eres el equipo de contenido de Treevü (EWA B2B, Perú).
-Sugiere 3 ideas de Stories + Behind the Scenes para Instagram de hoy.
-Enfoque: mostrar el equipo, el proceso, o el impacto real en colaboradores.
-Formato: una línea por idea, comenzando con un emoji.
-Sin texto largo. Ideas concretas y filmables.`,
+
+Genera 3 ideas de Stories + Behind the Scenes para hoy.
+
+REGLAS DE ALGORITMO (obligatorias):
+- Cada idea debe provocar una RESPUESTA (DM) o tap en sticker/link. El algoritmo mide replies.
+- Autenticidad > producción perfecta. Mostrar el proceso, los errores, el equipo real.
+- Incluir un sticker interactivo en cada una: encuesta, pregunta, cuenta regresiva o quiz.
+- Formato vertical, pensado para grabarse en 30 segundos con el celular.
+
+Formato por idea:
+📍 Idea [N]: [descripción en 1 línea de qué grabar]
+🎬 Cómo: [instrucciones de grabación simples]
+💬 Sticker: [tipo de sticker + texto exacto de la pregunta/encuesta]
+🎯 Objetivo: [respuesta / tap en link / guardar]`,
   };
 
   const prompt = prompts[tipo] || prompts['💼 LinkedIn'];
-  return askClaude(prompt, { maxTokens: 400 });
+  return askClaude(prompt, { maxTokens: 600 });
 }
 
 // ── Notion helpers ────────────────────────────────────────────────────────────

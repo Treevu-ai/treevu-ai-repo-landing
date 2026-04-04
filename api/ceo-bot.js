@@ -416,6 +416,8 @@ async function handleHelp(chatId) {
     `   _Ej: /sdr retail 200+ · /sdr manufactura 500+_\n` +
     `📬 /enrich — enriquece leads SDR con email y teléfono (Apollo)\n` +
     `🐦 /tweet [texto] — genera o pule un tweet y pide confirmación antes de publicar\n` +
+    `📲 /post [linkedin|instagram] — genera contenido listo para copiar (algoritmo-aware)\n` +
+    `   _/post → ambos · /post linkedin → solo LI · /post instagram → solo IG_\n` +
     `🧠 /cto <pregunta> — CTO Virtual: Piloto vs API, tiempos, arquitectura\n` +
     `   _Ej: /cto ¿cuánto tarda la integración con Buk?_\n` +
     `   _/cto reset — limpia el contexto de conversación_\n` +
@@ -605,6 +607,110 @@ async function handleSDR(chatId, args) {
     }
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function handlePost(chatId, platform) {
+  const now     = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+  const weekNum = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 864e5));
+
+  const TEMAS_LI = [
+    'rotación de personal: el costo oculto que sangra a las empresas peruanas',
+    'cómo el estrés financiero reduce la productividad de tus colaboradores',
+    'EWA en Perú: qué es el acceso al salario devengado y por qué importa ahora',
+    'employer branding: mejorar el bienestar financiero reduce rotación 15-40%',
+    'el colaborador endeudado no rinde — datos y soluciones reales',
+    'retener talento cuesta menos que reclutar — con números',
+    'las finanzas personales de tus colaboradores son tu problema de negocio',
+    'casos reales: empresas que redujeron rotación con beneficios financieros',
+  ];
+  const tema = TEMAS_LI[weekNum % TEMAS_LI.length];
+
+  const genLinkedIn = async () => {
+    const prompt = `Eres el equipo de contenido de Treevü, startup B2B de EWA (acceso al salario devengado) en Perú.
+
+Escribe un post de LinkedIn sobre: "${tema}"
+
+REGLAS DE ALGORITMO (obligatorias):
+- Primera línea = gancho que corta el scroll. Dato concreto, pregunta incómoda o afirmación contrarian. Sin saludos.
+- Salto de línea después de cada 1-2 oraciones (dwell time = señal #1 del algoritmo).
+- Usa números reales: %, S/, días, personas.
+- Ángulo personal o de insider: "lo que nadie dice sobre...", "lo aprendí trabajando con X empresas..."
+- Cierra con UNA sola pregunta abierta.
+- NO pongas links (van en el primer comentario).
+- Sin hashtags genéricos. Máximo 3 hashtags nicho al final.
+- 150-250 palabras. Tono experto pero humano.
+
+Devuelve SOLO el texto del post, listo para copiar.`;
+    return askClaude(prompt, { maxTokens: 400 });
+  };
+
+  const genInstagram = async (tipo) => {
+    if (tipo === 'carousel') {
+      const prompt = `Eres el equipo de contenido de Treevü (EWA B2B, Perú).
+
+Genera un carrusel de Instagram de 6 slides sobre: rotación laboral y bienestar financiero.
+
+REGLAS DE ALGORITMO:
+- Slide 1: afirmación que duela o sorprenda. Max 8 palabras. Que detenga el scroll.
+- Slides 2-5: UN solo punto accionable. Max 10 palabras de título + 1 dato/ejemplo.
+- Slide 6: CTA que genere SAVES. "Guarda esto para..." o "Comparte con el gerente de RRHH de..."
+- Cada slide se lee en 3 segundos.
+
+Formato:
+Slide 1: [texto]
+Slide 2: [título] — [dato]
+Slide 3: [título] — [dato]
+Slide 4: [título] — [dato]
+Slide 5: [título] — [dato]
+Slide 6: [CTA]
+Caption: [primera línea hook, max 125 chars] | [caption 150 palabras] | [3-5 hashtags nicho]`;
+      return askClaude(prompt, { maxTokens: 400 });
+    } else {
+      const prompt = `Eres el equipo de contenido de Treevü (EWA B2B, Perú).
+
+Genera el guión de un Reel de 30-45 segundos sobre cómo Treevü reduce la rotación.
+
+REGLAS DE ALGORITMO:
+- 0-3s: hook texto EN PANTALLA (bold) + voz distintos pero complementarios.
+- 3-30s: 3 puntos con dato concreto + visual sugerido.
+- 30-45s: cierre que invite a guardar o comentar.
+
+Formato:
+[0-3s] TEXTO: "..." | VOZ: "..."
+[3-15s] VOZ: "..." | VISUAL: ...
+[15-28s] VOZ: "..." | VISUAL: ...
+[28-40s] VOZ: "..." | VISUAL: ...
+[40-45s] VOZ: "..." (cierre)
+AUDIO: [mood]
+CAPTION: [hook] | [texto] | [3-5 hashtags nicho]`;
+      return askClaude(prompt, { maxTokens: 400 });
+    }
+  };
+
+  const doLinkedIn = !platform || platform === 'linkedin' || platform === 'li';
+  const doIG       = !platform || platform === 'instagram' || platform === 'ig';
+  // Día actual: jueves=carrusel, resto=reel (o lo que pida)
+  const igTipo = now.getDay() === 3 ? 'reel' : 'carousel';
+
+  await send(chatId, `_✍️ Generando contenido${doLinkedIn && doIG ? ' para LinkedIn e Instagram' : doLinkedIn ? ' para LinkedIn' : ' para Instagram'}..._`);
+
+  if (doLinkedIn) {
+    const li = await genLinkedIn().catch(() => null);
+    if (li) {
+      await send(chatId,
+        `💼 *LinkedIn — listo para publicar*\n_Tema: ${tema}_\n\n${li}\n\n💡 _El link va en el primer comentario._`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+  }
+
+  if (doIG) {
+    const ig = await genInstagram(igTipo).catch(() => null);
+    if (ig) {
+      const label = igTipo === 'carousel' ? '🖼 Carrusel Instagram' : '🎬 Reel Instagram';
+      await send(chatId, `${label} — *guión listo*\n\n${ig}`, { parse_mode: 'Markdown' });
+    }
   }
 }
 
@@ -923,6 +1029,10 @@ export default async function handler(req, res) {
     }
     if (text.startsWith('/tweet')) {
       await handleTweet(chatId, text.slice(6).trim());
+      return res.status(200).json({ ok: true });
+    }
+    if (text.startsWith('/post')) {
+      await handlePost(chatId, text.slice(5).trim().toLowerCase() || null);
       return res.status(200).json({ ok: true });
     }
     if (text.startsWith('/cto')) {
