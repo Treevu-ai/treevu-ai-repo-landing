@@ -767,9 +767,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
     if (text.startsWith('/sdr')) {
-      res.status(200).json({ ok: true }); // responder a Telegram de inmediato
       await handleSDR(chatId, text.slice(4).trim());
-      return;
+      return res.status(200).json({ ok: true });
     }
     if (text.startsWith('/cto')) {
       const query = text.slice(4).trim();
@@ -782,9 +781,8 @@ export default async function handler(req, res) {
         );
       } else {
         await send(chatId, '_🧠 Consultando CTO Agent..._');
-        res.status(200).json({ ok: true }); // responder a Telegram antes de Claude
         await handleCTO(chatId, query, (text, opts) => send(chatId, text, opts));
-        return;
+        return res.status(200).json({ ok: true });
       }
       return res.status(200).json({ ok: true });
     }
@@ -826,3 +824,5 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ ok: true });
 }
+
+export const config = { maxDuration: 60 };
