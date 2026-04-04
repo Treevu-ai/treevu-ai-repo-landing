@@ -548,36 +548,61 @@ async function handleSDR(chatId, args) {
 
   await send(chatId, `_🎯 Iniciando SDR Agent: ${label}..._\nRecibí los resultados en unos segundos.`);
 
+  const controller = new AbortController();
+  const timeout    = setTimeout(() => controller.abort(), 58000); // 58s — antes del límite Vercel
+
   try {
-    const res = await fetch('https://gettreevu.com/api/sdr-agent', {
+    const res  = await fetch('https://gettreevu.com/api/sdr-agent', {
       method:  'POST',
+      signal:  controller.signal,
       headers: {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${CRON_SECRET}`,
       },
-      body: JSON.stringify({ industry, size, location: 'Lima, Peru', max_leads: 10, notify: false }),
+      body: JSON.stringify({ industry, size, location: 'Lima, Peru', max_leads: 10, notify: false, strategy: 'intro' }),
     });
-    const data = await res.json();
+
+    // Leer como texto primero — Vercel puede devolver HTML/texto en errores 5xx
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error('[handleSDR] respuesta no-JSON:', res.status, text.slice(0, 200));
+      await send(chatId, `❌ SDR Agent devolvió error ${res.status}. Revisá los logs en Vercel.`);
+      return;
+    }
 
     if (!res.ok) {
-      await send(chatId, `❌ SDR Agent error: ${data.error || res.status}`);
+      await send(chatId, `❌ SDR Agent error ${res.status}: ${data.error || text.slice(0, 100)}`);
       return;
     }
 
     let msg = `🎯 *SDR Agent terminado*\n_${label}_\n\n`;
     msg += `✅ *${data.added} leads* añadidos al CRM\n`;
     msg += `⏭ ${data.skipped} omitidos (ya existían)\n`;
+    if (data.errors > 0) msg += `❌ ${data.errors} errores\n`;
     if (data.leads?.length) {
       msg += '\n*Nuevos prospectos:*\n';
       data.leads.slice(0, 8).forEach(l => {
-        msg += `• *${l.company}* — ${l.role || '—'}\n`;
+        msg += `• *${l.company || '—'}* — ${l.role || '—'}\n`;
       });
     }
-    msg += `\nUsá /pipeline para verlos en el CRM.`;
+    if (!data.added && !data.leads?.length) {
+      msg += `\n_Sin prospectos nuevos esta vez. Intentá con otra industria o estrategia._`;
+    } else {
+      msg += `\nUsá /pipeline para verlos en el CRM.`;
+    }
     await send(chatId, msg, { parse_mode: 'Markdown' });
 
   } catch (err) {
-    await send(chatId, `❌ Error llamando SDR Agent: ${err.message}`);
+    if (err.name === 'AbortError') {
+      await send(chatId, `⏱ SDR Agent tardó más de 58s. El proceso puede estar corriendo en background — revisá Notion en 1 minuto.`);
+    } else {
+      await send(chatId, `❌ SDR Agent: ${err.message}`);
+    }
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -742,8 +767,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
     if (text.startsWith('/sdr')) {
+      res.status(200).json({ ok: true }); // responder a Telegram de inmediato
       await handleSDR(chatId, text.slice(4).trim());
-      return res.status(200).json({ ok: true });
+      return;
     }
     if (text.startsWith('/cto')) {
       const query = text.slice(4).trim();
