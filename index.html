@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Treevü — Optimiza la Caja y Retén a tu Equipo | Inteligencia Predictiva de Nómina en Perú</title>
-<meta name="description" content="Tu equipo accede a su salario cuando lo necesita. Tu empresa predice la caja con 30 días de anticipación. Sin riesgo, sin deuda. Setup en 2 semanas. Para empresas en Perú."/>
+<title>Treevü — Predice la liquidez. Blinda al talento. | Perú</title>
+<meta name="description" content="Tu empresa anticipa cuánto necesita de caja 30 días antes. Tu equipo cobra cuando lo necesita — sin deuda ni riesgo. Setup en 2 semanas. Para empresas en Perú."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"/>
@@ -729,6 +729,36 @@ body {
   border-color: var(--border-brand);
 }
 .hero-stat:hover::after { opacity: 1; }
+
+/* ── Finance / Talent dual-accent ── */
+.accent-finance { color: var(--brand); font-weight: 900; }
+.accent-talent  { color: #8B5CF6; font-weight: 700; }
+.hero .hero-title .accent-finance {
+  color: #38BDF8;
+  font-weight: 900;
+  text-shadow: 0 0 60px rgba(56,189,248,0.55);
+}
+.hero .hero-title .accent-talent {
+  color: #C084FC;
+  font-style: italic;
+  font-weight: 700;
+  text-shadow: 0 0 60px rgba(192,132,252,0.45);
+}
+/* Stat card category badge */
+.hero-stat-category {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.hero-stat--finance { border-top: 3px solid #38BDF8; }
+.hero-stat--finance .hero-stat-category { color: #0EA5E9; }
+.hero-stat--finance .hero-stat-num .accent-finance { color: #0EA5E9; font-style: normal; }
+.hero-stat--talent  { border-top: 3px solid #A78BFA; }
+.hero-stat--talent  .hero-stat-category { color: #7C3AED; }
+.hero-stat--talent  .hero-stat-num .accent-talent  { color: #7C3AED; font-style: normal; }
+
 .hero-stat-num {
   font-family: var(--font-head);
   font-size: 3.25rem;
@@ -2840,6 +2870,115 @@ hr { border-color: var(--border-default) !important; }
 [data-theme="dark"] .prequal-box h3 { color: #f1f5f9; }
 [data-theme="dark"] .pq-opt { border-color: #1e293b; color: #cbd5e1; }
 [data-theme="dark"] .pq-opt:hover, [data-theme="dark"] .pq-opt.selected { background: #1a0e00; color: #fdba74; border-color: var(--brand); }
+
+/* ═══════════════════════════════════════════════════════
+   PALETTE REFRESH — Dual-tone Finance × Talent system
+   ═══════════════════════════════════════════════════════ */
+
+/* Talent accent variables */
+:root {
+  --talent:        #8B5CF6;
+  --talent-hover:  #7C3AED;
+  --talent-light:  #C084FC;
+  --talent-xlight: rgba(139,92,246,0.07);
+}
+
+/* Body — subtle blue tint, banishes the flat white */
+body { background: #F8FAFF; }
+
+/* Section alternates — gradient instead of flat gray */
+.section-alt {
+  background: linear-gradient(150deg, #EEF3FF 0%, #EAE5FF 100%);
+}
+
+/* Section tag — gradient border pill */
+.section-tag {
+  background: linear-gradient(#F2F5FF, #EEE8FF) padding-box,
+              linear-gradient(135deg, #0A84FF 0%, #8B5CF6 100%) border-box;
+  border: 1.5px solid transparent;
+  color: var(--brand);
+}
+
+/* Section title — gradient underline accent */
+.section-title::after {
+  content: '';
+  display: block;
+  width: 44px;
+  height: 3px;
+  background: linear-gradient(90deg, #0A84FF 0%, #8B5CF6 100%);
+  border-radius: 99px;
+  margin-top: 14px;
+}
+.text-center .section-title::after { margin-inline: auto; }
+
+/* Valor-por-rol — brand gradient bg */
+#valor-por-rol {
+  background: linear-gradient(155deg, #FFFFFF 0%, #EDF4FF 45%, #EBE4FF 100%);
+  position: relative;
+}
+#valor-por-rol::before {
+  content: '';
+  position: absolute;
+  top: -80px; right: -80px;
+  width: 400px; height: 400px;
+  background: radial-gradient(ellipse, rgba(139,92,246,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Tesorería — clean white with subtle finance glow */
+#tesoreria {
+  background: linear-gradient(160deg, #FFFFFF 0%, #EFF6FF 60%, #FAF8FF 100%);
+}
+
+/* Piloto (conversion section) — vibrant gradient */
+#piloto {
+  background: linear-gradient(150deg, #EAF2FF 0%, #E4DAFF 55%, #E9EEFF 100%);
+}
+
+/* Contacto (form CTA) — premium dark-blue to drive conversion */
+#contacto {
+  background: linear-gradient(155deg, #060E22 0%, #0A1840 45%, #100828 100%);
+  position: relative;
+}
+#contacto::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 15% 40%, rgba(10,132,255,0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 70% at 85% 60%, rgba(139,92,246,0.11) 0%, transparent 65%);
+  pointer-events: none;
+}
+#contacto .section-title { color: #F1F5F9; }
+#contacto .section-subtitle { color: rgba(203,213,225,0.8); }
+#contacto .section-tag {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+  color: #38BDF8;
+}
+#contacto .section-tag::after { display: none; }
+#contacto .section-title::after {
+  background: linear-gradient(90deg, #38BDF8, #C084FC);
+}
+
+/* CTA Section — richer dark gradient + glow orbs */
+.cta-section {
+  background: linear-gradient(155deg, #04091A 0%, #0A1640 45%, #0E063A 100%);
+  position: relative;
+  overflow: hidden;
+}
+.cta-section::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 65% 80% at 15% 50%, rgba(10,132,255,0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 80% at 85% 50%, rgba(139,92,246,0.14) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* Solucion — subtle tint above the steps */
+#solucion {
+  background: linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%);
+}
 </style>
 </head>
 <body>
@@ -2879,13 +3018,12 @@ hr { border-color: var(--border-default) !important; }
           <span id="hero-badge-text">Inteligencia predictiva de nómina · Empresas en Perú</span>
         </div>
         <h1 class="hero-title">
-          Predice tu caja.<br/><span class="accent">Retén talento.</span>
+          <span class="accent-finance">Predice la liquidez.</span><br/><span class="accent-talent">Blinda al talento.</span>
         </h1>
-        <p class="hero-title-sub">Tu empresa predice cuánto necesita de caja 30 días antes. Tu equipo accede a su propio salario cuando lo necesita. Sin deuda, sin riesgo, en 2 semanas.</p>
+        <p class="hero-title-sub">Tu empresa anticipa la caja 30 días antes. Tu equipo cobra cuando lo necesita — sin deuda ni riesgo.</p>
         <ul class="hero-bullets">
-          <li><span class="hero-bullet-check">✓</span> <strong>CFO:</strong> reserva de caja −45% · flujo predecible · cero pasivo nuevo</li>
-          <li><span class="hero-bullet-check">✓</span> <strong>CEO/RRHH:</strong> renuncias por estrés financiero −40% · alertas 3 semanas antes</li>
-          <li><span class="hero-bullet-check">✓</span> <strong>Balance:</strong> el adelanto se descuenta del siguiente pago · Treevü no toca los fondos</li>
+          <li><span class="hero-bullet-check">✓</span> <strong>CFO:</strong> reserva −45% · flujo predecible · cero pasivo</li>
+          <li><span class="hero-bullet-check">✓</span> <strong>CEO/RRHH:</strong> rotación −40% · alertas anticipadas de riesgo</li>
         </ul>
         <div class="hero-ctas">
           <div class="hero-cta-primary-wrap">
@@ -2894,14 +3032,10 @@ hr { border-color: var(--border-default) !important; }
           </div>
           <a href="#piloto" class="btn btn-outline btn-lg">Ver Programa Pioneros 2026 →</a>
         </div>
-        <div class="hero-slots">
-          <div class="hero-slots-bar"><div class="hero-slots-fill" id="hero-slots-fill"></div></div>
-          <span class="hero-slots-text"><span>6 de 10</span> cupos confirmados</span>
-        </div>
         <div class="trust-bar">
           <span class="trust-chip">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            No-Custodio · Cero riesgo
+            Sin custodia · Cero riesgo
           </span>
           <span class="trust-chip">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -2916,32 +3050,29 @@ hr { border-color: var(--border-default) !important; }
             Yape · Plin · CCE
           </span>
         </div>
-        <div class="founder-strip">
-          <div class="founder-avatar">RC</div>
-          <div class="founder-info">
-            <strong>Ricardo Cuba · CEO &amp; Founder</strong>
-            Trujillo, Perú · <a href="https://www.linkedin.com/in/ricardo-cuba-alvan/" target="_blank" rel="noopener">LinkedIn →</a>
-          </div>
-        </div>
       </div><!-- /hero-content -->
 
       <div class="hero-right">
         <div class="hero-stats fade-up">
-          <div class="hero-stat">
-            <div class="hero-stat-num"><span class="accent">−40%</span></div>
+          <div class="hero-stat hero-stat--finance">
+            <div class="hero-stat-category">Liquidez</div>
+            <div class="hero-stat-num"><span class="accent-finance">−45%</span></div>
+            <div class="hero-stat-label">Reserva de caja liberada con el modelo predictivo</div>
+          </div>
+          <div class="hero-stat hero-stat--finance">
+            <div class="hero-stat-category">Liquidez</div>
+            <div class="hero-stat-num"><span class="accent-finance">94%</span></div>
+            <div class="hero-stat-label">Precisión del forecast de liquidez a 30 días</div>
+          </div>
+          <div class="hero-stat hero-stat--talent">
+            <div class="hero-stat-category">Talento</div>
+            <div class="hero-stat-num"><span class="accent-talent">−40%</span></div>
             <div class="hero-stat-label">Reducción de rotación en pilotos activos</div>
           </div>
-          <div class="hero-stat">
-            <div class="hero-stat-num">S/ 8K<span class="accent">+</span></div>
-            <div class="hero-stat-label">Costo promedio de reemplazar un colaborador</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-num"><span class="accent">30</span> días</div>
-            <div class="hero-stat-label">Anticipación en la predicción de rotación</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-num"><span class="accent">5</span> ML</div>
-            <div class="hero-stat-label">Modelos predictivos: rotación, demanda, riesgo financiero y más</div>
+          <div class="hero-stat hero-stat--talent">
+            <div class="hero-stat-category">Talento</div>
+            <div class="hero-stat-num">S/ <span class="accent-talent">8K+</span></div>
+            <div class="hero-stat-label">Costo de reemplazar un colaborador en Perú</div>
           </div>
         </div><!-- /hero-stats -->
         <div class="hero-countdown">
@@ -2965,19 +3096,17 @@ hr { border-color: var(--border-default) !important; }
   <div class="container">
     <div class="fade-up text-center">
       <div class="section-tag">Una decisión. Tres beneficiarios.</div>
-      <h2 class="section-title">El mismo programa.<br/>Tres ROIs distintos.</h2>
-      <p class="section-subtitle">El CFO libera capital de trabajo. El CEO retiene al talento clave. RRHH obtiene datos para actuar — no solo reportar.</p>
+      <h2 class="section-title">El mismo programa.<br/>Cada área ve lo suyo.</h2>
+      <p class="section-subtitle">El CFO predice la liquidez. El CEO blinda al talento clave. RRHH actúa antes de perderlo.</p>
     </div>
     <div class="fade-up" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin-top:48px;">
       <!-- CEO -->
-      <div style="background:var(--white);border:1px solid var(--neutral-100);border-top:3px solid var(--brand);border-radius:0 0 var(--radius-lg) var(--radius-lg);padding:32px;box-shadow:var(--shadow-sm);">
-        <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--brand);margin-bottom:12px;">CEO / Gerente General</div>
-        <div style="font-family:var(--font-head);font-size:1.1rem;font-weight:700;color:var(--neutral-900);margin-bottom:16px;line-height:1.3;">Continuidad del talento clave.</div>
-        <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;">
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:var(--brand);flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Propuesta de valor diferenciada — pocos empleadores en Perú la tienen</li>
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:var(--brand);flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Menos renuncias sorpresivas — más tiempo para planificar cuando sí ocurre</li>
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:var(--brand);flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Cultura que cuida al talento — visible, medible, diferenciadora</li>
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:var(--brand);flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Dashboard ejecutivo: adopción, rotación antes/después y ahorro acumulado</li>
+      <div style="background:var(--white);border:1px solid var(--neutral-100);border-top:3px solid var(--brand);border-radius:0 0 var(--radius-lg) var(--radius-lg);padding:28px;box-shadow:var(--shadow-sm);">
+        <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--brand);margin-bottom:10px;">CEO / Gerente General</div>
+        <div style="font-family:var(--font-head);font-size:1.05rem;font-weight:700;color:var(--neutral-900);margin-bottom:14px;line-height:1.3;">Blinda al talento clave antes de perderlo.</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:9px;">
+          <li style="display:flex;gap:10px;font-size:0.85rem;color:var(--neutral-700);align-items:flex-start;"><svg width="15" height="15" style="color:var(--brand);flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Alertas 3 semanas antes de la renuncia — no después</li>
+          <li style="display:flex;gap:10px;font-size:0.85rem;color:var(--neutral-700);align-items:flex-start;"><svg width="15" height="15" style="color:var(--brand);flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Rotación −40% · diferenciador real frente a la competencia</li>
         </ul>
       </div>
       <!-- CFO — FEATURED -->
@@ -2985,12 +3114,9 @@ hr { border-color: var(--border-default) !important; }
         <div style="position:absolute;top:0;right:0;background:#0EA5E9;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;padding:5px 14px;border-radius:0 0 0 var(--radius-md);">Decisor clave</div>
         <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#0EA5E9;margin-bottom:12px;">CFO / Gerente Financiero</div>
         <div style="font-family:var(--font-head);font-size:1.15rem;font-weight:700;color:var(--neutral-900);margin-bottom:8px;line-height:1.25;">Optimiza la caja.<br/>Predice el flujo. Sin generar deuda.</div>
-        <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:16px;line-height:1.5;">El salario que ya le debes a tu equipo es capital que puedes gestionar mejor. Treevü lo convierte en una variable predecible — no en una sorpresa de fin de mes.</p>
-        <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;">
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:#0EA5E9;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Reduce la reserva de caja hasta 45%</strong> — el sistema predice cuánto van a pedir con 30 días de anticipación y 94% de precisión</span></li>
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:#0EA5E9;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Ahorro en costo de capital</strong> — el dinero que ya no necesitas inmovilizado, a tu costo financiero, es dinero que recuperas</span></li>
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:#0EA5E9;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Cero deuda, cero riesgo</strong> — el adelanto se descuenta del siguiente pago. No genera pasivo nuevo, no afecta el balance</span></li>
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:#0EA5E9;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Simulaciones de tesorería en tiempo real</strong> — ve qué pasa con el flujo si el 40% del equipo pide adelanto el mismo día</span></li>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:9px;">
+          <li style="display:flex;gap:10px;font-size:0.85rem;color:var(--neutral-700);align-items:flex-start;"><svg width="15" height="15" style="color:#0EA5E9;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Reserva −45%</strong> — predice la demanda con 94% de precisión a 30 días</span></li>
+          <li style="display:flex;gap:10px;font-size:0.85rem;color:var(--neutral-700);align-items:flex-start;"><svg width="15" height="15" style="color:#0EA5E9;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Cero pasivos</strong> — el adelanto se descuenta del siguiente pago, no afecta el balance</span></li>
         </ul>
         <div style="margin-top:20px;padding:14px 16px;background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.25);border-radius:var(--radius-md);">
           <div style="font-size:0.75rem;font-weight:700;color:#0EA5E9;margin-bottom:6px;letter-spacing:0.04em;text-transform:uppercase;">Argumento para directorio</div>
@@ -2998,14 +3124,12 @@ hr { border-color: var(--border-default) !important; }
         </div>
       </div>
       <!-- CHRO -->
-      <div style="background:var(--white);border:1px solid var(--neutral-100);border-top:3px solid #D97706;border-radius:0 0 var(--radius-lg) var(--radius-lg);padding:32px;box-shadow:var(--shadow-sm);">
-        <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#D97706;margin-bottom:12px;">CHRO / Director de RRHH</div>
-        <div style="font-family:var(--font-head);font-size:1.1rem;font-weight:700;color:var(--neutral-900);margin-bottom:16px;line-height:1.3;">Datos para retener, no solo para reportar.</div>
-        <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;">
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:#D97706;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Alertas tempranas de renuncia — semanas antes</li>
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:#D97706;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Retención medible: dashboards para defender el presupuesto</li>
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:#D97706;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Un beneficio que el talento valora más que un bono puntual</li>
-          <li style="display:flex;gap:10px;font-size:0.875rem;color:var(--neutral-700);align-items:flex-start;"><svg width="16" height="16" style="color:#D97706;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Score de salud financiera por área, sede y turno — compara antes y después</li>
+      <div style="background:var(--white);border:1px solid var(--neutral-100);border-top:3px solid #D97706;border-radius:0 0 var(--radius-lg) var(--radius-lg);padding:28px;box-shadow:var(--shadow-sm);">
+        <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#D97706;margin-bottom:10px;">CHRO / Director de RRHH</div>
+        <div style="font-family:var(--font-head);font-size:1.05rem;font-weight:700;color:var(--neutral-900);margin-bottom:14px;line-height:1.3;">Actúa antes de perder al talento.</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:9px;">
+          <li style="display:flex;gap:10px;font-size:0.85rem;color:var(--neutral-700);align-items:flex-start;"><svg width="15" height="15" style="color:#D97706;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Score individual de riesgo — por área, sede y turno</li>
+          <li style="display:flex;gap:10px;font-size:0.85rem;color:var(--neutral-700);align-items:flex-start;"><svg width="15" height="15" style="color:#D97706;flex-shrink:0;margin-top:2px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Dashboard de retención para defender el presupuesto ante dirección</li>
         </ul>
       </div>
     </div>
@@ -3022,7 +3146,7 @@ hr { border-color: var(--border-default) !important; }
     <div class="categoria-inner">
       <div class="categoria-label">¿Qué es Treevü?</div>
       <h2 class="categoria-title">No es un beneficio más.<br/>Es infraestructura de retención con inteligencia predictiva.</h2>
-      <p class="categoria-body">Treevü combina EWA no custodio B2B2E con un motor de machine learning que analiza el comportamiento financiero de tu equipo. Tu empresa anticipa la rotación, planifica la liquidez y cuida al talento — sin asumir deuda ni custodia de fondos.</p>
+      <p class="categoria-body">Treevü combina adelanto de salario sin custodia con un motor predictivo que analiza el comportamiento financiero de tu equipo. Tu empresa anticipa la rotación, predice la liquidez y blinda al talento — sin asumir deuda ni retener fondos.</p>
       <div class="categoria-blocks">
         <div class="categoria-block">
           <span class="categoria-block-icon">🏢</span>
@@ -3041,7 +3165,7 @@ hr { border-color: var(--border-default) !important; }
         <div class="categoria-block categoria-block--center">
           <span class="categoria-block-icon">⚡</span>
           <div class="categoria-block-title">Treevü orquesta</div>
-          <p class="categoria-block-text">Valida el saldo devengado, procesa la transferencia instantánea y alimenta el motor predictivo de rotación. Sin intermediar fondos.</p>
+          <p class="categoria-block-text">Valida el salario ganado, procesa la transferencia instantánea y alimenta el motor predictivo de rotación. Sin intermediar fondos.</p>
           <ul class="categoria-block-bullets">
             <li>Validación automática de saldo ganado vs. límite</li>
             <li>Transferencia en &lt;60 seg vía Yape, Plin o CCE</li>
@@ -3148,8 +3272,8 @@ hr { border-color: var(--border-default) !important; }
   <div style="max-width:1600px;margin:0 auto;padding:0 48px;">
     <div class="fade-up text-center">
       <div class="section-tag">Cómo Funciona</div>
-      <h2 class="section-title">En 2 semanas, tu empresa opera<br/>con inteligencia de nómina.</h2>
-      <p class="section-subtitle">Treevü orquesta el flujo. Tu empresa mantiene el control de los fondos en todo momento.</p>
+      <h2 class="section-title">En 2 semanas, predices la caja<br/>y blindas al talento.</h2>
+      <p class="section-subtitle">Treevü orquesta el flujo. Tu empresa mantiene el control total de los fondos.</p>
     </div>
 
     <!-- Steps full-width track -->
@@ -3214,8 +3338,8 @@ hr { border-color: var(--border-default) !important; }
   <div class="container">
     <div class="fade-up">
       <div class="section-tag">Calculadora de Impacto</div>
-      <h2 class="section-title">Mide el impacto en tu rol — RRHH o Finanzas.</h2>
-      <p class="section-subtitle">Dos perspectivas del mismo programa. Elige la tuya y ajusta los valores.</p>
+      <h2 class="section-title">Mide el impacto — para Finanzas y para Talento.</h2>
+      <p class="section-subtitle">Elige tu perspectiva y ajusta los valores reales de tu empresa.</p>
     </div>
 
     <!-- Tab toggle -->
@@ -3349,35 +3473,12 @@ hr { border-color: var(--border-default) !important; }
       <p class="section-subtitle">Treevü convierte el salario de tu equipo en una variable predecible. Tu tesorería sabe exactamente cuánto necesita — no a fin de mes, sino 30 días antes.</p>
     </div>
 
-    <!-- Comparison table: Sin Treevü vs Con Treevü -->
-    <div class="fade-up" style="display:grid;grid-template-columns:1fr 1fr;gap:0;margin:48px 0 40px;border:1px solid var(--border-strong);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-md);">
-      <!-- Header -->
-      <div style="background:var(--surface-alt);padding:16px 24px;border-right:1px solid var(--border-strong);border-bottom:1px solid var(--border-strong);">
-        <span style="font-size:0.75rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-dim);">Sin inteligencia predictiva</span>
-      </div>
-      <div style="background:rgba(10,132,255,0.06);padding:16px 24px;border-bottom:1px solid var(--border-strong);">
-        <span style="font-size:0.75rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--brand);">Con Treevü</span>
-      </div>
-      <!-- Row 1 -->
-      <div style="padding:16px 24px;border-right:1px solid var(--border-default);border-bottom:1px solid var(--border-default);font-size:0.875rem;color:var(--text-dim);">Buffer sobredimensionado para cubrir "imprevistos" de nómina</div>
-      <div style="padding:16px 24px;border-bottom:1px solid var(--border-default);font-size:0.875rem;color:var(--text-default);"><strong>Buffer óptimo</strong> — el modelo predice demanda con 94% de precisión a 30 días</div>
-      <!-- Row 2 -->
-      <div style="padding:16px 24px;border-right:1px solid var(--border-default);border-bottom:1px solid var(--border-default);font-size:0.875rem;color:var(--text-dim);">Pago de nómina: gran salida de caja puntual cada fin de mes</div>
-      <div style="padding:16px 24px;border-bottom:1px solid var(--border-default);font-size:0.875rem;color:var(--text-default);"><strong>Flujo de caja predecible</strong> — salidas distribuidas según la demanda real del equipo</div>
-      <!-- Row 3 -->
-      <div style="padding:16px 24px;border-right:1px solid var(--border-default);border-bottom:1px solid var(--border-default);font-size:0.875rem;color:var(--text-dim);">Capital inmovilizado = costo de oportunidad sin retorno</div>
-      <div style="padding:16px 24px;border-bottom:1px solid var(--border-default);font-size:0.875rem;color:var(--text-default);"><strong>Capital liberado ≈ 45% del buffer actual</strong> — disponible para operaciones o inversión</div>
-      <!-- Row 4 -->
-      <div style="padding:16px 24px;border-right:1px solid var(--border-default);font-size:0.875rem;color:var(--text-dim);">Scenario planning: imposible sin datos históricos de demanda</div>
-      <div style="padding:16px 24px;font-size:0.875rem;color:var(--text-default);"><strong>Simulaciones en tiempo real</strong> — "¿qué pasa si el 40% pide adelanto simultáneamente?"</div>
-    </div>
-
     <!-- 4 metric cards -->
     <div class="fade-up" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:40px;">
       <div style="background:var(--white);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-sm);text-align:center;">
         <div style="font-size:2rem;font-weight:800;font-family:var(--font-head);color:var(--brand);line-height:1;">94%</div>
         <div style="font-size:0.75rem;font-weight:700;color:var(--text-strong);margin:8px 0 6px;">Precisión del forecast</div>
-        <p style="font-size:0.78rem;color:var(--text-dim);line-height:1.5;margin:0;">El modelo predice la demanda EWA de los próximos 30 días con 94% de exactitud.</p>
+        <p style="font-size:0.78rem;color:var(--text-dim);line-height:1.5;margin:0;">El modelo predice cuánto necesita tu equipo en los próximos 30 días con 94% de exactitud.</p>
       </div>
       <div style="background:var(--white);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-sm);text-align:center;">
         <div style="font-size:2rem;font-weight:800;font-family:var(--font-head);color:var(--brand);line-height:1;">−45%</div>
@@ -3504,7 +3605,7 @@ hr { border-color: var(--border-default) !important; }
   <div class="container">
     <div class="fade-up text-center">
       <div class="section-tag">Comparativa</div>
-      <h2 class="section-title">EWA no custodio B2B2E<br/>+ inteligencia predictiva. Una categoría propia.</h2>
+      <h2 class="section-title">Sin deuda, sin custodia,<br/>con predicción de liquidez. Una categoría propia.</h2>
       <p class="section-subtitle">No es un crédito de nómina. No es custodia de fondos. No es solo una app de adelantos. Compara y decide con claridad.</p>
     </div>
     <div class="table-wrapper fade-up">
@@ -3519,65 +3620,30 @@ hr { border-color: var(--border-default) !important; }
             </th>
             <th>Préstamos de nómina</th>
             <th>Adelantos informales</th>
-            <th>Otros EWA (sin ML)</th>
+            <th>Otras apps de adelanto</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td>Costo para el empleado</td>
             <td class="treevu-col"><span class="icon-yes">&#x2713;</span> S/ 0</td>
-            <td><span class="icon-no">&#x2717;</span> 15–80% TEA</td>
+            <td><span class="icon-no">&#x2717;</span> 15–80% interés</td>
             <td><span class="icon-partial">~</span> Variable</td>
             <td><span class="icon-partial">~</span> Comisiones</td>
           </tr>
           <tr>
-            <td>Riesgo para la empresa</td>
-            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> Cero</td>
+            <td>Riesgo financiero empresa</td>
+            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> Cero · sin custodia</td>
             <td><span class="icon-partial">~</span> Medio</td>
             <td><span class="icon-no">&#x2717;</span> Alto</td>
             <td><span class="icon-partial">~</span> Variable</td>
           </tr>
           <tr>
-            <td>Inteligencia predictiva</td>
-            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> 5 modelos ML</td>
+            <td>Predicción de liquidez y rotación</td>
+            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> 30 días · 94% precisión</td>
             <td><span class="icon-no">&#x2717;</span> No</td>
             <td><span class="icon-no">&#x2717;</span> No</td>
             <td><span class="icon-no">&#x2717;</span> No</td>
-          </tr>
-          <tr>
-            <td>Tiempo de implementación</td>
-            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> 2 semanas</td>
-            <td><span class="icon-partial">~</span> 1–3 meses</td>
-            <td><span class="icon-yes">&#x2713;</span> Inmediato</td>
-            <td><span class="icon-partial">~</span> 4–8 semanas</td>
-          </tr>
-          <tr>
-            <td>Custodia de dinero</td>
-            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> No custodio</td>
-            <td><span class="icon-no">&#x2717;</span> Sí custodia</td>
-            <td><span class="icon-no">&#x2717;</span> Sí custodia</td>
-            <td><span class="icon-no">&#x2717;</span> Sí custodia</td>
-          </tr>
-          <tr>
-            <td>Integración con nómina</td>
-            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> API nativa</td>
-            <td><span class="icon-partial">~</span> Manual</td>
-            <td><span class="icon-no">&#x2717;</span> No</td>
-            <td><span class="icon-partial">~</span> Limitada</td>
-          </tr>
-          <tr>
-            <td>Predicción de rotación</td>
-            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> 3 semanas de anticipación</td>
-            <td><span class="icon-no">&#x2717;</span></td>
-            <td><span class="icon-no">&#x2717;</span></td>
-            <td><span class="icon-no">&#x2717;</span></td>
-          </tr>
-          <tr>
-            <td>Data para RRHH / CFO</td>
-            <td class="treevu-col"><span class="icon-yes">&#x2713;</span> Dashboard en tiempo real</td>
-            <td><span class="icon-no">&#x2717;</span></td>
-            <td><span class="icon-no">&#x2717;</span></td>
-            <td><span class="icon-partial">~</span> Limitada</td>
           </tr>
         </tbody>
       </table>
@@ -3626,7 +3692,7 @@ hr { border-color: var(--border-default) !important; }
         </div>
         <ul class="founders-benefits">
           <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Sin costo de setup.</strong> El equipo Treevü acompaña la implementación completa.</span></li>
-          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Acceso completo a los 5 modelos ML</strong> desde el mes 1 del piloto.</span></li>
+          <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Acceso completo al motor predictivo</strong> desde el mes 1 del piloto.</span></li>
           <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Soporte local incluido.</strong> Un punto de contacto real en Perú.</span></li>
           <li><svg class="check" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span><strong>Fee congelado de por vida</strong> al firmar — no hay renegociación.</span></li>
         </ul>
@@ -3653,80 +3719,21 @@ hr { border-color: var(--border-default) !important; }
 
           <!-- FASE 2: Continuidad (mes 3+) — FEATURED -->
           <div class="pricing-card featured" style="position:relative;padding:20px;">
-            <div class="pricing-ribbon">FUNDADOR · PRECIO CONGELADO</div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;margin-bottom:14px;">
+            <div class="pricing-ribbon">PIONERO · PRECIO CONGELADO</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;margin-bottom:16px;">
               <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.3);border:2px solid var(--brand);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:0.6rem;font-weight:900;color:var(--brand-dark);">2</div>
               <span style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--brand-dark);">Continuidad — Mes 3 en adelante</span>
             </div>
-
-            <!-- Componente 1: Suscripción dashboard -->
-            <div style="background:rgba(255,255,255,0.55);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                <div>
-                  <div style="font-size:0.72rem;font-weight:700;color:var(--neutral-700);margin-bottom:2px;">Suscripción Dashboard ML</div>
-                  <div style="font-size:0.68rem;color:var(--neutral-500);">Acceso a los 5 modelos predictivos, alertas de rotación, panel HR y reportes</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0;margin-left:12px;">
-                  <div style="font-family:var(--font-head);font-size:1.25rem;font-weight:900;color:var(--brand-dark);line-height:1;">S/ 490</div>
-                  <div style="font-size:0.62rem;color:var(--neutral-500);">/ mes fijo</div>
-                </div>
-              </div>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">
+              <span style="font-family:var(--font-head);font-size:1.5rem;font-weight:900;color:var(--brand-dark);">S/ 490</span>
+              <span style="font-size:0.8rem;color:var(--neutral-500);">/ mes · dashboard predictivo</span>
             </div>
-
-            <!-- Componente 2: Fee por usuario -->
-            <div style="background:rgba(255,255,255,0.55);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px;">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                <div>
-                  <div style="font-size:0.72rem;font-weight:700;color:var(--neutral-700);margin-bottom:2px;">Fee por colaborador activo</div>
-                  <div style="font-size:0.68rem;color:var(--neutral-500);">Solo los que realizan adelantos ese mes. Sin cobro por inactivos.</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0;margin-left:12px;">
-                  <div style="font-family:var(--font-head);font-size:1.25rem;font-weight:900;color:var(--brand-dark);line-height:1;">S/ 7</div>
-                  <div style="font-size:0.62rem;color:var(--neutral-500);">/ usuario activo</div>
-                </div>
-              </div>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:14px;">
+              <span style="font-family:var(--font-head);font-size:1.5rem;font-weight:900;color:var(--brand-dark);">+ S/ 7</span>
+              <span style="font-size:0.8rem;color:var(--neutral-500);">/ colaborador activo ese mes</span>
             </div>
-
-            <!-- Ejemplos concretos + ROI inline -->
-            <div style="border-top:1px solid rgba(37,99,235,0.15);padding-top:10px;margin-bottom:10px;">
-              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-                <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--brand-dark);">Costo mensual · solo activos</div>
-                <div style="font-size:0.62rem;color:var(--neutral-400);">desde S/ 7 · escala con volumen</div>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:6px;">
-                <div style="padding:6px 8px;background:rgba(255,255,255,0.4);border-radius:4px;border-bottom:1px solid rgba(37,99,235,0.08);">
-                  <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:2px;">
-                    <span style="color:var(--neutral-700);">200 activos</span>
-                    <strong style="color:var(--neutral-900);">S/ 1,890 / mes</strong>
-                  </div>
-                  <div style="font-size:0.67rem;color:var(--brand-dark);">1 renuncia evitada/mes = el plan se paga 4x</div>
-                </div>
-                <div style="padding:6px 8px;background:rgba(255,255,255,0.4);border-radius:4px;border-bottom:1px solid rgba(37,99,235,0.08);">
-                  <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:2px;">
-                    <span style="color:var(--neutral-700);">500 activos</span>
-                    <strong style="color:var(--neutral-900);">S/ 3,990 / mes</strong>
-                  </div>
-                  <div style="font-size:0.67rem;color:var(--brand-dark);">2 renuncias evitadas/mes = el plan se paga 4x</div>
-                </div>
-                <div style="padding:6px 8px;background:rgba(255,255,255,0.4);border-radius:4px;">
-                  <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:2px;">
-                    <span style="color:var(--neutral-700);">1,000 activos</span>
-                    <strong style="color:var(--neutral-900);">S/ 7,490 / mes</strong>
-                  </div>
-                  <div style="font-size:0.67rem;color:var(--brand-dark);">Tramo 800+ · tarifa preferencial disponible</div>
-                </div>
-              </div>
-              <div style="font-size:0.68rem;color:var(--neutral-500);margin-top:8px;font-style:italic;">Solo pagas por quienes usan el servicio ese mes.</div>
-            </div>
-
+            <div style="font-size:0.75rem;color:var(--neutral-600);margin-bottom:12px;">Solo pagas por quienes usan el servicio. 1 renuncia evitada/mes = el plan se paga 4×.</div>
             <span class="pricing-frozen" style="display:inline-block;">Precio congelado de por vida al firmar</span>
-          </div>
-
-          <!-- Continuidad post-piloto: enterprise custom -->
-          <div style="background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:var(--radius-md);padding:16px 20px;">
-            <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--neutral-500);margin-bottom:8px;">Continuidad post-piloto</div>
-            <div style="font-size:0.875rem;color:var(--neutral-700);line-height:1.6;margin-bottom:10px;">Modelo SaaS alineado al uso — suscripción base más fee por colaborador activo. Dos planes disponibles: <strong>Essential</strong> (acceso base + integraciones) y <strong>Pro ML</strong> (motor predictivo completo + alertas de rotación).</div>
-            <div style="font-size:0.8rem;color:var(--neutral-500);border-top:1px solid var(--neutral-200);padding-top:10px;">Presupuesto personalizado según escala y sector. <a href="mailto:hello@gettreevu.com" style="color:var(--brand);font-weight:600;">hello@gettreevu.com</a></div>
           </div>
 
         </div>
@@ -3746,8 +3753,8 @@ hr { border-color: var(--border-default) !important; }
 </section>
 
 
-<!-- POR QUÉ CONFIAR -->
-<section class="section section-alt" id="confianza">
+<!-- POR QUÉ CONFIAR — compactado en footer trust bar -->
+<section class="section section-alt" id="confianza" style="display:none">
   <div class="container">
     <div class="fade-up text-center">
       <div class="section-tag">Por qué confiar en Treevü</div>
@@ -3812,7 +3819,7 @@ hr { border-color: var(--border-default) !important; }
       </div>
       <div class="faq-item">
         <button class="faq-question" onclick="toggleFaq(this)">
-          ¿Quién maneja el dinero cuando un colaborador pide un adelanto?
+          ¿Quién maneja el dinero?
           <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>
         <div class="faq-answer">La empresa transfiere directo al colaborador. Treevü nunca toca ni retiene el dinero — ni un sol.</div>
@@ -3822,40 +3829,12 @@ hr { border-color: var(--border-default) !important; }
           ¿Se generan nuevos pasivos en el balance?
           <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>
-        <div class="faq-answer">No. El adelanto es un prepago de nómina — no altera el balance ni genera obligaciones financieras nuevas. El ML predice la demanda a 30 días para que Finanzas planifique el capital reservado óptimo.</div>
-      </div>
-      <div class="faq-item">
-        <button class="faq-question" onclick="toggleFaq(this)">
-          ¿En qué se diferencia de un adelanto de sueldo tradicional?
-          <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
-        </button>
-        <div class="faq-answer">El adelanto tradicional es manual y discrecional. Treevü estandariza, automatiza y añade inteligencia predictiva.</div>
-      </div>
-      <div class="faq-item">
-        <button class="faq-question" onclick="toggleFaq(this)">
-          ¿Qué resultados concretos ven otras empresas al implementarlo?
-          <span class="faq-icon"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
-        </button>
-        <div class="faq-answer">Menor rotación, menos uso de crédito caro y mayor productividad. El ROI supera el costo de la plataforma desde el primer trimestre.</div>
+        <div class="faq-answer">No. Es un prepago de nómina — no altera el balance ni genera obligaciones financieras. El motor predictivo calcula la demanda a 30 días para que Finanzas reserve solo lo necesario.</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- CTA SECTION -->
-<div class="cta-section">
-  <div class="container">
-    <h2 class="section-title">Empieza a predecir.<br/>Deja de reaccionar.</h2>
-    <p class="section-subtitle">Cada mes sin datos es un mes reaccionando tarde a una renuncia que pudiste anticipar.</p>
-    <div class="cta-btns">
-      <div class="hero-cta-primary-wrap">
-        <a href="#contacto" class="btn btn-lg btn-white">Agenda tu demo estratégica</a>
-        <span class="hero-cta-sub" style="color:rgba(255,255,255,0.6)">30 minutos · Personalizada por rol · Sin compromiso</span>
-      </div>
-      <a href="https://t.me/+51902126765" target="_blank" class="btn btn-lg btn-ghost-white">Hablar con el equipo →</a>
-    </div>
-  </div>
-</div>
 
 <!-- FORMULARIO -->
 <section class="form-section" id="contacto">
@@ -3971,16 +3950,20 @@ hr { border-color: var(--border-default) !important; }
     <div class="footer-inner">
       <a href="#top" class="footer-logo">Tree<span>vü</span></a>
       <ul class="footer-links">
-        <li><a href="#aplica">¿Califica?</a></li>
         <li><a href="#calculadora">Calculadora</a></li>
-        <li><a href="#ml-engine">Predicción ML</a></li>
-        <li><a href="#confianza">Confianza</a></li>
         <li><a href="#piloto">Pioneros</a></li>
         <li><a href="#contacto">Agenda demo</a></li>
         <li><a href="mailto:hello@gettreevu.com">hello@gettreevu.com</a></li>
         <li><a href="https://t.me/+51902126765" target="_blank">Telegram</a></li>
       </ul>
-      <div class="footer-copy">© 2026 Treevü · Trujillo, Perú · D.L. N° 1499 · SBS Sandbox Res. N° 2429-2021</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:34px;height:34px;border-radius:50%;background:rgba(10,132,255,0.15);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:0.65rem;font-weight:900;color:var(--brand);">RC</div>
+        <div>
+          <div style="font-size:0.8rem;font-weight:700;color:rgba(255,255,255,0.85);">Ricardo Cuba · CEO &amp; Founder</div>
+          <a href="https://www.linkedin.com/in/ricardo-cuba-alvan/" target="_blank" rel="noopener" style="font-size:0.72rem;color:var(--brand);text-decoration:none;">LinkedIn →</a>
+        </div>
+      </div>
+      <div class="footer-copy">© 2026 Treevü · Trujillo, Perú · D.L. N° 1499 · Sin custodia de fondos</div>
     </div>
   </div>
 </footer>
@@ -4198,7 +4181,7 @@ calcCFOUpdate();
 
     // Hero badge
     const badge = document.getElementById('hero-badge-text');
-    if (badge) badge.textContent = `Infraestructura de retención · Plataforma B2B2E`;
+    if (badge) badge.textContent = `Predicción de liquidez · Blindaje de talento · Perú`;
 
     // Sección cupos
     const cuposCount = document.getElementById('cupos-count');
