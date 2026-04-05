@@ -14,12 +14,14 @@
  * Nota: WhatsApp removido del flujo automatizado — todos los envíos son manuales.
  */
 
-import { NOTION, PROGRAMA, SCORE_EMOJI, ESTADO_EMOJI } from './lib/constants.js';
+import { NOTION, PROGRAMA, SCORE_EMOJI, ESTADO_EMOJI, checkEnvVars } from './lib/constants.js';
 import { getProp, restoreId, notionQuery, notionPatch } from './lib/notion.js';
 import { tg, sendMessage, answerCallback, editMessage } from './lib/telegram.js';
 import { askClaude }                                    from './lib/anthropic.js';
 import { captureException }                             from './lib/sentry.js';
 import { redisCmd }                                     from './lib/redis.js';
+
+checkEnvVars(['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ABM_CHAT_ID', 'NOTION_API_KEY'], 'abm-bot');
 
 const TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_ABM_CHAT_ID;
@@ -162,8 +164,14 @@ async function triggerCierreABM(leadId, chatId) {
 const _answerCallback = (id, text = '') => answerCallback(TOKEN, id, text);
 const _editMessage    = (chatId, msgId, text, extra = {}) => editMessage(TOKEN, chatId, msgId, text, extra);
 
-// Wrapper askClaude con maxTokens opcional
-const _askClaude = (prompt, maxTokens = 250) => askClaude(prompt, { maxTokens });
+// Wrapper askClaude — acepta string (legacy) o { system, user }
+function _askClaude(promptOrOpts, maxTokens = 250) {
+  if (typeof promptOrOpts === 'string') {
+    return askClaude(promptOrOpts, { maxTokens });
+  }
+  const { system, user } = promptOrOpts;
+  return askClaude(user, { system, maxTokens });
+}
 
 // ── ABM: calcular fechas cadencia ─────────────────────────────────────────────
 function addDays(dateStr, days) {
@@ -322,27 +330,34 @@ async function handleMensaje(query) {
 
     const primerNombre = decisor.split(/[\s,]+/)[0] || 'Hola';
 
-    const prompt = `Eres Ricardo, fundador de Treevü (EWA B2B2E Perú). Genera un mensaje corto y directo para el canal: ${canal}.
+    const instruccionCanal =
+      canal === 'LinkedIn'
+        ? `Conexión + mensaje. Máximo 3 líneas. Menciona rotación en ${sector}. Termina con pregunta: "¿Te interesa charlar 20 min?"`
+      : canal === 'Email'
+        ? `Asunto: "${empresa} — Reducción rotación (${CUPOS_TOTAL} cupos, cierre 30 abr)". Cuerpo: 5-6 líneas. Menciona S/ 8,000 costo de reemplazo. Adjunto one-pager. CTA: confirmar 20 min.`
+      : /* Seguimiento */
+        `Email breve de seguimiento. Asunto: "Re: Treevü — cupos Q2 cerrando". Máximo 3 líneas. Tono directo y urgente: quedan pocos cupos, cierre 30 abr. CTA: "¿Agendamos 20 min esta semana?" + link Calendly.`;
 
-Lead:
-- Empresa: ${empresa}
-- Decisor: ${decisor} (primer nombre: ${primerNombre})
-- Sector: ${sector}
-- Score ICP: ${score}
-- Notas: ${notas || 'ninguna'}
+    const system =
+      `Eres el equipo de ventas de Treevü (EWA B2B2E, Perú), redactando en nombre del fundador.\n` +
+      `Producto: acceso anticipado al salario devengado, S/ 0 costo para el colaborador, modelo no-custodio (cero riesgo empresa).\n` +
+      `Motor ML predice renuncia 3 semanas antes. Setup en 2 semanas.\n` +
+      `Piloto Q2: ${CUPOS_TOTAL} cupos disponibles, cierre 30 abril. Calendly: ${CALENDLY}\n\n` +
+      `Reglas:\n` +
+      `- Canal activo: ${canal}. ${instruccionCanal}\n` +
+      `- Responde SOLO con el mensaje listo para copiar, sin explicaciones ni contexto adicional.`;
 
-Producto: Treevü = acceso anticipado al salario devengado sin costo para el colaborador. Motor ML predice renuncia 3 semanas antes. Modelo no-custodio (cero riesgo para la empresa). Quedan ${CUPOS_TOTAL} cupos piloto Q2. Cierre: 30 abril. Calendly: ${CALENDLY}
-
-Canal ${canal} — instrucciones:
-${canal === 'LinkedIn' ? `Conexión + mensaje. Max 3 líneas. Menciona rotación en ${sector}. Termina con pregunta: "¿Te interesa charlar 20 min?"` : ''}
-${canal === 'Email' ? `Asunto: "${empresa} — Reducción rotación (${CUPOS_TOTAL} cupos, cierre 30 abr)". Cuerpo: 5-6 líneas. Menciona S/ 8,000 costo de reemplazo. Adjunto one-pager. CTA: confirmar 20 min.` : ''}
-${canal === 'Seguimiento' ? `Email breve de seguimiento. Asunto: "Re: Treevü — cupos Q2 cerrando". Max 3 líneas. Tono directo y urgente: quedan pocos cupos, cierre 30 abr. CTA: "¿Agendamos 20 min esta semana?" + link Calendly.` : ''}
-
-Responde SOLO con el mensaje listo para copiar. Sin explicaciones.`;
+    const user =
+      `Genera el mensaje ${canal} para este lead:\n` +
+      `- Empresa: ${empresa}\n` +
+      `- Decisor: ${decisor} (primer nombre: ${primerNombre})\n` +
+      `- Sector: ${sector}\n` +
+      `- Score ICP: ${score || 'no indicado'}\n` +
+      `- Notas: ${notas || 'ninguna'}`;
 
     await send(`⏳ _Generando mensaje ${canal} para ${empresa}..._`);
 
-    const mensaje = await _askClaude(prompt, 300);
+    const mensaje = await _askClaude({ system, user }, 300);
 
     if (!mensaje) {
       await send('❌ Error generando mensaje con IA.');
@@ -719,13 +734,17 @@ async function handleNextStep() {
     const enReunion = crm.filter(l => ['Reunion', 'Propuesta'].includes(getProp(l, 'Estado') || '')).length;
     const cerrados = crm.filter(l => getProp(l, 'Estado') === 'Cerrado').length;
     const diasCierre = Math.ceil((new Date(FECHA_CIERRE) - new Date()) / 864e5);
-    const prompt =
-      `Eres el asesor estratégico de Ricardo Cuba, fundador de Treevü (EWA B2B2E Perú).\n` +
-      `Pipeline: ${crm.length} leads CRM (${alto} ALTO, ${enReunion} en reunión), ${abm.length} ABM outbound.\n` +
-      `Estado piloto: ${cerrados}/${CUPOS_TOTAL} firmados, ${diasCierre} días para cierre 30 abril.\n\n` +
-      `Da exactamente 3 próximos pasos accionables para esta semana. Numerados, 1 línea c/u. Sin relleno.`;
+    const system =
+      `Eres asesor estratégico de ventas B2B SaaS early-stage para Treevü (EWA B2B2E, Perú).\n` +
+      `Treevü: acceso al salario devengado para colaboradores, S/0 costo, modelo no-custodio, ML predice renuncias 3 semanas antes.\n` +
+      `Responde siempre con exactamente 3 próximos pasos accionables para esta semana. Numerados, 1 línea c/u. Sin relleno.`;
+    const user =
+      `Pipeline actual:\n` +
+      `- CRM: ${crm.length} leads (${alto} ALTO, ${enReunion} en reunión/propuesta)\n` +
+      `- ABM outbound: ${abm.length} empresas\n` +
+      `- Piloto: ${cerrados}/${CUPOS_TOTAL} firmados · ${diasCierre} días para cierre 30 abril`;
     await send('⏳ _Analizando pipeline..._');
-    const resp = await _askClaude(prompt, 120);
+    const resp = await _askClaude({ system, user }, 120);
     await send(`🎯 *Próximos pasos — esta semana*\n\n${resp}`);
   } catch (err) { await send('❌ Error al generar próximos pasos.'); }
 }
@@ -965,16 +984,19 @@ async function handleBloqueantes() {
     const abm = abmData.results || [];
     const diasCierre = Math.ceil((new Date(FECHA_CIERRE) - new Date()) / 864e5);
     const cerrados   = crm.filter(l => getProp(l, 'Estado') === 'Cerrado').length;
-    const prompt =
-      `Eres asesor de Ricardo Cuba, Treevü (EWA B2B2E Perú, ${diasCierre}d para cierre Q2).\n` +
-      `Pipeline: ${crm.length} leads CRM, ${crm.filter(l => getProp(l, 'Score') === 'ALTO').length} ALTO, ` +
-      `${crm.filter(l => ['Reunion', 'Propuesta'].includes(getProp(l, 'Estado') || '')).length} en reunión. ` +
-      `${abm.length} ABM. ${cerrados}/${CUPOS_TOTAL} cerrados.\n\n` +
-      `Identifica los 3 bloqueantes más críticos con RAG.\n` +
+    const enReunion = crm.filter(l => ['Reunion', 'Propuesta'].includes(getProp(l, 'Estado') || '')).length;
+    const system =
+      `Eres asesor estratégico de Treevü (EWA B2B2E, Perú). Identificas bloqueantes críticos de ventas.\n` +
+      `Formato de respuesta: exactamente 3 líneas con emoji de semáforo.\n` +
       `Formato exacto por línea: 🔴/🟡/🟢 [Bloqueante] — [Acción inmediata]\n` +
-      `Solo 3 líneas. Sin introducciones.`;
+      `Sin introducciones ni cierre.`;
+    const user =
+      `Pipeline actual (${diasCierre} días para cierre Q2 — 30 abril):\n` +
+      `- CRM: ${crm.length} leads, ${crm.filter(l => getProp(l, 'Score') === 'ALTO').length} ALTO, ${enReunion} en reunión/propuesta\n` +
+      `- ABM outbound: ${abm.length} empresas\n` +
+      `- Piloto: ${cerrados}/${CUPOS_TOTAL} cerrados`;
     await send('⏳ _Analizando bloqueantes..._');
-    const resp = await _askClaude(prompt, 120);
+    const resp = await _askClaude({ system, user }, 120);
     await send(`🚦 *Bloqueantes RAG*\n\n${resp}\n\n_/decision para decisiones pendientes_`);
   } catch (err) { await send('❌ Error al analizar bloqueantes.'); }
 }
@@ -983,13 +1005,16 @@ async function handleBloqueantes() {
 async function handleDecision() {
   try {
     const diasCierre = Math.ceil((new Date(FECHA_CIERRE) - new Date()) / 864e5);
-    const prompt =
-      `Eres asesor de Ricardo Cuba, Treevü (EWA B2B2E Perú, ${diasCierre}d para cierre Q2, ${CUPOS_TOTAL} cupos piloto).\n` +
-      `Lista las 3 decisiones estratégicas más urgentes que Ricardo debe tomar esta semana.\n` +
+    const system =
+      `Eres asesor estratégico de Treevü (EWA B2B2E, Perú). Identificas decisiones urgentes de ventas early-stage.\n` +
+      `Responde con exactamente 3 líneas numeradas.\n` +
       `Formato: [N]. [Decisión] — [Criterio o consecuencia de no decidir]\n` +
-      `Solo 3 líneas. Sin relleno.`;
+      `Sin relleno.`;
+    const user =
+      `Identifica las 3 decisiones más urgentes para esta semana.\n` +
+      `Contexto: ${CUPOS_TOTAL} cupos piloto · ${diasCierre} días para cierre 30 abril.`;
     await send('⏳ _Identificando decisiones..._');
-    const resp = await _askClaude(prompt, 120);
+    const resp = await _askClaude({ system, user }, 120);
     await send(`⚖️ *Decisiones pendientes*\n\n${resp}`);
   } catch (err) { await send('❌ Error al generar decisiones.'); }
 }
@@ -1225,50 +1250,41 @@ async function handleObjecion(tipo) {
   const t = tipo.trim().toLowerCase();
   const diasCierre = Math.ceil((new Date(FECHA_CIERRE) - new Date()) / 864e5);
 
-  const prompts = {
+  const objecionSystem =
+    `Eres el equipo de ventas de Treevü (EWA B2B2E, Perú), experto en rebatir objeciones.\n` +
+    `Treevü: acceso anticipado al salario devengado, S/0 costo para el colaborador, modelo no-custodio.\n` +
+    `Motor ML predice renuncia 3 semanas antes. Setup en 2 semanas sin IT. Piloto Q2 con condiciones fundadoras.\n` +
+    `Regla: responde SOLO con el rebate, máximo 4 líneas, sin preámbulo ni cierre.`;
+
+  const objecionUser = {
     precio:
-      `Objeción de precio en venta B2B. El cliente dice que Treevü es caro o pide justificar el costo.\n` +
-      `Contexto: Treevü = acceso anticipado al salario (EWA), costo S/0 para el colaborador, modelo no-custodio (sin riesgo financiero para la empresa). ` +
-      `El costo de reemplazo de un colaborador es S/ 8,000+. La rotación reduce productividad y genera costos ocultos. ` +
-      `El piloto es gratuito o de bajo costo. Quedan ${diasCierre} días para cerrar Q2.\n` +
-      `Genera una respuesta de rebate: máximo 4 líneas, directa, orientada a ROI. Sin preámbulo.`,
+      `Objeción de precio: el cliente dice que Treevü es caro o pide justificar el costo.\n` +
+      `Argumentos disponibles: costo reemplazo S/8,000+/colaborador, piloto de bajo costo, ROI en <1 renuncia evitada. Quedan ${diasCierre} días para cerrar Q2.`,
 
     integracion:
-      `Objeción técnica: el cliente pregunta cómo se integra Treevü con su sistema de nómina.\n` +
-      `Contexto: Treevü no requiere integración profunda en el piloto — funciona con un reporte de nómina mensual (Excel/PDF). ` +
-      `La integración API (Alegra, Concar, SIGE) viene en fase 2. El piloto arranca en 2 semanas sin IT.\n` +
-      `Genera respuesta de rebate: máximo 4 líneas. Énfasis en velocidad de arranque.`,
+      `Objeción técnica: el cliente pregunta cómo se integra con su sistema de nómina.\n` +
+      `Argumentos disponibles: piloto funciona con reporte mensual (Excel/PDF), sin IT. Integración API (Alegra, Concar, SIGE) en fase 2. Arranque en 2 semanas.`,
 
     tiempo:
-      `Objeción de timing: el cliente dice que ahora no es el momento o que lo evalúan para el próximo año.\n` +
-      `Contexto: solo quedan ${diasCierre} días para cerrar el piloto Q2 con condiciones fundadoras (precio especial, atención directa del fundador, co-diseño del producto). ` +
-      `Después del 30 de abril, el siguiente piloto será en Q3 con condiciones estándar.\n` +
-      `Genera respuesta de rebate: máximo 4 líneas. Urgencia real, no presión falsa.`,
+      `Objeción de timing: el cliente dice que ahora no es el momento o lo evalúa para el próximo año.\n` +
+      `Argumentos disponibles: condiciones fundadoras cierran el 30 de abril (${diasCierre} días). Q3 = condiciones estándar, precio mayor, sin co-diseño del producto.`,
 
     riesgo:
       `Objeción de confianza/riesgo: el cliente desconfía de una startup o pregunta quién garantiza el servicio.\n` +
-      `Contexto: Treevü es modelo no-custodio (la empresa no adelanta dinero, no hay riesgo financiero). ` +
-      `El piloto tiene SLA definido, contrato con cláusula de responsabilidad limitada, y Ricardo Cuba (fundador) atiende directamente. ` +
-      `El riesgo real para la empresa es cero — el peor escenario es que no funcione y ya.\n` +
-      `Genera respuesta de rebate: máximo 4 líneas. Énfasis en cero riesgo financiero.`,
+      `Argumentos disponibles: modelo no-custodio (empresa no adelanta dinero, cero riesgo financiero), SLA definido, contrato con cláusula de responsabilidad limitada, el equipo Treevü atiende directamente.`,
 
     prioridad:
-      `Objeción de prioridad: el cliente dice que tienen otras prioridades o que están ocupados.\n` +
-      `Contexto: implementar el piloto Treevü toma 2 semanas y requiere < 2 horas del equipo de RRHH. ` +
-      `El costo de oportunidad de no hacerlo: cada mes de rotación no atendida cuesta S/ 8,000+ por colaborador que se va.\n` +
-      `Genera respuesta de rebate: máximo 4 líneas. Énfasis en bajo esfuerzo de implementación.`,
+      `Objeción de prioridad: el cliente dice que tienen otras prioridades o están ocupados.\n` +
+      `Argumentos disponibles: implementación toma 2 semanas y <2 horas del equipo de RRHH. Costo de oportunidad: S/8,000+ por cada renuncia que ocurre mientras se demora la decisión.`,
 
     resultado:
       `Objeción de evidencia: el cliente pide prueba de que Treevü funciona o casos de éxito.\n` +
-      `Contexto: Treevü está en fase de piloto — los primeros 2 clientes son socios fundadores que co-crean el producto. ` +
-      `La lógica EWA está validada globalmente (DailyPay, Earned, Leaf). El ML predictor de renuncia se basa en modelos académicos validados. ` +
-      `El piloto incluye métricas de éxito acordadas (gate review semana 2, 4, 6).\n` +
-      `Genera respuesta de rebate: máximo 4 líneas. Reencuadra: ser piloto = ventaja competitiva.`,
+      `Argumentos disponibles: lógica EWA validada globalmente (DailyPay, Earned, Leaf). ML predictor basado en modelos académicos. Piloto incluye gate reviews semana 2/4/6. Ser piloto fundador = co-diseño del producto.`,
   };
 
   try {
     await send(`⏳ _Preparando rebate para objeción de ${t}..._`);
-    const resp = await _askClaude(prompts[t], 160);
+    const resp = await _askClaude({ system: objecionSystem, user: objecionUser[t] }, 160);
     if (!resp) throw new Error('Sin respuesta de IA');
     await send(`💬 *Objeción: ${t}*\n\n${resp}\n\n_/objecion para ver todos los tipos_`);
   } catch (err) {
@@ -1430,21 +1446,22 @@ async function handlePregunta(query) {
     weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Lima',
   });
 
-  const prompt =
-    `Eres el asesor estratégico personal de Ricardo Cuba, fundador de Treevü (EWA B2B2E, Perú).\n\n` +
-    `Contexto de Treevü:\n` +
-    `- Producto: acceso anticipado al salario devengado para colaboradores (EWA). Costo S/0 para el colaborador, modelo no-custodio (cero riesgo empresa).\n` +
-    `- Motor ML que predice renuncia 3 semanas antes.\n` +
-    `- Etapa: early sales, piloto Q2 con ${CUPOS_TOTAL} cupos disponibles, cierre 30 abril.\n` +
-    `- Pipeline: CRM inbound + outbound ABM activo.\n` +
-    `- Canales: LinkedIn (D1), Email (D3), Email/llamada de seguimiento (D7).\n` +
-    `- Meta: cerrar 2 pilotos fundadores antes del 30 abril.\n\n` +
-    `Fecha actual: ${hoy}\n\n` +
-    `Pregunta de Ricardo: ${query.trim()}\n\n` +
-    `Responde como asesor experimentado en B2B SaaS early-stage. Máximo 5 líneas. Directo, accionable, sin relleno. Si la pregunta requiere contexto que no tienes, dilo brevemente y da igual tu mejor recomendación.`;
+  const system =
+    `Eres asesor estratégico de Treevü (EWA B2B2E, Perú) para ventas early-stage.\n\n` +
+    `## CONTEXTO DEL PRODUCTO\n` +
+    `- EWA: acceso al salario devengado antes del pago, S/0 costo para el colaborador, modelo no-custodio\n` +
+    `- Motor ML predice renuncia 3 semanas antes\n` +
+    `- Piloto Q2: ${CUPOS_TOTAL} cupos, cierre 30 abril\n` +
+    `- Cadencia ABM: LinkedIn (D1) · Email (D3) · Seguimiento (D7)\n` +
+    `- Meta: cerrar 2 pilotos fundadores antes del 30 abril\n\n` +
+    `## REGLAS DE RESPUESTA\n` +
+    `- Máximo 5 líneas, directo, accionable, sin relleno\n` +
+    `- Si falta contexto para responder bien, indícalo brevemente y da tu mejor recomendación igual`;
+
+  const user = `Fecha: ${hoy}\n\nPregunta: ${query.trim()}`;
 
   try {
-    const respuesta = await _askClaude(prompt, 200);
+    const respuesta = await _askClaude({ system, user }, 200);
     if (!respuesta) throw new Error('Sin respuesta');
     await send(`🧠 *Asesor estratégico*\n\n${respuesta}`);
   } catch (err) {
