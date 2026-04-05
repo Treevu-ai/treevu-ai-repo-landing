@@ -1,5 +1,7 @@
 import { sendAbmNotification }              from './abm-notify.js';
-import { NOTION, SECTOR_MAP, OBJ_MAP, SCORE_EMOJI } from './lib/constants.js';
+import { NOTION, SECTOR_MAP, OBJ_MAP, SCORE_EMOJI, checkEnvVars } from './lib/constants.js';
+
+checkEnvVars(['NOTION_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'LEAD_WEBHOOK_SECRET', 'OPENCLAW_TOKEN'], 'submit');
 import { sendMessage, escapeMd }            from './lib/telegram.js';
 import { askClaude }                        from './lib/anthropic.js';
 import { detectGender, calcScore } from './lib/validators.js';

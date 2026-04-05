@@ -53,6 +53,22 @@ export const ESTADO_EMOJI = {
   Descartado:  '❌',
 };
 
+// ── Validación de env vars al arranque ───────────────────────────────────────
+/**
+ * Verifica que las variables de entorno requeridas estén presentes.
+ * Loguea un warning por cada una ausente y devuelve las que faltan.
+ * @param {string[]} required  - nombres de variables requeridas
+ * @param {string}   context   - nombre del archivo/módulo (para el log)
+ * @returns {string[]}         - lista de variables ausentes (vacía si todo OK)
+ */
+export function checkEnvVars(required, context = 'app') {
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length) {
+    console.warn(`[${context}] Variables de entorno faltantes: ${missing.join(', ')}`);
+  }
+  return missing;
+}
+
 // ── Scoring ──────────────────────────────────────────────────────────────────
 export function calcScore(sector, employees, objetivo) {
   let pts = 0;

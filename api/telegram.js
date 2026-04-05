@@ -8,7 +8,9 @@ import { detectGender }                                                       fr
 import { tg as _tg, sendMessage as _sendMsg, answerCallback as _answerCb,
          editMessage as _editMsg, sendTyping as _sendTyping }                 from './lib/telegram.js';
 import { askClaude as _askClaudeLib }                                         from './lib/anthropic.js';
-import { PROGRAMA }                                                           from './lib/constants.js';
+import { PROGRAMA, checkEnvVars }                                             from './lib/constants.js';
+
+checkEnvVars(['TELEGRAM_VU_BOT_TOKEN', 'LEAD_WEBHOOK_SECRET'], 'telegram-bot');
 import { captureException }                                                   from './lib/sentry.js';
 import { redisCmd }                                                           from './lib/redis.js';
 

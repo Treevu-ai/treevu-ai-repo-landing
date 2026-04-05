@@ -32,7 +32,11 @@ The repo has two distinct runtime environments:
 | `api/followup.js` | `GET /api/followup` | Cron — triggers follow-up sequences |
 | `api/calendly-webhook.js` | `POST /api/calendly-webhook` | Handles Calendly booking events |
 | `api/setup-calendly.js` | `GET /api/setup-calendly` | One-time Calendly webhook registration |
-| `api/ceo-bot.js` | `POST /api/ceo-bot` | CEO personal bot — propuestas, cierre de deal, onboarding post-firma |
+| `api/ceo-bot.js` | `POST /api/ceo-bot` | CEO personal bot — router principal, state machine post-reunión, keyboards |
+| `api/cto-bot.js` | — | CTO Virtual Agent — integrado como módulo en ceo-bot.js (`/cto`) |
+| `api/sdr-agent.js` | `POST /api/sdr-agent` | SDR outbound — busca prospectos en LinkedIn vía Tavily, genera outreach con Claude, guarda en Notion |
+| `api/twitter-agent.js` | `POST /api/twitter-agent` | Genera/pulea tweets con Claude y los publica vía API de X |
+| `api/apollo-enricher.js` | `POST /api/apollo-enricher` | Enriquece leads SDR con email y teléfono usando Apollo |
 | `api/router.js` | `POST /api/router` | Unified Telegram webhook — dispatches to CEO vs ABM bot by chat_id |
 | `api/primera-reunion.js` | `POST /api/primera-reunion` | Pre/post-meeting automation — briefing generation, follow-up emails |
 | `api/pandadoc-webhook.js` | `POST /api/pandadoc-webhook` | Contract signature webhook → CRM status update |
@@ -41,6 +45,16 @@ The repo has two distinct runtime environments:
 | `api/content-reminder.js` | `GET /api/content-reminder` | Cron 12:00 UTC Mon–Fri — daily content post reminder |
 | `api/reactivation.js` | `GET /api/reactivation` | Cron Mondays 14:00 UTC — re-engage leads inactive 45+ days |
 | `api/session-recovery.js` | `GET /api/session-recovery` | Cron every 4h — recover abandoned @treevubot chat sessions via Telegram |
+
+## CEO Bot — Módulos
+
+`api/ceo-bot.js` fue dividido en módulos para facilitar el mantenimiento:
+
+| Módulo | Responsabilidad |
+|--------|----------------|
+| `api/ceo-bot.js` | State machine Redis, keyboards inline, router de callbacks y comandos (~200 líneas) |
+| `api/lib/ceo-deal.js` | `generateProposal`, `sendToPandaDoc`, `triggerCierre`, `completarPostMeeting` |
+| `api/lib/ceo-commands.js` | `handleHelp`, `handlePipeline`, `handleFollowup`, `handleSDR`, `handleBriefing`, `handlePost`, `handleTweet`, `handleEnrich`, `handleQA` |
 
 ## Data Flow
 
@@ -73,6 +87,16 @@ The repo has two distinct runtime environments:
 | `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` | Gmail draft creation in `submit.js` |
 | `GMAIL_FROM` | sender address (default: `hello@gettreevu.com`) |
 | `CALENDLY_TOKEN` | `calendly-webhook.js`, `setup-calendly.js`, `daily-summary.js` |
+| `TELEGRAM_VU_BOT_TOKEN` | `telegram.js` (@treevubot público — diferente al bot del CEO) |
+| `TAVILY_API_KEY` | `sdr-agent.js`, `primera-reunion.js` (búsqueda de prospectos y research de empresa) |
+| `APOLLO_API_KEY` | `apollo-enricher.js` (enriquecimiento de leads con email/teléfono) |
+| `PANDADOC_API_KEY` | `ceo-bot.js` → `ceo-deal.js` (firma electrónica de propuestas) |
+| `TWITTER_*` | `twitter-agent.js` (publicación en X/Twitter) |
+| `LINKEDIN_*` | `lib/linkedin.js` (publicación en LinkedIn desde ceo-bot) |
+| `INSTAGRAM_*` | `lib/instagram.js` (publicación en Instagram desde ceo-bot) |
+| `PEXELS_API_KEY` | `lib/pexels.js` (imágenes para posts Instagram) |
+| `FATHOM_WEBHOOK_SECRET` | `fathom-webhook.js` (verificación de firma) |
+| `FIRECRAWL_API_KEY` | `lib/firecrawl.js` (scraping de sitios para briefings) |
 
 ### WhatsApp service (`whatsapp-service/`)
 | Variable | Purpose |
@@ -110,6 +134,21 @@ fly secrets set WHATSAPP_SERVICE_SECRET=... NOTION_API_KEY=... TELEGRAM_BOT_TOKE
 curl "https://gettreevu.com/api/daily-summary?secret=CRON_SECRET"
 curl "https://gettreevu.com/api/followup?secret=CRON_SECRET"
 ```
+
+## Prompt Engineering — Convenciones
+
+Todos los prompts Claude del repo siguen este patrón (ver rama `claude/document-repo-bots-GNzOj`):
+
+```
+system: [IDENTIDAD] + [REGLAS DE COMPORTAMIENTO] + [RESTRICCIONES]
+user:   [datos variables del caso específico]
+```
+
+- Los system prompts usan secciones `##` para separar IDENTIDAD, CONOCIMIENTO DEL PRODUCTO, REGLAS, RESTRICCIONES.
+- Los campos nullable en JSON schemas se documentan explícitamente como `"campo": "<valor o null>"`.
+- Los prompts de contenido creativo incluyen un ejemplo few-shot para fijar tono y estructura.
+- Los bots NO impersonan personas reales — usan "el equipo de ventas de Treevü, escribiendo en nombre del fundador".
+- `api/lib/constants.js` exporta `checkEnvVars()` — úsalo al inicio de cada handler para detectar configuraciones faltantes en deploy.
 
 ## AI Model
 

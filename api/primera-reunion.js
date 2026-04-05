@@ -13,7 +13,9 @@
 //            "notas": { "dolor_principal": "...", "siguiente_paso": "diagnostico|nda|no_fit|seguimiento",
 //                       "objeciones": "...", "fecha_siguiente": "...", "interes": 4 } }
 
-import { NOTION, PROGRAMA, SCORE_EMOJI } from './lib/constants.js';
+import { NOTION, PROGRAMA, SCORE_EMOJI, checkEnvVars } from './lib/constants.js';
+
+checkEnvVars(['NOTION_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'CRON_SECRET', 'OPENCLAW_TOKEN'], 'primera-reunion');
 import { notionPatch, getProp, getNotionPage } from './lib/notion.js';
 import { askClaude }                      from './lib/anthropic.js';
 import { sendMessage }                    from './lib/telegram.js';
