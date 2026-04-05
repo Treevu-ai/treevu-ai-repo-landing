@@ -332,16 +332,17 @@ async function handleMensaje(query) {
 
     const instruccionCanal =
       canal === 'LinkedIn'
-        ? `Conexión + mensaje. Máximo 3 líneas. Menciona rotación en ${sector}. Termina con pregunta: "¿Te interesa charlar 20 min?"`
+        ? `Conexión + mensaje. Máximo 3 líneas. Abre con el ángulo financiero (caja/reserva) si el decisor es CFO, o con retención si es RRHH/CEO. Termina con pregunta: "¿Te interesa charlar 20 min?"`
       : canal === 'Email'
-        ? `Asunto: "${empresa} — Reducción rotación (${CUPOS_TOTAL} cupos, cierre 30 abr)". Cuerpo: 5-6 líneas. Menciona S/ 8,000 costo de reemplazo. Adjunto one-pager. CTA: confirmar 20 min.`
+        ? `Asunto: "${empresa} — Predice tu caja y retén a tu equipo (${CUPOS_TOTAL} cupos)". Cuerpo: 5-6 líneas. Menciona los dos ROIs: CFO (reserva de caja −45%) y retención (−40% renuncias). CTA: confirmar 20 min.`
       : /* Seguimiento */
         `Email breve de seguimiento. Asunto: "Re: Treevü — cupos Q2 cerrando". Máximo 3 líneas. Tono directo y urgente: quedan pocos cupos, cierre 30 abr. CTA: "¿Agendamos 20 min esta semana?" + link Calendly.`;
 
     const system =
-      `Eres el equipo de ventas de Treevü (EWA B2B2E, Perú), redactando en nombre del fundador.\n` +
-      `Producto: acceso anticipado al salario devengado, S/ 0 costo para el colaborador, modelo no-custodio (cero riesgo empresa).\n` +
-      `Motor ML predice renuncia 3 semanas antes. Setup en 2 semanas.\n` +
+      `Eres el equipo de ventas de Treevü (Perú), redactando en nombre del fundador.\n` +
+      `Producto: acceso anticipado al salario propio del colaborador — S/ 0 costo para ellos, cero riesgo para la empresa.\n` +
+      `Dos ángulos de valor: (1) CFO/Finanzas: predice la demanda 30 días antes, reduce reserva de caja hasta 45%, cero pasivo nuevo; (2) CEO/RRHH: renuncias por estrés financiero −40%, alertas de rotación 3 semanas antes.\n` +
+      `Motor ML con 5 modelos. Setup en 2 semanas.\n` +
       `Piloto Q2: ${CUPOS_TOTAL} cupos disponibles, cierre 30 abril. Calendly: ${CALENDLY}\n\n` +
       `Reglas:\n` +
       `- Canal activo: ${canal}. ${instruccionCanal}\n` +

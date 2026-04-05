@@ -245,8 +245,9 @@ export async function handleBriefing(chatId, input, send) {
 
     const hasWeb = webCtx && webCtx.length > 80;
 
-    const system = `Eres el asistente estratégico del CEO de Treevü (EWA B2B para empresas peruanas).
-Genera briefings de reunión concisos y accionables.
+    const system = `Eres el asistente estratégico del CEO de Treevü (plataforma de acceso anticipado al salario con ML predictivo para empresas peruanas).
+Treevü tiene dos ángulos de valor: (1) CFO/Finanzas — predice la caja 30 días antes, reduce la reserva hasta 45%, cero pasivo nuevo; (2) CEO/RRHH — baja renuncias por estrés financiero hasta 40%, alertas de rotación 3 semanas antes.
+Genera briefings de reunión concisos y accionables. Adapta el ángulo según el perfil de la empresa.
 Usa Markdown Telegram (*negrita*, _itálica_) — sin ### ni encabezados markdown.`;
 
     const userPrompt = `El CEO va a reunirse con: ${input}
@@ -293,14 +294,14 @@ export async function handlePost(chatId, platform, send, edit) {
   const weekNum = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 864e5));
 
   const TEMAS_LI = [
-    'rotación de personal: el costo oculto que sangra a las empresas peruanas',
+    'el costo real de tener dinero parado en la reserva de nómina',
     'cómo el estrés financiero reduce la productividad de tus colaboradores',
-    'EWA en Perú: qué es el acceso al salario devengado y por qué importa ahora',
-    'employer branding: mejorar el bienestar financiero reduce rotación 15-40%',
-    'el colaborador endeudado no rinde — datos y soluciones reales',
-    'retener talento cuesta menos que reclutar — con números',
-    'las finanzas personales de tus colaboradores son tu problema de negocio',
-    'casos reales: empresas que redujeron rotación con beneficios financieros',
+    'predice la caja antes de que se convierta en un problema',
+    'el colaborador que no llega a fin de mes ya está buscando otro trabajo',
+    'rotación laboral: lo que el CFO ve que RRHH no está midiendo',
+    'retener talento cuesta menos que reclutar — con números reales de Perú',
+    'acceso anticipado al salario: la decisión que cambia dos estados financieros',
+    'casos reales: empresas que redujeron renuncias y optimizaron su caja a la vez',
   ];
   const tema = TEMAS_LI[weekNum % TEMAS_LI.length];
 

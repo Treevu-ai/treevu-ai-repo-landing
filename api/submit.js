@@ -16,15 +16,19 @@ const TELEGRAM_CHAT_ID    = process.env.TELEGRAM_CHAT_ID;
 
 // ── Claude scoring ────────────────────────────────────────────────────────────
 async function scoreWithClaude({ nombre, empresa, sector, colaboradores, objetivo, problema }) {
-  const systemPrompt = `Eres el sistema de calificación de leads de Treevü, plataforma B2B2E de Earned Wage Access (EWA) con motor ML para empresas en Perú.
+  const systemPrompt = `Eres el sistema de calificación de leads de Treevü, plataforma de acceso anticipado al salario con inteligencia predictiva de nómina para empresas en Perú.
 
 PRODUCTO:
-- Modelo no-custodio: Treevü orquesta, el empleador transfiere directo al colaborador
-- Precio piloto: S/ 7/colaborador activo/mes meses 1-2, luego S/ 490/mes dashboard + S/ 7/usuario activo
+- Los colaboradores acceden a su propio salario antes del día de pago — S/ 0 costo para ellos, sin deuda
+- La empresa predice cuánto van a pedir con 30 días de anticipación (94% precisión) → reduce la reserva de caja hasta 45%
+- El adelanto se descuenta del siguiente pago — cero pasivo nuevo, cero riesgo financiero para la empresa
+- Treevü no toca los fondos: la empresa transfiere directo al colaborador vía Yape, Plin o CCE
+- Precio piloto: S/ 7/colaborador activo/mes meses 1-2, luego S/ 490/mes dashboard ML + S/ 7/usuario activo
 - ICP: empresas peruanas 100-5000 colaboradores, sectores retail/manufactura/banca/servicios/construcción/tecnología
-- Decisores objetivo: Directores RRHH, CFO, CEO
-- Dolor que resuelve: rotación laboral (S/ 8,000+ por reemplazo), estrés financiero, productividad perdida
-- Diferenciador: 5 modelos ML predictivos, alerta de renuncia 3 semanas antes, cero riesgo financiero para la empresa
+- Decisores objetivo: CFO, CEO, Directores RRHH — en ese orden de prioridad
+- Dolor CFO: reserva de caja sobredimensionada, flujo impredecible, costo de capital ocioso
+- Dolor CEO/RRHH: rotación laboral (S/ 8,000+ por reemplazo), estrés financiero del equipo, renuncias sorpresivas
+- Diferenciador: 5 modelos ML predictivos, alerta de renuncia 3 semanas antes, predicción de demanda a 30 días
 
 SCORING:
 - ALTO (prob > 65%): empresa 200-5000 colab + sector prioritario + objetivo rotación/bienestar + urgencia o detalle específico en el reto
@@ -100,9 +104,9 @@ async function createGmailDraft({ nombre, email, empresa, sector, colaboradores,
 <p><strong>¿Por qué esto es urgente?</strong><br>
 Con una rotación promedio del ${pctRotacion}% en el sector ${SECTOR_MAP[sector] || sector}, ${empresa} podría estar asumiendo ~S/ ${costoEstimado}/año solo en costos de reemplazo.</p>
 <p><strong>Lo que Treevü resuelve:</strong><br>
-✅ Acceso anticipado al salario — sin costo para el colaborador<br>
-✅ Alerta de renuncia con 3 semanas de anticipación (motor ML)<br>
-✅ Cero riesgo financiero para ${empresa} — modelo no-custodio<br>
+✅ <strong>CFO/Finanzas:</strong> predice la demanda de adelantos 30 días antes → reduce la reserva de caja hasta 45%, cero pasivo nuevo<br>
+✅ <strong>RRHH/CEO:</strong> baja las renuncias por estrés financiero hasta 40% — alertas de rotación 3 semanas antes<br>
+✅ Treevü no toca los fondos — la empresa transfiere directo, sin riesgo<br>
 ✅ Piloto desde S/ 7/colaborador activo/mes</p>
 <p>${razon ? `<em>${razon}</em><br><br>` : ''}¿Agendamos 30 minutos esta semana?<br>
 👉 <a href="https://calendar.app.google/Rxprk5tCDSDivwaA9">Reserva tu espacio aquí</a></p>
@@ -111,7 +115,7 @@ Con una rotación promedio del ${pctRotacion}% en el sector ${SECTOR_MAP[sector]
 
   return gmailDraft(access_token, {
     to: email,
-    subject: `Treevü × ${empresa} — Piloto EWA`,
+    subject: `Treevü × ${empresa} — Predice tu caja, retén a tu equipo`,
     bodyHtml,
   });
 }

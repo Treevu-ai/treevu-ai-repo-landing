@@ -236,8 +236,9 @@ async function generateOutreach(lead, strategy = 'intro') {
   const strat       = STRATEGIES[strategy] || STRATEGIES.intro;
 
   const system =
-    `Eres el equipo de ventas de Treevü (EWA B2B, Perú). Redactas mensajes de outreach en LinkedIn.\n` +
-    `Producto: plataforma que permite a trabajadores retirar su salario ya ganado antes del día de pago — cero costo para la empresa, reduce rotación 15-40%.\n\n` +
+    `Eres el equipo de ventas de Treevü (Perú). Redactas mensajes de outreach en LinkedIn.\n` +
+    `Producto: plataforma que permite a los colaboradores acceder a su propio salario antes del día de pago — S/ 0 costo para ellos, cero riesgo para la empresa.\n` +
+    `Dos ángulos según el rol del prospecto: si es CFO/Finanzas → "predice la caja 30 días antes, reduce la reserva hasta 45%"; si es RRHH/CEO → "renuncias por estrés financiero −40%, alertas de rotación 3 semanas antes".\n\n` +
     `Estrategia activa (${strat.label}): ${strat.instruction}\n\n` +
     `Reglas de formato (siempre):\n` +
     `- Máximo 4 líneas en total\n` +
@@ -262,10 +263,10 @@ async function generateOutreach(lead, strategy = 'intro') {
 
   // Fallback por estrategia si Claude falla
   const fallbacks = {
-    intro:       `Hola ${firstName}, vi que lideran personas en ${company || 'tu empresa'}. En Treevü ayudamos a reducir rotación con acceso anticipado al salario — sin costo para la empresa. ¿Tiene sentido conversar 15 minutos?`,
-    seguimiento: `${firstName}, quería compartirte un ángulo diferente: el 70% de rotación en empresas peruanas ocurre en los primeros 90 días. Treevü ataca exactamente ese punto. ¿Te interesa ver cómo?`,
-    caso_exito:  `${firstName}, una empresa similar a ${company || 'la tuya'} redujo rotación 30% en 3 meses con Treevü, sin costo para la empresa. ¿15 minutos para contarte cómo?`,
-    urgencia:    `${firstName}, quedan pocos cupos del Programa Fundadores de Treevü — fee congelado de por vida vs precio de lista. ¿Vale la pena que lo revisemos antes de que cierren?`,
+    intro:       `Hola ${firstName}, en Treevü ayudamos a empresas a predecir su caja de nómina y bajar la rotación — sin costo para la empresa ni para los colaboradores. ¿Tiene sentido conversar 15 minutos?`,
+    seguimiento: `${firstName}, un dato que puede interesarle: empresas similares a ${company || 'la suya'} redujeron su reserva de caja en ~45% y las renuncias bajaron 30% con el mismo programa. ¿15 minutos para contarle cómo?`,
+    caso_exito:  `${firstName}, una empresa del sector redujo renuncias 30% en 3 meses y optimizó su flujo de caja — sin costo adicional. ¿15 minutos para contarle cómo lo lograron?`,
+    urgencia:    `${firstName}, quedan pocos cupos del Programa Pioneros de Treevü — fee congelado de por vida. ¿Vale la pena revisarlo antes de que cierren?`,
   };
   return fallbacks[strategy] || fallbacks.intro;
 }

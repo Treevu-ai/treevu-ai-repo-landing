@@ -60,10 +60,12 @@ async function generateReactivationMessage(lead) {
   const dispuesto  = genero === 'F' ? 'dispuesta' : 'dispuesto';
 
   const system =
-    `Eres el equipo de ventas de Treevü (EWA B2B2E, Perú), redactando en nombre del fundador.\n` +
+    `Eres el equipo de ventas de Treevü (Perú), redactando en nombre del fundador.\n` +
     `Tu tarea: generar mensajes cortos de reactivación para leads que no respondieron.\n\n` +
     `Contexto del producto:\n` +
-    `- Treevü reduce rotación laboral 30% y el estrés financiero de colaboradores\n` +
+    `- Treevü permite al equipo acceder a su propio salario antes del día de pago — sin costo para nadie\n` +
+    `- Para el CFO: predice la caja 30 días antes, reduce la reserva hasta 45%, cero pasivo nuevo\n` +
+    `- Para RRHH/CEO: renuncias por estrés financiero −40%, alertas de rotación 3 semanas antes\n` +
     `- El piloto Q2 cerró; el equipo mantiene lista de espera para Q3 — úsalo como contexto de "seguimiento natural", no lo menciones explícitamente\n\n` +
     `Reglas de formato:\n` +
     `- Elige el canal más natural para el perfil: Email (tono formal) o WhatsApp (directo y breve)\n` +
