@@ -7,7 +7,7 @@
 //
 // Lógica de negocio delegada a:
 //   - api/lib/ceo-deal.js     → propuesta, PandaDoc, cierre, post-meeting
-//   - api/lib/ceo-commands.js → /pipeline, /sdr, /post, /tweet, /briefing, /enrich, Q&A
+//   - api/lib/ceo-commands.js → /pipeline, /sdr, /post, /tweet, /briefing, /enrich, /cierre, /objecion, /demo, /roi, Q&A
 
 import { sendMessage, answerCallback, editMessage } from './lib/telegram.js';
 import { redisCmd }                                  from './lib/redis.js';
@@ -27,6 +27,7 @@ import {
   handleHelp, handlePipeline, handleFollowup,
   handleSDR, handleBriefing, handlePost,
   handleTweet, handleEnrich, handleQA,
+  handleCierre, handleObjecion, handleDemo, handleROI,
 } from './lib/ceo-commands.js';
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
@@ -255,7 +256,11 @@ export default async function handler(req, res) {
     if (text === '/enrich') { await handleEnrich(chatId, send);                                                      return res.status(200).json({ ok: true }); }
     if (text.startsWith('/tweet')) { await handleTweet(chatId, text.slice(6).trim(), send);                          return res.status(200).json({ ok: true }); }
     if (text.startsWith('/briefing')) { await handleBriefing(chatId, text.slice(9).trim(), send);                    return res.status(200).json({ ok: true }); }
-    if (text.startsWith('/post')) { await handlePost(chatId, text.slice(5).trim().toLowerCase() || null, send, edit); return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/post'))     { await handlePost(chatId, text.slice(5).trim().toLowerCase() || null, send, edit); return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/cierre'))   { await handleCierre(chatId, text.slice(7).trim(), send);                           return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/objecion')) { await handleObjecion(chatId, text.slice(9).trim(), send);                         return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/demo'))     { await handleDemo(chatId, text.slice(5).trim(), send);                             return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/roi'))      { await handleROI(chatId, text.slice(4).trim(), send);                              return res.status(200).json({ ok: true }); }
 
     if (text.startsWith('/cto')) {
       const query = text.slice(4).trim();

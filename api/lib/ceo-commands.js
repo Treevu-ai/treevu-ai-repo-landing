@@ -2,6 +2,7 @@
 // Handlers de comandos del panel CEO:
 //   handleHelp, handlePipeline, handleFollowup
 //   handleSDR, handleBriefing, handlePost, handleTweet, handleEnrich, handleQA
+//   handleCierre, handleObjecion, handleDemo, handleROI
 
 import { notionQuery, getProp } from './notion.js';
 import { askClaude }            from './anthropic.js';
@@ -11,6 +12,7 @@ import { postInstagram }        from './instagram.js';
 import { searchPhoto, buildPhotoQuery } from './pexels.js';
 import { scrapeCompany }        from './firecrawl.js';
 import { NOTION }               from './constants.js';
+import { getSectorIntel }       from './sector-intel.js';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -18,23 +20,27 @@ const CRON_SECRET = process.env.CRON_SECRET;
 export async function handleHelp(chatId, send) {
   await send(chatId,
     `*Panel de Control Treevü* 🎛️\n\n` +
-    `*Comandos:*\n` +
-    `📊 /pipeline — resumen del CRM por etapa\n` +
-    `🔔 /followup — leads sin actividad +7 días\n` +
+    `*Pipeline:*\n` +
+    `📊 /pipeline — resumen del CRM + 3 acciones de hoy\n` +
+    `🔔 /followup — leads sin actividad +7 días\n\n` +
+    `*Prospección:*\n` +
     `🎯 /sdr [industria] [tamaño] — busca prospectos en LinkedIn\n` +
     `   _Ej: /sdr retail 200+ · /sdr manufactura 500+_\n` +
-    `📬 /enrich — enriquece leads SDR con email y teléfono (Apollo)\n` +
-    `🐦 /tweet [texto] — genera o pule un tweet y pide confirmación antes de publicar\n` +
-    `📲 /post [linkedin|instagram] — genera contenido listo para copiar (algoritmo-aware)\n` +
-    `   _/post → ambos · /post linkedin → solo LI · /post instagram → solo IG_\n` +
-    `🔍 /briefing <empresa o URL> — inteligencia pre-reunión (Firecrawl + Claude)\n` +
+    `📬 /enrich — agrega email y teléfono a leads SDR (Apollo)\n\n` +
+    `*Ventas:*\n` +
+    `🔍 /briefing <empresa o URL> — inteligencia pre-reunión + historial CRM\n` +
     `   _Ej: /briefing Alicorp · /briefing https://alicorp.com.pe_\n` +
+    `🎬 /demo <empresa> — script personalizado para la demo\n` +
+    `🛑 /objecion <texto> — 3 respuestas a la objeción del prospecto\n` +
+    `🎯 /cierre <empresa> — mensaje de cierre listo para WhatsApp/email\n` +
+    `💰 /roi <empresa> — cálculo de ROI listo para el CFO\n` +
     `🧠 /cto <pregunta> — CTO Virtual: Piloto vs API, tiempos, arquitectura\n` +
-    `   _Ej: /cto ¿cuánto tarda la integración con Buk?_\n` +
-    `   _/cto reset — limpia el contexto de conversación_\n` +
-    `❓ /help — este menú\n\n` +
-    `*Modo Q&A:*\nEscribí cualquier pregunta sobre el pipeline y te respondo con contexto real del CRM.\n\n` +
-    `_Ej: "¿qué leads están calientes?" · "¿cuántos deals tengo en propuesta?"_`,
+    `   _/cto reset — limpia el contexto_\n\n` +
+    `*Contenido:*\n` +
+    `📲 /post [linkedin|instagram] — genera post algoritmo-aware\n` +
+    `🐦 /tweet [texto] — genera o pule un tweet con confirmación\n\n` +
+    `*Modo Q&A:*\nEscribí cualquier pregunta sobre el pipeline y te respondo con contexto real del CRM.\n` +
+    `_Ej: "¿qué leads están calientes?" · "¿cuántos deals en propuesta?"_`,
     { parse_mode: 'Markdown' }
   );
 }
@@ -87,6 +93,23 @@ export async function handlePipeline(chatId, send) {
   }
 
   await send(chatId, msg, { parse_mode: 'Markdown' });
+
+  // Acciones IA
+  try {
+    const resumen = pages.map(p => {
+      const empresa = getProp(p, 'Empresa') || getProp(p, 'Name') || '—';
+      const estado  = getProp(p, 'Estado')  || '—';
+      const score   = getProp(p, 'Score')   || '—';
+      const dias    = Math.floor((Date.now() - new Date(p.last_edited_time)) / 864e5);
+      return `${empresa} | ${estado} | Score:${score} | ${dias}d sin actividad`;
+    }).join('\n');
+
+    const acciones = await askClaude(resumen, {
+      system: `Eres el asesor de ventas del CEO de Treevü (EWA B2B, Perú). Analizás el pipeline y decís exactamente qué hacer hoy para avanzar deals. Sé directo y específico — nombra empresas reales del pipeline. Formato: 3 bullets numerados, máx 15 palabras cada uno.`,
+      maxTokens: 150,
+    });
+    if (acciones) await send(chatId, `*🎯 3 acciones para hoy:*\n${acciones}`, { parse_mode: 'Markdown' });
+  } catch { /* skip si Claude falla */ }
 }
 
 // ── /followup ─────────────────────────────────────────────────────────────────
@@ -195,6 +218,27 @@ export async function handleBriefing(chatId, input, send) {
   const isUrl = /^https?:\/\//i.test(input);
 
   try {
+    // Buscar historial en CRM
+    let crmHistorial = '';
+    if (!isUrl) {
+      try {
+        const crmRes = await notionQuery(NOTION.CRM_DB, {
+          property: 'Empresa',
+          rich_text: { contains: input },
+        }, 1);
+        if (crmRes.results?.length) {
+          const p = crmRes.results[0];
+          const estado  = getProp(p, 'Estado')  || '—';
+          const score   = getProp(p, 'Score')   || '—';
+          const sector  = getProp(p, 'Sector')  || '—';
+          const colabs  = getProp(p, 'Colaboradores') || '—';
+          const notas   = getProp(p, 'Notas')   || '';
+          const dias    = Math.floor((Date.now() - new Date(p.last_edited_time)) / 864e5);
+          crmHistorial = `Estado en CRM: ${estado} | Score: ${score} | Sector: ${sector} | Colaboradores: ${colabs} | Última actividad: hace ${dias}d${notas ? ` | Notas previas: ${notas.slice(0, 120)}` : ''}`;
+        }
+      } catch { /* continue */ }
+    }
+
     const webCtx = isUrl
       ? await import('./firecrawl.js').then(m => m.scrapeUrl(input)).catch(() => null)
       : await scrapeCompany(input).catch(() => null);
@@ -206,6 +250,7 @@ Genera briefings de reunión concisos y accionables.
 Usa Markdown Telegram (*negrita*, _itálica_) — sin ### ni encabezados markdown.`;
 
     const userPrompt = `El CEO va a reunirse con: ${input}
+${crmHistorial ? `\n*Historial en CRM:*\n${crmHistorial}\n` : ''}
 ${hasWeb ? `\nInformación del sitio web:\n${webCtx}\n` : ''}
 Genera el briefing en este formato:
 
@@ -397,6 +442,207 @@ export async function handleEnrich(chatId, send) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+// ── /cierre ──────────────────────────────────────────────────────────────────
+export async function handleCierre(chatId, empresa, send) {
+  if (!empresa) {
+    await send(chatId, 'Uso: `/cierre <empresa>`\n_Ej: /cierre Alicorp_', { parse_mode: 'Markdown' });
+    return;
+  }
+
+  await send(chatId, `_🎯 Generando mensaje de cierre para ${empresa}..._`);
+
+  let crmData = null;
+  try {
+    const res = await notionQuery(NOTION.CRM_DB, { property: 'Empresa', rich_text: { contains: empresa } }, 1);
+    if (res.results?.length) {
+      const p = res.results[0];
+      crmData = {
+        sector:        getProp(p, 'Sector')        || '—',
+        colaboradores: getProp(p, 'Colaboradores') || '—',
+        dolor:         getProp(p, 'Notas')         || '—',
+      };
+    }
+  } catch { /* continue */ }
+
+  const intel = crmData ? getSectorIntel(crmData.sector, crmData.colaboradores) : getSectorIntel('—', '100');
+
+  const system = `Eres el asesor de ventas del CEO de Treevü (EWA B2B para empresas peruanas).
+Generás mensajes de cierre personalizados, concisos y de alto impacto. Tono: profesional, directo, sin presión. Perú B2B.`;
+
+  const user = `Empresa: ${empresa}
+${crmData ? `Sector: ${crmData.sector} | Colaboradores: ${crmData.colaboradores} | Dolor registrado: ${crmData.dolor}` : ''}
+Objeción probable del sector: ${intel.objecion}
+Respuesta sugerida: ${intel.respuesta}
+ROI: evitar ~${intel.renuncias} renuncias/año = S/ ${intel.ahorroEstimado} ahorrados
+
+Genera 2 versiones del mensaje de cierre:
+
+*Versión WhatsApp* (60 palabras máx, directo, listo para copiar):
+[mensaje]
+
+*Versión Email* (100 palabras máx, más formal):
+Asunto: [asunto]
+[cuerpo con propuesta de valor específica del sector, ROI concreto y CTA con fecha tentativa]`;
+
+  const msg = await askClaude(user, { system, maxTokens: 500 });
+  if (!msg) { await send(chatId, '❌ No pude generar el mensaje. Intentá de nuevo.'); return; }
+  await send(chatId, msg, { parse_mode: 'Markdown' });
+}
+
+// ── /objecion ────────────────────────────────────────────────────────────────
+export async function handleObjecion(chatId, texto, send) {
+  if (!texto) {
+    await send(chatId, 'Uso: `/objecion <texto de la objeción>`\n_Ej: /objecion ya tenemos bonos de permanencia_', { parse_mode: 'Markdown' });
+    return;
+  }
+
+  await send(chatId, '_🧠 Analizando objeción..._');
+
+  const system = `Eres el asesor de ventas del CEO de Treevü (EWA B2B para empresas peruanas).
+Das respuestas a objeciones de prospectos. Tono: empático, consultivo, nunca agresivo. Perú B2B.
+Contexto: Treevü es EWA — el colaborador retira su salario devengado, no es préstamo. La empresa no adelanta fondos. Costo S/ 7/activo/mes.`;
+
+  const user = `Objeción del prospecto: "${texto}"
+
+Genera 3 respuestas distintas:
+
+*Respuesta 1 — Redirigir* (reencuadra la objeción como confirmación del problema):
+[respuesta]
+
+*Respuesta 2 — Datos* (para perfiles analíticos, con número concreto):
+[respuesta]
+
+*Respuesta 3 — Pregunta* (mantiene el diálogo, expone el dolor):
+[respuesta]`;
+
+  const resp = await askClaude(user, { system, maxTokens: 450 });
+  if (!resp) { await send(chatId, '❌ No pude procesar la objeción. Intentá de nuevo.'); return; }
+  await send(chatId, resp, { parse_mode: 'Markdown' });
+}
+
+// ── /demo ────────────────────────────────────────────────────────────────────
+export async function handleDemo(chatId, empresa, send) {
+  if (!empresa) {
+    await send(chatId, 'Uso: `/demo <empresa>`\n_Ej: /demo Alicorp_', { parse_mode: 'Markdown' });
+    return;
+  }
+
+  await send(chatId, `_🎬 Generando script de demo para ${empresa}..._`);
+
+  let crmData = null;
+  try {
+    const res = await notionQuery(NOTION.CRM_DB, { property: 'Empresa', rich_text: { contains: empresa } }, 1);
+    if (res.results?.length) {
+      const p = res.results[0];
+      crmData = {
+        sector:        getProp(p, 'Sector')        || '—',
+        colaboradores: getProp(p, 'Colaboradores') || '—',
+        dolor:         getProp(p, 'Notas')         || '—',
+        contacto:      getProp(p, 'Decisor')       || getProp(p, 'Contacto') || '—',
+      };
+    }
+  } catch { /* continue */ }
+
+  const intel = crmData ? getSectorIntel(crmData.sector, crmData.colaboradores) : getSectorIntel('—', '100');
+
+  const system = `Eres el asesor de ventas del CEO de Treevü (EWA B2B para empresas peruanas).
+Generás scripts de demo personalizados. Tono conversacional — guía práctica para el CEO durante la reunión.`;
+
+  const user = `Empresa: ${empresa}
+${crmData ? `Sector: ${crmData.sector} | Colaboradores: ${crmData.colaboradores} | Decisor: ${crmData.contacto} | Dolor: ${crmData.dolor}` : ''}
+Tip del sector: ${intel.tip}
+Perfil decisor típico: ${intel.perfil_decisor}
+
+Script de demo:
+
+*🎯 Apertura (2 min)*
+[cómo abrir según sector y dolor específico]
+
+*📊 Qué mostrar primero (en orden)*
+1. [feature + por qué le importa a este cliente]
+2. [feature + por qué le importa a este cliente]
+3. [feature + por qué le importa a este cliente]
+
+*💬 Preguntas durante la demo*
+• [pregunta que descubre más dolor]
+• [pregunta que involucra al decisor técnico si aplica]
+• [pregunta que acelera la decisión]
+
+*🔑 KPIs a mencionar*
+[datos del sector con mayor impacto]
+
+*⚡ Cierre de la demo*
+[cómo cerrar con siguiente paso concreto y fecha]`;
+
+  const script = await askClaude(user, { system, maxTokens: 600 });
+  if (!script) { await send(chatId, '❌ No pude generar el script. Intentá de nuevo.'); return; }
+  await send(chatId, script, { parse_mode: 'Markdown' });
+}
+
+// ── /roi ──────────────────────────────────────────────────────────────────────
+export async function handleROI(chatId, empresa, send) {
+  if (!empresa) {
+    await send(chatId, 'Uso: `/roi <empresa>`\n_Ej: /roi Alicorp_', { parse_mode: 'Markdown' });
+    return;
+  }
+
+  await send(chatId, `_💰 Calculando ROI para ${empresa}..._`);
+
+  let crmData = null;
+  try {
+    const res = await notionQuery(NOTION.CRM_DB, { property: 'Empresa', rich_text: { contains: empresa } }, 1);
+    if (res.results?.length) {
+      const p = res.results[0];
+      crmData = {
+        sector:        getProp(p, 'Sector')        || '—',
+        colaboradores: getProp(p, 'Colaboradores') || '—',
+      };
+    }
+  } catch { /* continue */ }
+
+  const sector      = crmData?.sector        || '—';
+  const colabs      = crmData?.colaboradores || '100';
+  const intel       = getSectorIntel(sector, colabs);
+  const numColabs   = parseInt((colabs || '').split('-')[0]) || 100;
+  const activosEst  = Math.round(numColabs * 0.30);
+  const costoMes    = activosEst * 7;
+  const costoAnual  = costoMes * 12;
+  const ahorroAnual = intel.renuncias * 8000;
+  const roi         = costoAnual > 0 ? Math.round((ahorroAnual - costoAnual) / costoAnual * 100) : 0;
+
+  const system = `Eres el asesor financiero del CEO de Treevü (EWA B2B para empresas peruanas).
+Presentás el ROI de forma clara para un CFO o CEO. Usás los números exactos que te dan. Sin exagerar.`;
+
+  const user = `Empresa: ${empresa} | Sector: ${sector} | Colaboradores: ${colabs}
+Rotación del sector: ${intel.rotacion}
+
+Cálculo:
+- Activos estimados (30% adopción): ${activosEst}
+- Costo Treevü: S/ ${costoMes.toLocaleString('es-PE')}/mes → S/ ${costoAnual.toLocaleString('es-PE')}/año
+- Renuncias evitables (25%): ${intel.renuncias}/año × S/ 8,000 = S/ ${ahorroAnual.toLocaleString('es-PE')} ahorro
+- ROI: ${roi}%
+
+Redactá el mensaje listo para mandar al CFO (máx 150 palabras, tono ejecutivo):
+
+*💰 ROI Treevü para ${empresa}*
+
+*Inversión:*
+[desglose del costo]
+
+*Retorno:*
+[desglose del ahorro]
+
+*Resultado:*
+[ahorro neto + ROI + payback period]
+
+*Supuestos:*
+[3 bullets transparentes]`;
+
+  const roi_msg = await askClaude(user, { system, maxTokens: 400 });
+  if (!roi_msg) { await send(chatId, '❌ No pude calcular el ROI. Intentá de nuevo.'); return; }
+  await send(chatId, roi_msg, { parse_mode: 'Markdown' });
 }
 
 // ── Q&A libre ─────────────────────────────────────────────────────────────────
