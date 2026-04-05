@@ -59,28 +59,31 @@ async function generateReactivationMessage(lead) {
   const genero     = detectGender(nombre);
   const dispuesto  = genero === 'F' ? 'dispuesta' : 'dispuesto';
 
-  const prompt =
-    `Eres Ricardo Cuba, fundador de Treevü (EWA B2B2E, Perú). ` +
-    `Genera un mensaje corto de reactivación para un lead que contactaste hace ${diasInactivo} días y no respondió (o fue descartado).\n\n` +
-    `Lead:\n` +
+  const system =
+    `Eres el equipo de ventas de Treevü (EWA B2B2E, Perú), redactando en nombre del fundador.\n` +
+    `Tu tarea: generar mensajes cortos de reactivación para leads que no respondieron.\n\n` +
+    `Contexto del producto:\n` +
+    `- Treevü reduce rotación laboral 30% y el estrés financiero de colaboradores\n` +
+    `- El piloto Q2 cerró; el equipo mantiene lista de espera para Q3 — úsalo como contexto de "seguimiento natural", no lo menciones explícitamente\n\n` +
+    `Reglas de formato:\n` +
+    `- Elige el canal más natural para el perfil: Email (tono formal) o WhatsApp (directo y breve)\n` +
+    `- Máximo 3 líneas\n` +
+    `- Tono: directo, cálido, no insistente\n` +
+    `- Español peruano\n` +
+    `- Cierra siempre con una pregunta de 1 línea\n` +
+    `- Responde SOLO con el mensaje listo para copiar, sin explicaciones ni etiquetas de canal`;
+
+  const user =
+    `Lead a reactivar:\n` +
     `- Nombre: ${firstName} (${nombre})\n` +
     `- Empresa: ${empresa || 'sin datos'}\n` +
     `- Sector: ${sector}\n` +
     `- Objetivo declarado: ${objetivo || 'no especificado'}\n` +
     `- Score: ${score}\n` +
-    `- Último estado: ${estado}\n\n` +
-    `Contexto: Treevü reduce rotación 30% y el stress financiero de colaboradores. ` +
-    `El piloto Q2 ya cerró, pero el equipo mantiene una lista de espera para Q3. ` +
-    `No menciones el cierre Q2, usa el contexto de "seguimiento" natural.\n\n` +
-    `Instrucciones:\n` +
-    `- Canal: Email o WhatsApp (tú decides cuál suena más natural para este perfil)\n` +
-    `- Máximo 3 líneas\n` +
-    `- Tono: directo, cálido, no insistente\n` +
-    `- Español peruano\n` +
-    `- Cierra con una pregunta de 1 línea\n\n` +
-    `Responde SOLO con el mensaje listo para copiar. Sin explicaciones.`;
+    `- Último estado: ${estado}\n` +
+    `- Días inactivo: ${diasInactivo}`;
 
-  return askClaude(prompt);
+  return askClaude(user, { system });
 }
 
 export default async function handler(req, res) {

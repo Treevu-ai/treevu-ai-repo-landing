@@ -1,5 +1,7 @@
 import { sendAbmNotification }              from './abm-notify.js';
-import { NOTION, SECTOR_MAP, OBJ_MAP, SCORE_EMOJI } from './lib/constants.js';
+import { NOTION, SECTOR_MAP, OBJ_MAP, SCORE_EMOJI, checkEnvVars } from './lib/constants.js';
+
+checkEnvVars(['NOTION_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'LEAD_WEBHOOK_SECRET', 'OPENCLAW_TOKEN'], 'submit');
 import { sendMessage, escapeMd }            from './lib/telegram.js';
 import { askClaude }                        from './lib/anthropic.js';
 import { detectGender, calcScore } from './lib/validators.js';
@@ -28,6 +30,8 @@ SCORING:
 - ALTO (prob > 65%): empresa 200-5000 colab + sector prioritario + objetivo rotación/bienestar + urgencia o detalle específico en el reto
 - MEDIO (prob 35-65%): empresa 100-500 colab + sector compatible + objetivo parcialmente alineado
 - BAJO (prob < 35%): empresa <100 colab o sector no prioritario o objetivo poco alineado al producto
+
+Si algún campo está vacío, en blanco o es "No especificado", aplica el criterio más conservador para ese factor — no inventes datos faltantes.
 
 Responde SOLO con JSON válido, sin texto ni markdown adicional:
 {

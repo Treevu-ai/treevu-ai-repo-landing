@@ -1,28 +1,39 @@
 // api/ceo-bot.js — Bot interno CEO (TELEGRAM_BOT_TOKEN)
 //
-// Maneja el flujo post-reunión cuando el CEO toca "Registrar resultado"
-// en el briefing de primera-reunion.js.
+// Responsabilidades de este archivo:
+//   - State machine del flujo post-reunión (Redis)
+//   - Keyboards inline
+//   - Router principal (callbacks + mensajes de texto)
 //
-// Setup (una sola vez después de deploy):
-//   curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
-//        -d "url=https://gettreevu.com/api/ceo-bot"
+// Lógica de negocio delegada a:
+//   - api/lib/ceo-deal.js     → propuesta, PandaDoc, cierre, post-meeting
+//   - api/lib/ceo-commands.js → /pipeline, /sdr, /post, /tweet, /briefing, /enrich, Q&A
 
 import { sendMessage, answerCallback, editMessage } from './lib/telegram.js';
-import { redisCmd }                                 from './lib/redis.js';
-import { getNotionPage, getProp, notionPatch, notionQuery } from './lib/notion.js';
-import { NOTION, ESTADO_EMOJI }                             from './lib/constants.js';
-import { askClaude }                                 from './lib/anthropic.js';
-import { getGmailToken, gmailDraft }                 from './lib/gmail.js';
+import { redisCmd }                                  from './lib/redis.js';
+import { NOTION, ESTADO_EMOJI, checkEnvVars }         from './lib/constants.js';
+
+checkEnvVars(['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'CRON_SECRET'], 'ceo-bot');
 import { handleCTO, clearCTOContext }                from './cto-bot.js';
 import { postLinkedIn }                              from './lib/linkedin.js';
-import { scrapeCompany }                             from './lib/firecrawl.js';
-import { searchPhoto, buildPhotoQuery }              from './lib/pexels.js';
 import { postInstagram }                             from './lib/instagram.js';
+
+import {
+  generateProposal, sendToPandaDoc,
+  triggerCierre, completarPostMeeting,
+} from './lib/ceo-deal.js';
+
+import {
+  handleHelp, handlePipeline, handleFollowup,
+  handleSDR, handleBriefing, handlePost,
+  handleTweet, handleEnrich, handleQA,
+} from './lib/ceo-commands.js';
 
 const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
 const CEO_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const CRON_SECRET = process.env.CRON_SECRET;
 
+// ── State ─────────────────────────────────────────────────────────────────────
 async function getState(chatId) {
   const raw = await redisCmd('GET', `ceobot:${chatId}`);
   try { return raw ? JSON.parse(raw) : null; } catch { return null; }
@@ -39,9 +50,8 @@ const send   = (id, text, extra = {}) => sendMessage(BOT_TOKEN, id, text, extra)
 const answer = (id, text = '')        => answerCallback(BOT_TOKEN, id, text);
 const edit   = (id, mid, text, ex={}) => editMessage(BOT_TOKEN, id, mid, text, ex);
 
-// Siguiente_paso abreviado para callback_data (max 64 bytes)
-// pm_sig:{d|n|s|f}:{lead_id} — ejemplo: pm_sig:d:331d7881-... (45 chars ✓)
-const SIG_MAP = { d: 'diagnostico', n: 'nda', s: 'seguimiento', f: 'no_fit', c: 'cerrado' };
+// ── Keyboards ─────────────────────────────────────────────────────────────────
+const SIG_MAP   = { d: 'diagnostico', n: 'nda', s: 'seguimiento', f: 'no_fit', c: 'cerrado' };
 const SIG_LABEL = { d: '🟢 Diagnóstico', n: '🔵 NDA', s: '🟡 Seguimiento', f: '❌ No fit', c: '✅ Cerrado' };
 
 function kbSiguiente(leadId) {
@@ -68,7 +78,6 @@ function kbInteres(leadId) {
   };
 }
 
-// ── Propuesta automática con Claude ──────────────────────────────────────────
 function kbPropuesta(leadId) {
   return {
     inline_keyboard: [[
@@ -76,914 +85,6 @@ function kbPropuesta(leadId) {
       { text: '⏭ Omitir',            callback_data: `pm_skip:${leadId}` },
     ]],
   };
-}
-
-// Pricing: S/ 490 base + S/ 7 por colab estimado (30% adopción)
-function estimarPrecio(colabsStr = '') {
-  const n = parseInt((colabsStr || '').split('-')[0].replace('+', '')) || 0;
-  if (!n) return null;
-  const adopcion = Math.round(n * 0.30);
-  const mensual  = adopcion * 7 + 490;
-  return { colaboradores: n, adopcion, mensual };
-}
-
-async function generateProposal(leadId, chatId) {
-  await send(chatId, '_⏳ Generando propuesta con Claude..._');
-
-  let page;
-  try { page = await getNotionPage(leadId); }
-  catch (err) {
-    console.error('[ceo-bot/propuesta] Notion error:', err.message);
-    await send(chatId, '❌ No pude obtener los datos del lead desde Notion.');
-    return;
-  }
-
-  const empresa     = getProp(page, 'Empresa')       || getProp(page, 'Name') || 'la empresa';
-  const contacto    = getProp(page, 'Nombre')         || getProp(page, 'Contacto') || '';
-  const email       = getProp(page, 'Email')          || '';
-  const sector      = getProp(page, 'Sector')         || '';
-  const colabs      = getProp(page, 'Colaboradores')  || '';
-  const objetivo    = getProp(page, 'Objetivo')       || '';
-  const dolor       = getProp(page, 'Notas')          || getProp(page, 'Dolor') || '';
-  const siguientePaso = getProp(page, 'Siguiente_paso') || '';
-
-  const precio = estimarPrecio(colabs);
-  const precioStr = precio
-    ? `S/ ${precio.mensual.toLocaleString('es-PE')}/mes (${precio.adopcion} usuarios × S/ 7 + S/ 490 base)`
-    : 'a cotizar según adopción';
-
-  const system = `Eres el equipo comercial de Treevü, una plataforma de Earned Wage Access (EWA) para empresas peruanas.
-Treevü permite a los trabajadores retirar su sueldo ganado antes del día de pago, sin costo para la empresa.
-Beneficios clave: reduce rotación 15-40%, mejora clima laboral, cero costo financiero para la empresa, implementación en 48h.
-Precio: S/ 7 por usuario activo/mes + S/ 490 mensual de plataforma. Implementación y soporte incluidos.
-Escribe en español formal peruano. Sé conciso, orientado a resultados, sin relleno corporativo.`;
-
-  const userPrompt = `Genera una propuesta comercial en HTML para enviar por email a ${contacto || 'el contacto'} de ${empresa}.
-
-Datos del prospecto:
-- Empresa: ${empresa}
-- Sector: ${sector}
-- Colaboradores: ${colabs}
-- Objetivo principal: ${objetivo}
-- Dolor detectado en reunión: ${dolor || '(no especificado)'}
-- Siguiente paso acordado: ${siguientePaso || 'por definir'}
-- Precio estimado: ${precioStr}
-
-El HTML debe incluir:
-1. Saludo personalizado
-2. Resumen del dolor que mencionaron (1 párrafo)
-3. Cómo Treevü lo resuelve (2-3 bullets concretos con datos)
-4. Inversión mensual estimada (precio calculado arriba)
-5. ROI estimado: ahorro en rotación (costo de reemplazar 1 empleado = 3-6 meses de sueldo)
-6. Próximos pasos claros (máximo 3 pasos)
-7. CTA: agendar diagnóstico o firmar NDA
-8. Firma: equipo Treevü, hello@gettreevu.com
-
-Usa un estilo limpio con colores corporativos (#0f4c81 azul, #10b981 verde). No uses imágenes externas.
-Devuelve SOLO el HTML del body (sin <html>, <head>).`;
-
-  const htmlBody = await askClaude(userPrompt, { system, maxTokens: 2500 });
-  if (!htmlBody) {
-    await send(chatId, '❌ Claude no pudo generar la propuesta. Intentá de nuevo en un momento.');
-    return;
-  }
-
-  // Gmail draft
-  let draftUrl = null;
-  if (email) {
-    const token = await getGmailToken();
-    if (token) {
-      const draft = await gmailDraft(token, {
-        to:       email,
-        subject:  `Propuesta Treevü · ${empresa}`,
-        bodyHtml: htmlBody,
-      });
-      if (draft?.id) {
-        draftUrl = `https://mail.google.com/mail/#drafts/${draft.id}`;
-      }
-    }
-  }
-
-  // Update Notion: estado → Propuesta
-  try {
-    await notionPatch(leadId, {
-      Estado: { select: { name: 'Propuesta' } },
-    });
-  } catch (err) {
-    console.warn('[ceo-bot/propuesta] no pudo actualizar estado Notion:', err.message);
-  }
-
-  const draftLine = draftUrl
-    ? `\n\n📧 [Abrir borrador Gmail](${draftUrl})`
-    : email
-      ? '\n\n⚠️ No se pudo crear el borrador Gmail (verificá el token).'
-      : '\n\n⚠️ Sin email registrado — propuesta no enviada por Gmail.';
-
-  await send(chatId,
-    `✅ *Propuesta generada para ${empresa}*\n` +
-    `• Sector: ${sector || '—'} · Colabs: ${colabs || '—'}\n` +
-    `• Precio estimado: ${precioStr}\n` +
-    `• Estado Notion → Propuesta${draftLine}`,
-    { parse_mode: 'Markdown', disable_web_page_preview: true }
-  );
-
-  // Ofrecer envío para firma si hay email y PandaDoc configurado
-  if (email && process.env.PANDADOC_API_KEY) {
-    // Guardar HTML en Redis temporalmente para usarlo al firmar
-    await redisCmd('SET', `propuesta_html:${leadId}`, htmlBody, 'EX', 86400);
-    await send(chatId,
-      `¿Enviamos la propuesta para *firma electrónica* vía PandaDoc?`,
-      { reply_markup: {
-        inline_keyboard: [[
-          { text: '✍️ Enviar para firma', callback_data: `pm_sign:${leadId}` },
-          { text: '⏭ Solo borrador',     callback_data: `pm_nosign:${leadId}` },
-        ]],
-      }}
-    );
-  }
-
-  console.log(`[ceo-bot/propuesta] OK — ${empresa} (leadId: ${leadId})`);
-}
-
-// ── Enviar propuesta a PandaDoc para firma ────────────────────────────────────
-async function sendToPandaDoc(leadId, chatId) {
-  const PANDADOC_KEY = process.env.PANDADOC_API_KEY;
-  if (!PANDADOC_KEY) {
-    await send(chatId, '❌ PANDADOC_API_KEY no configurada en Vercel.');
-    return;
-  }
-
-  await send(chatId, '_⏳ Creando documento en PandaDoc..._');
-
-  let page;
-  try { page = await getNotionPage(leadId); }
-  catch (err) {
-    await send(chatId, '❌ No pude obtener datos del lead desde Notion.');
-    return;
-  }
-
-  const empresa  = getProp(page, 'Empresa') || getProp(page, 'Name') || 'la empresa';
-  const contacto = getProp(page, 'Nombre')  || getProp(page, 'Contacto') || '';
-  const email    = getProp(page, 'Email')   || '';
-
-  if (!email) {
-    await send(chatId, `❌ No hay email registrado para ${empresa} — no se puede enviar a PandaDoc.`);
-    return;
-  }
-
-  // Recuperar HTML de propuesta guardado temporalmente
-  const htmlBody = await redisCmd('GET', `propuesta_html:${leadId}`);
-  if (!htmlBody) {
-    await send(chatId, '❌ El HTML de la propuesta expiró (>24h). Generá la propuesta nuevamente.');
-    return;
-  }
-
-  try {
-    // 1. Crear documento en PandaDoc desde HTML
-    const createRes = await fetch('https://api.pandadoc.com/public/v1/documents', {
-      method:  'POST',
-      headers: {
-        'Authorization': `API-Key ${PANDADOC_KEY}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        name:      `Propuesta Treevü · ${empresa}`,
-        recipients: [{
-          email,
-          first_name: contacto.split(' ')[0] || contacto,
-          last_name:  contacto.split(' ').slice(1).join(' ') || '',
-          role:       'Client',
-        }],
-        content: [{ type: 'text', content: htmlBody }],
-        metadata: { lead_id: leadId },
-        parse_form_fields: false,
-      }),
-    });
-
-    if (!createRes.ok) {
-      const err = await createRes.text();
-      console.error('[ceo-bot/pandadoc] create error:', err);
-      await send(chatId, `❌ PandaDoc error al crear documento:\n\`${err.slice(0, 200)}\``);
-      return;
-    }
-
-    const doc = await createRes.json();
-    const docId = doc.id || doc.uuid;
-
-    // 2. Esperar a que el documento procese (PandaDoc necesita ~2s)
-    await new Promise(r => setTimeout(r, 3000));
-
-    // 3. Enviar al recipient para firma
-    const sendRes = await fetch(`https://api.pandadoc.com/public/v1/documents/${docId}/send`, {
-      method:  'POST',
-      headers: {
-        'Authorization': `API-Key ${PANDADOC_KEY}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        message: `Hola${contacto ? ` ${contacto.split(' ')[0]}` : ''}, adjuntamos la propuesta comercial de Treevü para tu revisión y firma. Cualquier duda, estamos disponibles en hello@gettreevu.com`,
-        subject: `Propuesta Treevü · ${empresa}`,
-        silent:  false,
-      }),
-    });
-
-    if (!sendRes.ok) {
-      const err = await sendRes.text();
-      console.error('[ceo-bot/pandadoc] send error:', err);
-      await send(chatId, `❌ PandaDoc error al enviar:\n\`${err.slice(0, 200)}\``);
-      return;
-    }
-
-    const docUrl = `https://app.pandadoc.com/a/#/documents/${docId}`;
-    await send(chatId,
-      `✍️ *Propuesta enviada para firma*\n\n` +
-      `🏢 ${empresa}\n📧 ${email}\n\n` +
-      `[Ver en PandaDoc](${docUrl})\n\n` +
-      `_Recibirás notificación aquí cuando ${contacto || 'el cliente'} firme._`,
-      { parse_mode: 'Markdown', disable_web_page_preview: true }
-    );
-
-    console.log(`[ceo-bot/pandadoc] OK — doc ${docId} enviado a ${email}`);
-
-  } catch (err) {
-    console.error('[ceo-bot/pandadoc] error:', err.message);
-    await send(chatId, `❌ Error inesperado: ${err.message}`);
-  }
-}
-
-// ── Cierre de deal + onboarding ───────────────────────────────────────────────
-async function triggerCierre(leadId, chatId) {
-  // 1. Actualizar Notion → Cerrado
-  try {
-    await notionPatch(leadId, { Estado: { select: { name: 'Cerrado' } } });
-  } catch (err) {
-    console.warn('[ceo-bot/cierre] Notion patch error:', err.message);
-  }
-
-  // 2. Leer datos del lead para onboarding
-  let empresa = '', email = '', contacto = '', sector = '', colabs = '';
-  try {
-    const page = await getNotionPage(leadId);
-    empresa  = getProp(page, 'Empresa')      || getProp(page, 'Name') || '';
-    email    = getProp(page, 'Email')         || '';
-    contacto = getProp(page, 'Nombre')        || getProp(page, 'Contacto') || '';
-    sector   = getProp(page, 'Sector')        || '';
-    colabs   = getProp(page, 'Colaboradores') || '';
-  } catch (err) {
-    console.warn('[ceo-bot/cierre] Notion read error:', err.message);
-  }
-
-  // 3. Disparar onboarding
-  if (email && CRON_SECRET) {
-    fetch('https://gettreevu.com/api/onboarding', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET}` },
-      body:    JSON.stringify({ leadId, empresa, email, contacto, sector, colabs }),
-    }).catch(err => console.error('[ceo-bot/cierre] onboarding error:', err.message));
-  }
-
-  // 4. Confirmar al CEO
-  const mrr = (() => {
-    const n = parseInt((colabs || '').split('-')[0].replace('+', '')) || 0;
-    return n ? `S/ ${((Math.round(n * 0.30) * 7) + 490).toLocaleString('es-PE')}/mes` : null;
-  })();
-
-  await send(chatId,
-    `🎉 *¡Deal cerrado!*\n\n` +
-    `🏢 *${empresa || 'Lead'}*\n` +
-    (email    ? `📧 ${email}\n`    : '') +
-    (mrr      ? `💰 MRR: *${mrr}*\n` : '') +
-    `\n✅ Notion → Cerrado\n` +
-    (email ? `📩 Secuencia de onboarding iniciada (D+1, D+3, D+7, D+30)` : `⚠️ Sin email — onboarding no iniciado`)
-  );
-
-  console.log(`[ceo-bot/cierre] Deal cerrado: ${empresa} (${leadId})`);
-}
-
-// ── Llamar a post-meeting ──────────────────────────────────────────────────────
-async function callPostMeeting(lead_id, notas) {
-  try {
-    await fetch('https://gettreevu.com/api/primera-reunion', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET}` },
-      body:    JSON.stringify({ action: 'post-meeting', lead_id, notas }),
-    });
-    console.log(`[ceo-bot] post-meeting llamado: ${lead_id}`);
-  } catch (err) {
-    console.error('[ceo-bot] error llamando post-meeting:', err.message);
-  }
-}
-
-// ── Completar flujo post-meeting ──────────────────────────────────────────────
-async function completarPostMeeting(chatId, state) {
-  await clearState(chatId);
-  await callPostMeeting(state.lead_id, {
-    siguiente_paso:  state.siguiente_paso,
-    dolor_principal: state.dolor_principal || '',
-    objeciones:      state.objeciones      || '',
-    interes:         state.interes         || null,
-    fecha_siguiente: state.fecha_siguiente || '',
-  });
-  const resumen = [
-    `• Sig. paso: ${SIG_LABEL[Object.keys(SIG_MAP).find(k => SIG_MAP[k] === state.siguiente_paso)] || state.siguiente_paso}`,
-    state.dolor_principal ? `• Dolor: _${state.dolor_principal}_` : null,
-    state.objeciones      ? `• Objeciones: _${state.objeciones}_` : null,
-    state.interes         ? `• Interés: ${state.interes}/5` : null,
-    state.fecha_siguiente ? `• Próx. paso: ${state.fecha_siguiente}` : null,
-  ].filter(Boolean).join('\n');
-  await send(chatId, `✅ *Post-reunión registrado*\n\n${resumen}\n\n_Notion actualizado · follow-up en proceso_`);
-
-  // Deal cerrado → actualizar Notion + disparar onboarding
-  if (state.siguiente_paso === 'cerrado') {
-    await triggerCierre(state.lead_id, chatId);
-    return;
-  }
-
-  // Ofrecer propuesta automática para deals que avanzan
-  if (['diagnostico', 'nda', 'seguimiento'].includes(state.siguiente_paso) && (state.interes || 0) >= 3) {
-    await send(chatId,
-      `¿Querés que genere la *propuesta comercial* automáticamente para este lead?`,
-      { reply_markup: kbPropuesta(state.lead_id) }
-    );
-  }
-}
-
-// ── Panel de control: comandos y Q&A ─────────────────────────────────────────
-
-async function handleHelp(chatId) {
-  await send(chatId,
-    `*Panel de Control Treevü* 🎛️\n\n` +
-    `*Comandos:*\n` +
-    `📊 /pipeline — resumen del CRM por etapa\n` +
-    `🔔 /followup — leads sin actividad +7 días\n` +
-    `🎯 /sdr [industria] [tamaño] — busca prospectos en LinkedIn\n` +
-    `   _Ej: /sdr retail 200+ · /sdr manufactura 500+_\n` +
-    `📬 /enrich — enriquece leads SDR con email y teléfono (Apollo)\n` +
-    `🐦 /tweet [texto] — genera o pule un tweet y pide confirmación antes de publicar\n` +
-    `📲 /post [linkedin|instagram] — genera contenido listo para copiar (algoritmo-aware)\n` +
-    `   _/post → ambos · /post linkedin → solo LI · /post instagram → solo IG_\n` +
-    `🔍 /briefing <empresa o URL> — inteligencia pre-reunión (Firecrawl + Claude)\n` +
-    `   _Ej: /briefing Alicorp · /briefing https://alicorp.com.pe_\n` +
-    `🧠 /cto <pregunta> — CTO Virtual: Piloto vs API, tiempos, arquitectura\n` +
-    `   _Ej: /cto ¿cuánto tarda la integración con Buk?_\n` +
-    `   _/cto reset — limpia el contexto de conversación_\n` +
-    `❓ /help — este menú\n\n` +
-    `*Modo Q&A:*\nEscribí cualquier pregunta sobre el pipeline y te respondo con contexto real del CRM.\n\n` +
-    `_Ej: "¿qué leads están calientes?" · "¿cuántos deals tengo en propuesta?"_`,
-    { parse_mode: 'Markdown' }
-  );
-}
-
-async function handlePipeline(chatId) {
-  await send(chatId, '_Consultando pipeline en Notion..._');
-
-  let pages = [];
-  try {
-    const res = await notionQuery(NOTION.CRM_DB, {
-      property: 'Estado',
-      select: { does_not_equal: 'Descartado' },
-    }, 100, [{ property: 'Estado', direction: 'ascending' }]);
-    pages = res.results || [];
-  } catch (err) {
-    await send(chatId, `❌ Error consultando Notion: ${err.message}`);
-    return;
-  }
-
-  // Agrupar por estado
-  const grupos = {};
-  for (const p of pages) {
-    const estado = getProp(p, 'Estado') || 'Sin estado';
-    if (!grupos[estado]) grupos[estado] = [];
-    grupos[estado].push(p);
-  }
-
-  const ordenEstados = ['Nuevo', 'Contactado', 'Reunion', 'Propuesta', 'Cerrado'];
-  const total = pages.length;
-
-  let msg = `*Pipeline Treevü* 📊\n_${total} lead${total !== 1 ? 's' : ''} activos_\n\n`;
-
-  for (const estado of ordenEstados) {
-    const items = grupos[estado] || [];
-    if (!items.length) continue;
-    const emoji = ESTADO_EMOJI[estado] || '•';
-    msg += `${emoji} *${estado}* (${items.length})\n`;
-    // Mostrar top 3 por estado
-    items.slice(0, 3).forEach(p => {
-      const empresa = getProp(p, 'Empresa') || getProp(p, 'Name') || '—';
-      const score   = getProp(p, 'Score')   || '';
-      const scoreEmoji = score === 'ALTO' ? '🔥' : score === 'MEDIO' ? '🟡' : '';
-      msg += `   ${scoreEmoji} ${empresa}\n`;
-    });
-    if (items.length > 3) msg += `   _...y ${items.length - 3} más_\n`;
-    msg += '\n';
-  }
-
-  // Otros estados
-  for (const [estado, items] of Object.entries(grupos)) {
-    if (!ordenEstados.includes(estado)) {
-      msg += `• *${estado}* (${items.length})\n`;
-    }
-  }
-
-  await send(chatId, msg, { parse_mode: 'Markdown' });
-}
-
-async function handleFollowup(chatId) {
-  await send(chatId, '_Buscando leads que necesitan atención..._');
-
-  let pages = [];
-  try {
-    const res = await notionQuery(NOTION.CRM_DB, {
-      and: [
-        { property: 'Estado', select: { does_not_equal: 'Cerrado' } },
-        { property: 'Estado', select: { does_not_equal: 'Descartado' } },
-      ],
-    }, 50, [{ property: 'last_edited_time', direction: 'ascending' }]);
-    pages = res.results || [];
-  } catch (err) {
-    await send(chatId, `❌ Error consultando Notion: ${err.message}`);
-    return;
-  }
-
-  if (!pages.length) {
-    await send(chatId, '✅ No hay leads pendientes de atención.');
-    return;
-  }
-
-  const hoy = new Date();
-  const hace7dias = new Date(hoy - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  // Leads sin actividad en +7 días
-  const pendientes = pages.filter(p => {
-    const editado = p.last_edited_time || '';
-    return editado < hace7dias;
-  });
-
-  if (!pendientes.length) {
-    await send(chatId, '✅ Todos los leads tienen actividad reciente (< 7 días).');
-    return;
-  }
-
-  let msg = `*Follow-up pendiente* 🔔\n_${pendientes.length} lead${pendientes.length !== 1 ? 's' : ''} sin actividad en +7 días_\n\n`;
-
-  pendientes.slice(0, 10).forEach(p => {
-    const empresa = getProp(p, 'Empresa') || getProp(p, 'Name') || '—';
-    const estado  = getProp(p, 'Estado')  || '—';
-    const score   = getProp(p, 'Score')   || '';
-    const scoreE  = score === 'ALTO' ? '🔥' : score === 'MEDIO' ? '🟡' : '🔵';
-    const dias    = Math.floor((hoy - new Date(p.last_edited_time)) / (1000 * 60 * 60 * 24));
-    msg += `${scoreE} *${empresa}* — ${estado} (${dias}d sin actividad)\n`;
-  });
-
-  if (pendientes.length > 10) msg += `\n_...y ${pendientes.length - 10} más_`;
-
-  await send(chatId, msg, { parse_mode: 'Markdown' });
-}
-
-async function handleSDR(chatId, args) {
-  // Parsear args: "retail 200+ Lima" → { industry, size, location }
-  const INDUSTRIES = ['retail', 'manufactura', 'salud', 'tecnologia', 'construccion', 'educacion', 'banca', 'servicios'];
-  const SIZE_MAP   = { '50+': '51,200', '200+': '201,500', '500+': '501,1000', '1000+': '1001,5000' };
-
-  const parts    = args.toLowerCase().split(/\s+/).filter(Boolean);
-  const industry = parts.find(p => INDUSTRIES.includes(p)) || null;
-  const sizeKey  = parts.find(p => SIZE_MAP[p]) || null;
-  const size     = sizeKey ? SIZE_MAP[sizeKey] : '201,500';
-
-  const label = [
-    industry || 'todas las industrias',
-    sizeKey  || '200+ empleados',
-    'Lima',
-  ].join(' · ');
-
-  await send(chatId, `_🎯 Iniciando SDR Agent: ${label}..._\nRecibí los resultados en unos segundos.`);
-
-  const controller = new AbortController();
-  const timeout    = setTimeout(() => controller.abort(), 58000); // 58s — antes del límite Vercel
-
-  try {
-    const res  = await fetch('https://gettreevu.com/api/sdr-agent', {
-      method:  'POST',
-      signal:  controller.signal,
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${CRON_SECRET}`,
-      },
-      body: JSON.stringify({ industry, size, location: 'Lima, Peru', max_leads: 10, notify: false, strategy: 'intro' }),
-    });
-
-    // Leer como texto primero — Vercel puede devolver HTML/texto en errores 5xx
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      console.error('[handleSDR] respuesta no-JSON:', res.status, text.slice(0, 200));
-      await send(chatId, `❌ SDR Agent devolvió error ${res.status}. Revisá los logs en Vercel.`);
-      return;
-    }
-
-    if (!res.ok) {
-      await send(chatId, `❌ SDR Agent error ${res.status}: ${data.error || text.slice(0, 100)}`);
-      return;
-    }
-
-    let msg = `🎯 *SDR Agent terminado*\n_${label}_\n\n`;
-    msg += `✅ *${data.added} leads* añadidos al CRM\n`;
-    msg += `⏭ ${data.skipped} omitidos (ya existían)\n`;
-    if (data.errors > 0) msg += `❌ ${data.errors} errores\n`;
-    if (data.leads?.length) {
-      msg += '\n*Nuevos prospectos:*\n';
-      data.leads.slice(0, 8).forEach(l => {
-        msg += `• *${l.company || '—'}* — ${l.role || '—'}\n`;
-      });
-    }
-    if (!data.added && !data.leads?.length) {
-      msg += `\n_Sin prospectos nuevos esta vez. Intentá con otra industria o estrategia._`;
-    } else {
-      msg += `\nUsá /pipeline para verlos en el CRM.`;
-    }
-    await send(chatId, msg, { parse_mode: 'Markdown' });
-
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      await send(chatId, `⏱ SDR Agent tardó más de 58s. El proceso puede estar corriendo en background — revisá Notion en 1 minuto.`);
-    } else {
-      await send(chatId, `❌ SDR Agent: ${err.message}`);
-    }
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function handleBriefing(chatId, input) {
-  if (!input) {
-    await send(chatId,
-      'Uso: `/briefing <empresa o URL>`\n_Ej: /briefing Alicorp · /briefing https://alicorp.com.pe_',
-      { parse_mode: 'Markdown' }
-    );
-    return;
-  }
-
-  await send(chatId, `_🔍 Investigando "${input}"..._`);
-
-  // Detectar si es URL o nombre de empresa
-  const isUrl    = /^https?:\/\//i.test(input);
-  const empresa  = isUrl ? input : input;
-
-  try {
-    // Scrape con Firecrawl
-    const webCtx = isUrl
-      ? await import('./lib/firecrawl.js').then(m => m.scrapeUrl(input)).catch(() => null)
-      : await scrapeCompany(input).catch(() => null);
-
-    const hasWeb = webCtx && webCtx.length > 80;
-
-    // Claude genera el briefing estratégico
-    const prompt = `Eres el asistente estratégico del CEO de Treevü (plataforma EWA B2B para empresas peruanas — permite a colaboradores retirar su salario ganado antes del día de pago, sin costo para ellos, sin riesgo financiero para la empresa).
-
-El CEO va a reunirse con un representante de: ${empresa}
-
-${hasWeb ? `Información del sitio web de la empresa:\n${webCtx}\n` : ''}
-
-Genera un briefing de reunión en este formato exacto (usa Markdown Telegram: *negrita*, _itálica_, sin ###):
-
-*🏢 ${isUrl ? 'Empresa' : empresa}*
-_[Describe brevemente qué hace la empresa en 1 línea. Si no hay info web, infiere del nombre.]_
-
-*📊 Fit con Treevü*
-• Sector y rotación probable
-• Tamaño estimado y perfil de colaboradores
-• Dolor más probable que resuelve Treevü
-• Score de fit: ALTO / MEDIO / BAJO — razón en 1 frase
-
-*🎯 Apertura recomendada*
-[Guión de 2-3 oraciones para abrir la reunión, personalizado, primera persona]
-
-*❓ Preguntas clave*
-1. [Pregunta sobre dolor de rotación]
-2. [Pregunta sobre adelantos informales]
-3. [Pregunta sobre proceso de decisión]
-
-*⚠️ Objeción probable*
-[La más probable] → [respuesta concisa]
-
-*💡 Dato ganador*
-[Un dato o ángulo específico que conecta con esta empresa]`;
-
-    const briefing = await askClaude(prompt, { maxTokens: 600 });
-
-    if (!briefing) {
-      await send(chatId, '❌ No pude generar el briefing. Intentá de nuevo.');
-      return;
-    }
-
-    await send(chatId, briefing, { parse_mode: 'Markdown' });
-
-    if (!hasWeb) {
-      await send(chatId, `_⚠️ Sin datos web — briefing basado en sector/nombre. Agregá la URL para más detalle: /briefing https://..._`, { parse_mode: 'Markdown' });
-    }
-
-  } catch (err) {
-    await send(chatId, `❌ Briefing: ${err.message}`);
-  }
-}
-
-async function handlePost(chatId, platform) {
-  const now     = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
-  const weekNum = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 864e5));
-
-  const TEMAS_LI = [
-    'rotación de personal: el costo oculto que sangra a las empresas peruanas',
-    'cómo el estrés financiero reduce la productividad de tus colaboradores',
-    'EWA en Perú: qué es el acceso al salario devengado y por qué importa ahora',
-    'employer branding: mejorar el bienestar financiero reduce rotación 15-40%',
-    'el colaborador endeudado no rinde — datos y soluciones reales',
-    'retener talento cuesta menos que reclutar — con números',
-    'las finanzas personales de tus colaboradores son tu problema de negocio',
-    'casos reales: empresas que redujeron rotación con beneficios financieros',
-  ];
-  const tema = TEMAS_LI[weekNum % TEMAS_LI.length];
-
-  const genLinkedIn = async () => {
-    const prompt = `Eres el equipo de contenido de Treevü, startup B2B de EWA (acceso al salario devengado) en Perú.
-
-Escribe un post de LinkedIn sobre: "${tema}"
-
-REGLAS DE ALGORITMO (obligatorias):
-- Primera línea = gancho que corta el scroll. Dato concreto, pregunta incómoda o afirmación contrarian. Sin saludos.
-- Salto de línea después de cada 1-2 oraciones (dwell time = señal #1 del algoritmo).
-- Usa números reales: %, S/, días, personas.
-- Ángulo personal o de insider: "lo que nadie dice sobre...", "lo aprendí trabajando con X empresas..."
-- Cierra con UNA sola pregunta abierta.
-- NO pongas links (van en el primer comentario).
-- Sin hashtags genéricos. Máximo 3 hashtags nicho al final.
-- 150-250 palabras. Tono experto pero humano.
-
-Devuelve SOLO el texto del post, listo para copiar.`;
-    return askClaude(prompt, { maxTokens: 400 });
-  };
-
-  const genInstagram = async (tipo) => {
-    if (tipo === 'carousel') {
-      const prompt = `Eres el equipo de contenido de Treevü (EWA B2B, Perú).
-
-Genera un carrusel de Instagram de 6 slides sobre: rotación laboral y bienestar financiero.
-
-REGLAS DE ALGORITMO:
-- Slide 1: afirmación que duela o sorprenda. Max 8 palabras. Que detenga el scroll.
-- Slides 2-5: UN solo punto accionable. Max 10 palabras de título + 1 dato/ejemplo.
-- Slide 6: CTA que genere SAVES. "Guarda esto para..." o "Comparte con el gerente de RRHH de..."
-- Cada slide se lee en 3 segundos.
-
-Formato:
-Slide 1: [texto]
-Slide 2: [título] — [dato]
-Slide 3: [título] — [dato]
-Slide 4: [título] — [dato]
-Slide 5: [título] — [dato]
-Slide 6: [CTA]
-Caption: [primera línea hook, max 125 chars] | [caption 150 palabras] | [3-5 hashtags nicho]`;
-      return askClaude(prompt, { maxTokens: 400 });
-    } else {
-      const prompt = `Eres el equipo de contenido de Treevü (EWA B2B, Perú).
-
-Genera el guión de un Reel de 30-45 segundos sobre cómo Treevü reduce la rotación.
-
-REGLAS DE ALGORITMO:
-- 0-3s: hook texto EN PANTALLA (bold) + voz distintos pero complementarios.
-- 3-30s: 3 puntos con dato concreto + visual sugerido.
-- 30-45s: cierre que invite a guardar o comentar.
-
-Formato:
-[0-3s] TEXTO: "..." | VOZ: "..."
-[3-15s] VOZ: "..." | VISUAL: ...
-[15-28s] VOZ: "..." | VISUAL: ...
-[28-40s] VOZ: "..." | VISUAL: ...
-[40-45s] VOZ: "..." (cierre)
-AUDIO: [mood]
-CAPTION: [hook] | [texto] | [3-5 hashtags nicho]`;
-      return askClaude(prompt, { maxTokens: 400 });
-    }
-  };
-
-  const doLinkedIn = !platform || platform === 'linkedin' || platform === 'li';
-  const doIG       = !platform || platform === 'instagram' || platform === 'ig';
-  // Día actual: jueves=carrusel, resto=reel (o lo que pida)
-  const igTipo = now.getDay() === 3 ? 'reel' : 'carousel';
-
-  await send(chatId, `_✍️ Generando contenido${doLinkedIn && doIG ? ' para LinkedIn e Instagram' : doLinkedIn ? ' para LinkedIn' : ' para Instagram'}..._`);
-
-  if (doLinkedIn) {
-    const li = await genLinkedIn().catch(() => null);
-    if (li) {
-      const key = `li:draft:${chatId}:${Date.now()}`;
-      await redisCmd('SET', key, li, 'EX', 300);
-      await send(chatId,
-        `💼 *LinkedIn — draft listo*\n_Tema: ${tema}_\n\n${li}\n\n💡 _El link va en el primer comentario._`,
-        {
-          parse_mode:   'Markdown',
-          reply_markup: {
-            inline_keyboard: [[
-              { text: '✅ Publicar en LinkedIn', callback_data: `li_ok:${key}` },
-              { text: '📋 Solo copiar',          callback_data: 'li_cancel' },
-            ]],
-          },
-        }
-      );
-    }
-  }
-
-  if (doIG) {
-    const ig = await genInstagram(igTipo).catch(() => null);
-    if (ig) {
-      const label = igTipo === 'carousel' ? '🖼 Carrusel Instagram' : '🎬 Reel Instagram';
-
-      // Intentar buscar imagen en Pexels para auto-post (solo para carrusel/imagen estática)
-      // Para Reels el guión es suficiente — no se puede auto-post video
-      if (igTipo === 'carousel') {
-        const photoQuery = buildPhotoQuery(tema);
-        const photo      = await searchPhoto(photoQuery).catch(() => null);
-
-        if (photo) {
-          // Extraer el caption de la IA (línea "Caption: ...")
-          const captionMatch = ig.match(/Caption:\s*(.+?)(?:\n|$)/s);
-          const caption      = captionMatch ? captionMatch[1].trim() : ig.slice(0, 500);
-
-          const igKey = `ig:draft:${chatId}:${Date.now()}`;
-          await redisCmd('SET', igKey, JSON.stringify({ imageUrl: photo.url, caption }), 'EX', 300);
-
-          await send(chatId,
-            `${label} — *draft listo*\n\n` +
-            `🖼 Imagen: [ver foto](${photo.pageUrl}) _(${photo.photographer})_\n\n` +
-            `📝 Caption:\n${caption.slice(0, 400)}`,
-            {
-              parse_mode:   'Markdown',
-              reply_markup: {
-                inline_keyboard: [[
-                  { text: '✅ Publicar en Instagram', callback_data: `ig_ok:${igKey}` },
-                  { text: '📋 Solo copiar',           callback_data: 'ig_cancel' },
-                ]],
-              },
-            }
-          );
-        } else {
-          // Sin Pexels configurado → solo guión
-          await send(chatId, `${label} — *guión listo*\n\n${ig}`, { parse_mode: 'Markdown' });
-        }
-      } else {
-        // Reel → solo guión (no se puede auto-post video)
-        await send(chatId, `${label} — *guión listo*\n\n${ig}`, { parse_mode: 'Markdown' });
-      }
-    }
-  }
-}
-
-async function handleTweet(chatId, rawText) {
-  await send(chatId, rawText
-    ? '_✍️ Puliendo tu tweet con Claude..._'
-    : '_🤖 Generando tweet de la semana..._'
-  );
-
-  try {
-    const res = await fetch('https://gettreevu.com/api/twitter-agent', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET}` },
-      body:    JSON.stringify({ action: 'draft', text: rawText || '' }),
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.draft) {
-      await send(chatId, `❌ No pude generar el draft: ${data.error || 'error desconocido'}`);
-      return;
-    }
-
-    // Guardar draft en Redis 5 minutos
-    const key = `tw:draft:${chatId}:${Date.now()}`;
-    await redisCmd('SET', key, data.draft, 'EX', 300);
-
-    const msg =
-      `📝 *Draft del tweet* (${data.chars}/280)\n\n` +
-      `_${data.draft}_\n\n` +
-      `¿Lo publicamos?`;
-
-    await send(chatId, msg, {
-      parse_mode:   'Markdown',
-      reply_markup: {
-        inline_keyboard: [[
-          { text: '✅ Publicar', callback_data: `tw_ok:${key}` },
-          { text: '❌ Cancelar', callback_data: 'tw_cancel' },
-        ]],
-      },
-    });
-
-  } catch (err) {
-    await send(chatId, `❌ Twitter Agent: ${err.message}`);
-  }
-}
-
-async function handleEnrich(chatId) {
-  await send(chatId, '_📬 Iniciando Apollo Enricher — buscando emails para leads SDR..._');
-
-  const controller = new AbortController();
-  const timeout    = setTimeout(() => controller.abort(), 58000);
-
-  try {
-    const res = await fetch('https://gettreevu.com/api/apollo-enricher', {
-      method:  'POST',
-      signal:  controller.signal,
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${CRON_SECRET}`,
-      },
-      body: JSON.stringify({ max_leads: 20, notify: false }),
-    });
-
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      await send(chatId, `❌ Apollo Enricher devolvió error ${res.status}. Revisá los logs en Vercel.`);
-      return;
-    }
-
-    if (!res.ok) {
-      await send(chatId, `❌ Apollo Enricher error ${res.status}: ${data.error || text.slice(0, 100)}`);
-      return;
-    }
-
-    if (data.message) {
-      await send(chatId, `📬 ${data.message}`);
-      return;
-    }
-
-    let msg = `📬 *Apollo Enricher terminado*\n\n`;
-    msg += `✅ *${data.enriched} leads* con email verificado\n`;
-    msg += `⏭ ${data.skipped} sin match en Apollo\n`;
-    if (data.errors > 0) msg += `❌ ${data.errors} errores\n`;
-
-    if (data.leads?.length) {
-      msg += '\n*Emails obtenidos:*\n';
-      data.leads.slice(0, 8).forEach(l => {
-        msg += `• *${l.company || '—'}* — ${l.name}\n  📧 ${l.email}`;
-        if (l.phone && l.phone !== '—') msg += ` · 📞 ${l.phone}`;
-        msg += '\n';
-      });
-      if (data.enriched > 8) msg += `_...y ${data.enriched - 8} más_\n`;
-      msg += `\nYa podés contactarlos desde Notion.`;
-    } else {
-      msg += `\n_Sin matches esta vez. Apollo no encontró emails para los leads actuales._`;
-    }
-
-    await send(chatId, msg, { parse_mode: 'Markdown' });
-
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      await send(chatId, `⏱ Apollo Enricher tardó más de 58s. Revisá Notion en 1 minuto — puede estar procesando en background.`);
-    } else {
-      await send(chatId, `❌ Apollo Enricher: ${err.message}`);
-    }
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function handleQA(chatId, pregunta) {
-  await send(chatId, '_Consultando pipeline..._');
-
-  let contexto = '';
-  try {
-    const res = await notionQuery(NOTION.CRM_DB, {
-      property: 'Estado',
-      select: { does_not_equal: 'Descartado' },
-    }, 30, [{ property: 'last_edited_time', direction: 'descending' }]);
-    const pages = res.results || [];
-
-    contexto = pages.map(p => {
-      const empresa = getProp(p, 'Empresa') || getProp(p, 'Name') || '—';
-      const estado  = getProp(p, 'Estado')  || '—';
-      const score   = getProp(p, 'Score')   || '—';
-      const sector  = getProp(p, 'Sector')  || '—';
-      const colabs  = getProp(p, 'Colaboradores') || '—';
-      const notas   = getProp(p, 'Notas')   || '';
-      const dias    = Math.floor((Date.now() - new Date(p.last_edited_time)) / (1000 * 60 * 60 * 24));
-      return `- ${empresa} | ${estado} | Score: ${score} | Sector: ${sector} | Colabs: ${colabs} | Última actividad: hace ${dias}d${notas ? ` | Notas: ${notas.slice(0,80)}` : ''}`;
-    }).join('\n');
-  } catch (err) {
-    console.error('[ceo-bot/qa] Notion error:', err.message);
-    contexto = '(no se pudo obtener el pipeline)';
-  }
-
-  const respuesta = await askClaude(pregunta, {
-    system: `Eres el asesor de ventas del CEO de Treevü, startup EWA peruana B2B. El CEO te hace preguntas sobre su pipeline de ventas.
-Responde de forma directa, concisa y accionable. Usa bullet points cuando ayude. Máximo 5 líneas.
-Contexto del pipeline actual:
-${contexto}`,
-    maxTokens: 400,
-  });
-
-  await send(chatId, respuesta || '❌ No pude procesar tu pregunta. Intentá de nuevo.');
 }
 
 // ── Handler principal ─────────────────────────────────────────────────────────
@@ -1002,102 +103,71 @@ export default async function handler(req, res) {
       const msgId  = cq.message?.message_id;
 
       await answer(cq.id);
-
       if (chatId !== String(CEO_CHAT_ID)) return res.status(200).json({ ok: true });
 
-      // CEO confirmó publicar en Instagram
+      // ── Social publishing ─────────────────────────────────────────────────
       if (data.startsWith('ig_ok:')) {
         const draftKey = data.slice(6);
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📤 Publicando en Instagram..._');
         try {
           const raw = await redisCmd('GET', draftKey);
-          if (!raw) {
-            await edit(chatId, msgId, '❌ El draft expiró (>5 min). Usá /post instagram de nuevo.');
-            return res.status(200).json({ ok: true });
-          }
+          if (!raw) { await edit(chatId, msgId, '❌ El draft expiró (>5 min). Usá /post instagram de nuevo.'); return res.status(200).json({ ok: true }); }
           const { imageUrl, caption } = JSON.parse(raw);
           const result = await postInstagram(imageUrl, caption);
           await redisCmd('DEL', draftKey);
-          await edit(chatId, msgId,
-            `✅ *Publicado en Instagram*\n\n🔗 ${result.url}`,
-            { parse_mode: 'Markdown' }
-          );
-        } catch (err) {
-          await edit(chatId, msgId, `❌ Instagram: ${err.message}`);
-        }
+          await edit(chatId, msgId, `✅ *Publicado en Instagram*\n\n🔗 ${result.url}`, { parse_mode: 'Markdown' });
+        } catch (err) { await edit(chatId, msgId, `❌ Instagram: ${err.message}`); }
         return res.status(200).json({ ok: true });
       }
 
-      // CEO descartó post de Instagram
       if (data === 'ig_cancel') {
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📋 Copialo y publicalo manualmente._');
         return res.status(200).json({ ok: true });
       }
 
-      // CEO confirmó publicar en LinkedIn
       if (data.startsWith('li_ok:')) {
         const draftKey = data.slice(6);
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📤 Publicando en LinkedIn..._');
         try {
           const raw = await redisCmd('GET', draftKey);
-          if (!raw) {
-            await edit(chatId, msgId, '❌ El draft expiró (>5 min). Usá /post linkedin de nuevo.');
-            return res.status(200).json({ ok: true });
-          }
+          if (!raw) { await edit(chatId, msgId, '❌ El draft expiró (>5 min). Usá /post linkedin de nuevo.'); return res.status(200).json({ ok: true }); }
           const { urn, url } = await postLinkedIn(raw);
           await redisCmd('DEL', draftKey);
-          await edit(chatId, msgId,
-            `✅ *Publicado en LinkedIn*\n\n🔗 ${url}`,
-            { parse_mode: 'Markdown' }
-          );
-        } catch (err) {
-          await edit(chatId, msgId, `❌ LinkedIn: ${err.message}`);
-        }
+          await edit(chatId, msgId, `✅ *Publicado en LinkedIn*\n\n🔗 ${url}`, { parse_mode: 'Markdown' });
+        } catch (err) { await edit(chatId, msgId, `❌ LinkedIn: ${err.message}`); }
         return res.status(200).json({ ok: true });
       }
 
-      // CEO descartó post de LinkedIn (solo copiar)
       if (data === 'li_cancel') {
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📋 Copialo y publicalo manualmente._');
         return res.status(200).json({ ok: true });
       }
 
-      // CEO confirmó publicar tweet
       if (data.startsWith('tw_ok:')) {
         const draftKey = data.slice(6);
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📤 Publicando..._');
         try {
           const raw = await redisCmd('GET', draftKey);
-          if (!raw) {
-            await edit(chatId, msgId, '❌ El draft expiró (>5 min). Usá /tweet de nuevo.');
-            return res.status(200).json({ ok: true });
-          }
-          const draftText = raw;
+          if (!raw) { await edit(chatId, msgId, '❌ El draft expiró. Usá /tweet de nuevo.'); return res.status(200).json({ ok: true }); }
           const tweetRes  = await fetch('https://gettreevu.com/api/twitter-agent', {
-            method:  'POST',
+            method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET}` },
-            body:    JSON.stringify({ action: 'publish', text: draftText }),
+            body:   JSON.stringify({ action: 'publish', text: raw }),
           });
           const tweetData = await tweetRes.json();
           if (!tweetRes.ok || !tweetData.ok) throw new Error(tweetData.error || 'error al publicar');
           await redisCmd('DEL', draftKey);
-          await edit(chatId, msgId,
-            `✅ *Tweet publicado*\n\n_${draftText}_\n\n🔗 ${tweetData.url || 'ver en X'}`,
-            { parse_mode: 'Markdown' }
-          );
-        } catch (err) {
-          await edit(chatId, msgId, `❌ No se pudo publicar: ${err.message}`);
-        }
+          await edit(chatId, msgId, `✅ *Tweet publicado*\n\n_${raw}_\n\n🔗 ${tweetData.url || 'ver en X'}`, { parse_mode: 'Markdown' });
+        } catch (err) { await edit(chatId, msgId, `❌ No se pudo publicar: ${err.message}`); }
         return res.status(200).json({ ok: true });
       }
 
-      // CEO canceló tweet
       if (data === 'tw_cancel') {
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_❌ Tweet cancelado._');
         return res.status(200).json({ ok: true });
       }
 
-      // Iniciar flujo: CEO tocó "Registrar resultado"
+      // ── Flujo post-meeting ────────────────────────────────────────────────
       if (data.startsWith('pm_start:')) {
         const lead_id = data.slice(9);
         await setState(chatId, { step: 'awaiting_siguiente', lead_id });
@@ -1106,23 +176,18 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // CEO seleccionó siguiente paso
       if (data.startsWith('pm_sig:')) {
-        const parts       = data.split(':');
-        const sigAbrev    = parts[1];
-        const lead_id     = parts.slice(2).join(':');
-        const sig         = SIG_MAP[sigAbrev] || 'seguimiento';
-        const sigLabel    = SIG_LABEL[sigAbrev] || sig;
-
+        const parts    = data.split(':');
+        const sigAbrev = parts[1];
+        const lead_id  = parts.slice(2).join(':');
+        const sig      = SIG_MAP[sigAbrev] || 'seguimiento';
+        const sigLabel = SIG_LABEL[sigAbrev] || sig;
         await setState(chatId, { step: 'awaiting_dolor', lead_id, siguiente_paso: sig });
         await edit(chatId, msgId, `*Resultado: ${sigLabel}* ✓`);
-        await send(chatId,
-          `¿Cuál fue el *dolor principal* que mencionaron?\n_(Ej: "rotación 30%, piden adelantos al supervisor")_`
-        );
+        await send(chatId, `¿Cuál fue el *dolor principal* que mencionaron?\n_(Ej: "rotación 30%, piden adelantos al supervisor")_`);
         return res.status(200).json({ ok: true });
       }
 
-      // CEO seleccionó nivel de interés
       if (data.startsWith('pm_int:')) {
         const parts   = data.split(':');
         const interes = parseInt(parts[1]) || 3;
@@ -1132,45 +197,39 @@ export default async function handler(req, res) {
 
         const needsFecha = ['diagnostico', 'nda'].includes(state.siguiente_paso);
         const nextStep   = needsFecha ? 'awaiting_fecha' : 'complete';
-
         await setState(chatId, { ...state, step: nextStep, interes });
         await edit(chatId, msgId, `*Interés: ${interes}/5* ✓`);
 
         if (needsFecha) {
-          await send(chatId,
-            `¿Cuándo es el próximo paso?\n_(Ej: "miércoles 2 de abril" — o /skip si no quedó definido)_`
-          );
+          await send(chatId, `¿Cuándo es el próximo paso?\n_(Ej: "miércoles 2 de abril" — o /skip)_`);
         } else {
-          await completarPostMeeting(chatId, { ...state, interes });
+          await clearState(chatId);
+          await completarPostMeeting(chatId, { ...state, interes }, send, kbPropuesta, SIG_LABEL, SIG_MAP);
         }
         return res.status(200).json({ ok: true });
       }
 
-      // CEO solicitó generar propuesta
       if (data.startsWith('pm_prop:')) {
         const lead_id = data.slice(8);
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📄 Generando propuesta..._');
-        res.status(200).json({ ok: true }); // responder a Telegram antes de la llamada larga
-        await generateProposal(lead_id, chatId);
+        res.status(200).json({ ok: true });
+        await generateProposal(lead_id, chatId, send);
         return;
       }
 
-      // CEO omitió propuesta
       if (data.startsWith('pm_skip:')) {
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_⏭ Propuesta omitida_');
         return res.status(200).json({ ok: true });
       }
 
-      // CEO quiere enviar para firma vía PandaDoc
       if (data.startsWith('pm_sign:')) {
         const lead_id = data.slice(8);
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_✍️ Enviando a PandaDoc..._');
         res.status(200).json({ ok: true });
-        await sendToPandaDoc(lead_id, chatId);
+        await sendToPandaDoc(lead_id, chatId, send);
         return;
       }
 
-      // CEO prefiere solo el borrador Gmail
       if (data.startsWith('pm_nosign:')) {
         await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📧 Quedó solo el borrador Gmail_');
         return res.status(200).json({ ok: true });
@@ -1186,41 +245,18 @@ export default async function handler(req, res) {
     const chatId = String(message.chat.id);
     if (chatId !== String(CEO_CHAT_ID)) return res.status(200).json({ ok: true });
 
-    const text  = message.text.trim();
+    const text = message.text.trim();
 
-    // ── Comandos (no requieren estado activo) ─────────────────────────────────
-    if (text === '/help' || text === '/start') {
-      await handleHelp(chatId);
-      return res.status(200).json({ ok: true });
-    }
-    if (text === '/pipeline' || text === '/resumen') {
-      await handlePipeline(chatId);
-      return res.status(200).json({ ok: true });
-    }
-    if (text === '/followup') {
-      await handleFollowup(chatId);
-      return res.status(200).json({ ok: true });
-    }
-    if (text.startsWith('/sdr')) {
-      await handleSDR(chatId, text.slice(4).trim());
-      return res.status(200).json({ ok: true });
-    }
-    if (text === '/enrich') {
-      await handleEnrich(chatId);
-      return res.status(200).json({ ok: true });
-    }
-    if (text.startsWith('/tweet')) {
-      await handleTweet(chatId, text.slice(6).trim());
-      return res.status(200).json({ ok: true });
-    }
-    if (text.startsWith('/briefing')) {
-      await handleBriefing(chatId, text.slice(9).trim());
-      return res.status(200).json({ ok: true });
-    }
-    if (text.startsWith('/post')) {
-      await handlePost(chatId, text.slice(5).trim().toLowerCase() || null);
-      return res.status(200).json({ ok: true });
-    }
+    // ── Comandos ──────────────────────────────────────────────────────────────
+    if (text === '/help' || text === '/start') { await handleHelp(chatId, send);                                     return res.status(200).json({ ok: true }); }
+    if (text === '/pipeline' || text === '/resumen') { await handlePipeline(chatId, send);                           return res.status(200).json({ ok: true }); }
+    if (text === '/followup') { await handleFollowup(chatId, send);                                                  return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/sdr')) { await handleSDR(chatId, text.slice(4).trim(), send);                              return res.status(200).json({ ok: true }); }
+    if (text === '/enrich') { await handleEnrich(chatId, send);                                                      return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/tweet')) { await handleTweet(chatId, text.slice(6).trim(), send);                          return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/briefing')) { await handleBriefing(chatId, text.slice(9).trim(), send);                    return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/post')) { await handlePost(chatId, text.slice(5).trim().toLowerCase() || null, send, edit); return res.status(200).json({ ok: true }); }
+
     if (text.startsWith('/cto')) {
       const query = text.slice(4).trim();
       if (!query || query === 'reset') {
@@ -1233,39 +269,35 @@ export default async function handler(req, res) {
       } else {
         await send(chatId, '_🧠 Consultando CTO Agent..._');
         await handleCTO(chatId, query, (text, opts) => send(chatId, text, opts));
-        return res.status(200).json({ ok: true });
       }
       return res.status(200).json({ ok: true });
     }
 
+    // ── Flujo post-meeting (texto libre) ─────────────────────────────────────
     const state = await getState(chatId);
 
-    // ── Modo Q&A libre (sin estado activo) ────────────────────────────────────
     if (!state) {
-      if (!text.startsWith('/')) await handleQA(chatId, text);
+      if (!text.startsWith('/')) await handleQA(chatId, text, send);
       return res.status(200).json({ ok: true });
     }
 
     if (state.step === 'awaiting_dolor') {
       await setState(chatId, { ...state, step: 'awaiting_objeciones', dolor_principal: text });
-      await send(chatId,
-        `*Dolor registrado* ✓\n\n¿Alguna *objeción* mencionada?\n_(Ej: "necesitan NDA primero" — o /skip)_`
-      );
+      await send(chatId, `*Dolor registrado* ✓\n\n¿Alguna *objeción* mencionada?\n_(Ej: "necesitan NDA primero" — o /skip)_`);
       return res.status(200).json({ ok: true });
     }
 
     if (state.step === 'awaiting_objeciones') {
       const objeciones = text === '/skip' ? '' : text;
       await setState(chatId, { ...state, step: 'awaiting_interes', objeciones });
-      await send(chatId, `¿Nivel de *interés* del prospecto? _(1 = frío · 5 = listo para firmar)_`,
-        { reply_markup: kbInteres(state.lead_id) }
-      );
+      await send(chatId, `¿Nivel de *interés* del prospecto? _(1 = frío · 5 = listo para firmar)_`, { reply_markup: kbInteres(state.lead_id) });
       return res.status(200).json({ ok: true });
     }
 
     if (state.step === 'awaiting_fecha') {
       const fecha_siguiente = text === '/skip' ? '' : text;
-      await completarPostMeeting(chatId, { ...state, fecha_siguiente });
+      await clearState(chatId);
+      await completarPostMeeting(chatId, { ...state, fecha_siguiente }, send, kbPropuesta, SIG_LABEL, SIG_MAP);
       return res.status(200).json({ ok: true });
     }
 

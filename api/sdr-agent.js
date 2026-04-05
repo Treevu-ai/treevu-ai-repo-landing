@@ -235,24 +235,25 @@ async function generateOutreach(lead, strategy = 'intro') {
   const firstName   = (name || 'equipo').split(/[\s,]+/)[0];
   const strat       = STRATEGIES[strategy] || STRATEGIES.intro;
 
-  const prompt = `Redacta un mensaje de contacto de LinkedIn para ${firstName}, ${role || 'líder'} de ${company || 'la empresa'}.
+  const system =
+    `Eres el equipo de ventas de Treevü (EWA B2B, Perú). Redactas mensajes de outreach en LinkedIn.\n` +
+    `Producto: plataforma que permite a trabajadores retirar su salario ya ganado antes del día de pago — cero costo para la empresa, reduce rotación 15-40%.\n\n` +
+    `Estrategia activa (${strat.label}): ${strat.instruction}\n\n` +
+    `Reglas de formato (siempre):\n` +
+    `- Máximo 4 líneas en total\n` +
+    `- Tono directo y humano, no corporativo\n` +
+    `- Sin emojis ni saludos formales como "Estimado"\n` +
+    `- Español peruano natural\n` +
+    `- No repitas información obvia del perfil\n` +
+    `- Responde SOLO con el mensaje, sin etiquetas ni explicaciones`;
 
-Contexto:
-- Industria: ${industry || 'empresa peruana'}
-- Info del perfil: ${snippet || 'no disponible'}
-- Producto: Treevü, plataforma EWA (Earned Wage Access) B2B — permite a trabajadores retirar su salario ya ganado antes del día de pago. Cero costo para la empresa. Reduce rotación 15-40%.
-
-Instrucción de estrategia: ${strat.instruction}
-
-Reglas de formato:
-- Máximo 4 líneas en total
-- Tono directo y humano, no corporativo
-- Sin emojis ni saludos formales como "Estimado"
-- Escribe en español peruano natural
-- NO repitas información obvia del perfil`;
+  const userPrompt =
+    `Prospecto: ${firstName}, ${role || 'líder'} de ${company || 'la empresa'}\n` +
+    `Industria: ${industry || 'empresa peruana'}\n` +
+    `Info del perfil: ${snippet || 'no disponible'}`;
 
   const msg = await withTimeout(
-    askClaude(prompt, { maxTokens: 120 }),
+    askClaude(userPrompt, { system, maxTokens: 120 }),
     10000,
     'claude:outreach'
   ).catch(() => null);

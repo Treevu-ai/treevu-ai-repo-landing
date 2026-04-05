@@ -13,7 +13,10 @@
 //            "notas": { "dolor_principal": "...", "siguiente_paso": "diagnostico|nda|no_fit|seguimiento",
 //                       "objeciones": "...", "fecha_siguiente": "...", "interes": 4 } }
 
-import { NOTION, PROGRAMA, SCORE_EMOJI } from './lib/constants.js';
+import { NOTION, PROGRAMA, SCORE_EMOJI, checkEnvVars } from './lib/constants.js';
+import { getSectorIntel }                               from './lib/sector-intel.js';
+
+checkEnvVars(['NOTION_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'CRON_SECRET', 'OPENCLAW_TOKEN'], 'primera-reunion');
 import { notionPatch, getProp, getNotionPage } from './lib/notion.js';
 import { askClaude }                      from './lib/anthropic.js';
 import { sendMessage }                    from './lib/telegram.js';
@@ -81,73 +84,7 @@ async function fetchLead(leadId) {
 // PRE-MEETING
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ── Inteligencia sectorial para Peru ─────────────────────────────────────────
-function getSectorIntel(sector, employees) {
-  const intel = {
-    'Retail y consumo': {
-      rotacion: '35-45% anual',
-      dolor: 'cajeros y personal de piso, turnos festivos, adelantos al supervisor',
-      objecion: '"Ya tenemos bonos de permanencia"',
-      respuesta: 'Los bonos retienen en papeles — el EWA elimina el estrés diario que causa la salida',
-      perfil_decisor: 'Gerente de RRHH + Gerente de Operaciones (a veces CFO)',
-      tip: 'Preguntar por ausentismo en temporadas altas (navidad, verano)',
-    },
-    'Manufactura': {
-      rotacion: '25-35% anual',
-      dolor: 'operarios con deudas, accidentabilidad por estrés, absentismo los lunes',
-      objecion: '"Nuestros operarios no tienen smartphone"',
-      respuesta: 'App funciona en Android 6+ básico — y hay versión web para compartir cabina',
-      perfil_decisor: 'RRHH + COO. El área de nómina bloquea si no los incluyes desde el inicio',
-      tip: 'Preguntar cuántos piden adelanto al área de RRHH por mes — número revelador',
-    },
-    'Salud': {
-      rotacion: '20-30% anual (enfermeros y técnicos)',
-      dolor: 'turnos nocturnos + deuda → renuncia sin previo aviso, difícil reemplazo urgente',
-      objecion: '"Tenemos convenio con cooperativa de ahorro"',
-      respuesta: 'La cooperativa es ahorro — Treevü resuelve liquidez inmediata sin endeudamiento',
-      perfil_decisor: 'Dirección Médica o Gerencia General suele tomar la decisión final',
-      tip: 'El ML de predicción de renuncia es muy llamativo en esta industria — mencionarlo',
-    },
-    'Servicios': {
-      rotacion: '30-40% anual',
-      dolor: 'call centers, limpieza, seguridad — alta rotación y bajo margen para bonos',
-      objecion: '"El margen es muy ajustado para agregar costos"',
-      respuesta: 'Costo S/ 0 para el colaborador — empresa paga S/ 7/activo/mes, se recupera en <1 renuncia evitada',
-      perfil_decisor: 'Gerente de RRHH o Gerente General en empresas medianas',
-      tip: 'Enfocarse en el ROI concreto: una renuncia evitada financia 12 meses de Treevü',
-    },
-    'Banca y finanzas': {
-      rotacion: '15-20% anual',
-      dolor: 'analistas y promotores financieros con estrés de cumplimiento de metas',
-      objecion: '"Tenemos un banco interno / caja de beneficios"',
-      respuesta: 'Treevü complementa — acceso inmediato sin proceso de aprobación ni deuda registrada',
-      perfil_decisor: 'RRHH + Compliance. Presentar regulación SBS desde el inicio',
-      tip: 'La aprobación SBS es un diferenciador clave — mencionarla primero con esta industria',
-    },
-    'Construccion/Mineria': {
-      rotacion: '40-55% anual (alta volatilidad)',
-      dolor: 'pagos por quincena o quincenal irregular, operarios con deudas de capital riesgo',
-      objecion: '"La planilla es por obra, muy variable"',
-      respuesta: 'Treevü se adapta a planillas por proyecto — solo se activa para colaboradores activos',
-      perfil_decisor: 'Gerente de RRHH o Jefe de Administración en proyectos',
-      tip: 'Alta rotación significa que el caso de negocio es muy fuerte — calcular en vivo',
-    },
-  };
-  const data = intel[sector] || {
-    rotacion: '20-35% promedio Peru',
-    dolor: 'estrés financiero, adelantos informales, baja retención',
-    objecion: '"No teníamos esto en nuestro presupuesto"',
-    respuesta: 'El costo es variable y se activa solo con colaboradores activos — sin costo fijo',
-    perfil_decisor: 'Gerente de RRHH o CEO en empresas medianas',
-    tip: 'Preguntar cuántos colaboradores pidieron adelanto este mes',
-  };
-
-  const colabs = parseInt((employees || '').split('-')[0]) || 0;
-  const renuncias = Math.round(colabs * 0.25);
-  const ahorroEstimado = (renuncias * 8000).toLocaleString('es-PE');
-
-  return { ...data, renuncias, ahorroEstimado, employees };
-}
+// getSectorIntel importada desde ./lib/sector-intel.js
 
 async function researchCompany(empresa, sector) {
   if (!empresa) return null;
@@ -201,7 +138,7 @@ Inteligencia sectorial (${lead.sector || 'sector general'}, Peru):
 - Tip específico para esta reunión: ${intel.tip}
 - Ahorro estimado si evitan ${intel.renuncias} renuncias/año: S/ ${intel.ahorroEstimado}
 
-Genera un briefing operativo. Responde SOLO con JSON válido:
+Genera un briefing operativo. Responde SOLO con JSON válido, sin markdown:
 {
   "apertura": "<guion 30 segundos personalizado, primera persona, incluye dato sectorial>",
   "preguntas": [
@@ -216,7 +153,7 @@ Genera un briefing operativo. Responde SOLO con JSON válido:
     { "objecion": "<segunda objeción probable>", "respuesta": "<respuesta concisa>" }
   ],
   "cierre": "<frase de cierre con urgencia Founders, natural no agresiva, menciona el ahorro de S/ ${intel.ahorroEstimado}>",
-  "alerta": "<punto sensible específico de este sector/empresa a manejar con cuidado>"
+  "alerta": "<punto sensible específico de este sector/empresa a manejar con cuidado, o null si no aplica ninguno>"
 }`;
 
   const user = `Lead para preparar:
@@ -351,8 +288,8 @@ Responde SOLO con JSON válido:
     "<bullet 4: alcance tentativo del piloto>",
     "<bullet 5: riesgo mencionado y cómo se resuelve>"
   ],
-  "llamada_accion": "<frase de cierre con el siguiente paso concreto acordado>",
-  "incluir_nda": <true|false — true solo si el siguiente paso es NDA o si se mencionó revisión legal>
+  "llamada_accion": "<frase de cierre con el siguiente paso concreto acordado, o null si no hay paso claro>",
+  "incluir_nda": "<true si el siguiente paso es NDA o se mencionó revisión legal, false en caso contrario>"
 }`;
 
   const user = `Reunión realizada con:

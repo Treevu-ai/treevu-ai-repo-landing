@@ -48,27 +48,26 @@ function extractProspectEmail(attendees = []) {
 // ── Analizar transcript con Claude ────────────────────────────────────────────
 async function analyzeTranscript({ summary, transcript, actionItems, empresa }) {
   const input = summary || transcript || '';
-  if (!input) return null;
+  if (!input || input.trim().length < 50) return null;
 
-  const userPrompt = `Analiza estas notas de reunión comercial de Treevü con ${empresa || 'un prospecto'} y extrae en formato estructurado:
+  const system = `Eres un analista comercial de Treevü que extrae información estructurada de notas de reuniones de ventas.
+Responde SIEMPRE con JSON válido. Si no puedes determinar un campo con certeza a partir del texto, usa null — no inventes información.`;
 
-${input}
+  const userPrompt = `Analiza estas notas de reunión comercial con ${empresa || 'un prospecto'} y extrae los puntos clave:
 
-${actionItems?.length ? `\nAction items detectados:\n${actionItems.map(a => `- ${a}`).join('\n')}` : ''}
+${input}${actionItems?.length ? `\n\nAction items detectados:\n${actionItems.map(a => `- ${a}`).join('\n')}` : ''}
 
-Devuelve un JSON con:
+Devuelve SOLO este JSON, sin markdown:
 {
-  "dolor_confirmado": "dolor principal confirmado en la llamada (1 frase)",
-  "objeciones": "objeciones mencionadas o vacío si ninguna",
-  "acuerdos": "acuerdos o compromisos de la llamada",
-  "siguiente_paso": "próximo paso concreto con fecha si se mencionó",
-  "nivel_interes": "ALTO|MEDIO|BAJO basado en la conversación",
-  "resumen": "resumen ejecutivo de 2-3 líneas"
-}
+  "dolor_confirmado": "<dolor principal confirmado en la llamada (1 frase), o null>",
+  "objeciones": "<objeciones mencionadas (1 frase), o null si ninguna>",
+  "acuerdos": "<acuerdos o compromisos concretos, o null si no se mencionaron>",
+  "siguiente_paso": "<próximo paso concreto con fecha si se mencionó, o null>",
+  "nivel_interes": "<ALTO|MEDIO|BAJO basado en la conversación>",
+  "resumen": "<resumen ejecutivo de 2-3 líneas>"
+}`;
 
-Devuelve SOLO el JSON, sin markdown.`;
-
-  const raw = await askClaude(userPrompt, { maxTokens: 600 });
+  const raw = await askClaude(userPrompt, { system, maxTokens: 600 });
   if (!raw) return null;
   try { return JSON.parse(raw.trim()); }
   catch { return { resumen: raw.trim() }; }

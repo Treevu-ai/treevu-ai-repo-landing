@@ -32,27 +32,23 @@ function weekTema() {
 async function generateDraft(rawText) {
   // Si hay texto del CEO → Claude lo pule para Twitter
   // Si no → Claude genera desde cero sobre el tema de la semana
-  const prompt = rawText
-    ? `Eres el equipo de contenido de Treevü (startup B2B EWA, Perú). El CEO quiere publicar este tweet:
+  const system =
+    `Eres el equipo de contenido de Treevü (startup B2B EWA, Perú).\n` +
+    `Producto: plataforma que permite a trabajadores retirar su salario ganado antes del día de pago, sin costo para ellos ni riesgo para la empresa.\n\n` +
+    `Reglas de tweet (siempre obligatorias):\n` +
+    `- Máximo 270 caracteres\n` +
+    `- Primera línea = gancho que detiene el scroll\n` +
+    `- Cierra con dato concreto o pregunta\n` +
+    `- Tono directo, peruano, B2B — audiencia: gerentes RRHH y CEOs de 200-2000 personas\n` +
+    `- Sin hashtags genéricos (#RRHH #Peru prohibidos)\n` +
+    `- Máximo 1 emoji si aporta\n` +
+    `- Responde SOLO con el texto del tweet, sin comillas ni explicaciones`;
 
-"${rawText}"
+  const userPrompt = rawText
+    ? `Pule este tweet del CEO para que sea más directo, con gancho en la primera línea y cierre con una pregunta o dato concreto:\n\n"${rawText}"`
+    : `Escribe un tweet sobre: "${weekTema()}"`;
 
-Pulelo para que sea más directo, con gancho en la primera línea y cierre con una pregunta o dato concreto. Máximo 270 caracteres. Sin hashtags genéricos. Sin emojis exagerados. Voz experta, tono humano. Devuelve SOLO el texto del tweet.`
-    : `Eres el equipo de contenido de Treevü (startup B2B EWA, Perú — plataforma que permite a trabajadores retirar su salario ganado antes del día de pago, sin costo para ellos ni riesgo para la empresa).
-
-Escribe un tweet sobre: "${weekTema()}"
-
-Reglas:
-- Máximo 270 caracteres
-- Primer línea = gancho que detiene el scroll
-- Dato concreto o pregunta al final
-- Tono directo, peruano, B2B (audiencia: gerentes RRHH y CEOs de empresas 200-2000 personas)
-- Sin hashtags genéricos (#RRHH #Peru está prohibido)
-- Máximo 1 emoji si aporta
-
-Devuelve SOLO el texto del tweet.`;
-
-  return askClaude(prompt, { maxTokens: 150 });
+  return askClaude(userPrompt, { system, maxTokens: 150 });
 }
 
 export default async function handler(req, res) {
