@@ -170,7 +170,7 @@ Devuelve este JSON:
   );
 
   if (email && process.env.PANDADOC_API_KEY) {
-    await redisCmd('SET', `propuesta_html:${leadId}`, htmlBody, 'EX', 86400);
+    await redisCmd('SET', `propuesta_html:${leadId}`, htmlBody, 'EX', 604800); // 7 días
     await send(chatId,
       `¿Enviamos la propuesta para *firma electrónica* vía PandaDoc?`,
       { reply_markup: {

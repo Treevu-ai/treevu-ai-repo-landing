@@ -363,7 +363,7 @@ export default async function handler(req, res) {
     const addedCompanies = new Set();
     const candidates     = [];
 
-    for (let i = 0; i < people.length; i++) {
+    for (let i = 0; i < Math.min(people.length, max_leads * 3); i++) {
       if (candidates.length >= max_leads) break;
 
       const { name = '', role = '', email = '', company = '', linkedinUrl = '' } = people[i];

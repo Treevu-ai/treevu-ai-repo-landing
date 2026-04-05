@@ -509,12 +509,9 @@ export default async function handler(req, res) {
       checkProposalCadence(),
     ]);
 
-    console.log(`[followup] OK — ${leads.length} pendientes, ${vencidos.length} vencidos, ${reunionesHoy.length} reuniones, ${postMeetingSeqs} post-meeting, ${nurturingEnviados} nurturing, ${propuestasVencidas} propuestas vencidas, ${proposalCadencia} proposal cadencia`);
+    console.log(`[followup] OK — ${postMeetingSeqs} post-meeting, ${nurturingEnviados} nurturing, ${propuestasVencidas} propuestas vencidas, ${proposalCadencia} proposal cadencia`);
     return res.status(200).json({
       success: true,
-      pendientes: leads.length,
-      vencidos: vencidos.length,
-      reuniones: reunionesHoy.length,
       postMeetingSeqs,
       nurturingEnviados,
       propuestasVencidas,
