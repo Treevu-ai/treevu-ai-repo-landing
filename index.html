@@ -1234,16 +1234,31 @@ body {
   gap: 48px; align-items: start;
   margin-top: 48px;
 }
-.calc-inputs { }
-.calc-field { margin-bottom: 28px; }
+.calc-inputs { display: flex; flex-direction: column; gap: 10px; }
+.calc-field {
+  padding: 16px 20px;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  transition: border-color var(--transition-fast);
+}
+.calc-field:focus-within { border-color: var(--brand); }
 .calc-label {
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; margin-bottom: 12px;
+}
+.calc-label-text { flex: 1; min-width: 0; }
+.calc-label-name {
   font-size: 0.875rem; font-weight: 600; color: var(--neutral-700);
-  margin-bottom: 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.calc-label-hint {
+  font-size: 0.7rem; font-weight: 400; color: var(--text-dim);
+  margin-top: 2px; line-height: 1.4;
 }
 .calc-label-value {
   font-family: var(--font-head); font-size: 1rem; font-weight: 800;
-  color: var(--neutral-900);
+  color: var(--neutral-900); white-space: nowrap; flex-shrink: 0;
 }
 input[type="range"] {
   width: 100%; height: 6px;
@@ -3358,21 +3373,27 @@ body { background: #F8FAFF; }
         <div class="calc-inputs fade-up">
           <div class="calc-field">
             <div class="calc-label">
-              Número de colaboradores
+              <div class="calc-label-text">
+                <div class="calc-label-name">Número de colaboradores</div>
+              </div>
               <span class="calc-label-value" id="val-colab">500</span>
             </div>
             <input type="range" id="colab" min="50" max="5000" step="50" value="500" oninput="calcUpdate()"/>
           </div>
           <div class="calc-field">
             <div class="calc-label">
-              Salario promedio mensual
+              <div class="calc-label-text">
+                <div class="calc-label-name">Salario promedio mensual</div>
+              </div>
               <span class="calc-label-value" id="val-salary">S/ 2,500</span>
             </div>
             <input type="range" id="salary" min="1000" max="8000" step="100" value="2500" oninput="calcUpdate()"/>
           </div>
           <div class="calc-field">
             <div class="calc-label">
-              Rotación actual anual
+              <div class="calc-label-text">
+                <div class="calc-label-name">Rotación actual anual</div>
+              </div>
               <span class="calc-label-value" id="val-rot">20%</span>
             </div>
             <input type="range" id="rot" min="5" max="60" step="1" value="20" oninput="calcUpdate()"/>
@@ -3412,21 +3433,28 @@ body { background: #F8FAFF; }
         <div class="calc-inputs fade-up">
           <div class="calc-field">
             <div class="calc-label">
-              Nómina mensual total
+              <div class="calc-label-text">
+                <div class="calc-label-name">Nómina mensual total</div>
+              </div>
               <span class="calc-label-value" id="cfo-val-nomina">S/ 5,000,000</span>
             </div>
             <input type="range" id="cfo-nomina" min="500000" max="50000000" step="500000" value="5000000" oninput="calcCFOUpdate()"/>
           </div>
           <div class="calc-field">
             <div class="calc-label">
-              Reserva de caja actual <span style="font-size:0.7rem;font-weight:400;color:var(--text-dim);">(% sobre nómina que mantiene como colchón)</span>
+              <div class="calc-label-text">
+                <div class="calc-label-name">Reserva de caja actual</div>
+                <div class="calc-label-hint">% sobre nómina que mantiene como colchón</div>
+              </div>
               <span class="calc-label-value" id="cfo-val-buffer">25%</span>
             </div>
             <input type="range" id="cfo-buffer" min="10" max="50" step="5" value="25" oninput="calcCFOUpdate()"/>
           </div>
           <div class="calc-field">
             <div class="calc-label">
-              Costo de capital / TEA
+              <div class="calc-label-text">
+                <div class="calc-label-name">Costo de capital / TEA</div>
+              </div>
               <span class="calc-label-value" id="cfo-val-tea">15%</span>
             </div>
             <input type="range" id="cfo-tea" min="5" max="30" step="1" value="15" oninput="calcCFOUpdate()"/>
