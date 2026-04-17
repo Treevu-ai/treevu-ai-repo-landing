@@ -4,16 +4,17 @@
 //
 // Schedule: "0 14 * * 1" (lunes 9am Lima, 14:00 UTC)
 
-import { NOTION, SCORE_EMOJI }  from './lib/constants.js';
+import { NOTION, SCORE_EMOJI, CONFIG } from './lib/constants.js';
 import { getProp, notionQuery } from './lib/notion.js';
 import { sendMessage }          from './lib/telegram.js';
 import { askClaude }            from './lib/anthropic.js';
 import { detectGender }         from './lib/validators.js';
+import { REACTIVACION }         from './lib/prompts.js';
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_ABM_ID    = process.env.TELEGRAM_ABM_CHAT_ID;
-const TELEGRAM_CEO_ID    = process.env.TELEGRAM_CHAT_ID;
-const CRON_SECRET        = process.env.CRON_SECRET;
+const TELEGRAM_BOT_TOKEN = CONFIG.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_ABM_ID    = CONFIG.TELEGRAM_ABM_CHAT_ID;
+const TELEGRAM_CEO_ID    = CONFIG.TELEGRAM_CHAT_ID;
+const CRON_SECRET        = CONFIG.CRON_SECRET;
 
 const DIAS_INACTIVIDAD = 45;
 const MAX_LEADS        = 5;
@@ -59,21 +60,7 @@ async function generateReactivationMessage(lead) {
   const genero     = detectGender(nombre);
   const dispuesto  = genero === 'F' ? 'dispuesta' : 'dispuesto';
 
-  const system =
-    `Eres el equipo de ventas de Treevü (Perú), redactando en nombre del fundador.\n` +
-    `Tu tarea: generar mensajes cortos de reactivación para leads que no respondieron.\n\n` +
-    `Contexto del producto:\n` +
-    `- Treevü permite al equipo acceder a su propio salario antes del día de pago — sin costo para nadie\n` +
-    `- Para el CFO: predice la caja 30 días antes, reduce la reserva hasta 45%, cero pasivo nuevo\n` +
-    `- Para RRHH/CEO: renuncias por estrés financiero −40%, alertas de rotación 3 semanas antes\n` +
-    `- El piloto Q2 cerró; el equipo mantiene lista de espera para Q3 — úsalo como contexto de "seguimiento natural", no lo menciones explícitamente\n\n` +
-    `Reglas de formato:\n` +
-    `- Elige el canal más natural para el perfil: Email (tono formal) o WhatsApp (directo y breve)\n` +
-    `- Máximo 3 líneas\n` +
-    `- Tono: directo, cálido, no insistente\n` +
-    `- Español peruano\n` +
-    `- Cierra siempre con una pregunta de 1 línea\n` +
-    `- Responde SOLO con el mensaje listo para copiar, sin explicaciones ni etiquetas de canal`;
+  const system = REACTIVACION;
 
   const user =
     `Lead a reactivar:\n` +
@@ -113,8 +100,33 @@ export default async function handler(req, res) {
     const header = `♻️ *Reactivación semanal — ${leads.length} lead(s) fríos*\n` +
       `_${semana}_\n\nLeads ALTO/MEDIO sin actividad en +${DIAS_INACTIVIDAD} días. Sugerencias abajo 👇`;
 
-    // Notificaciones Telegram movidas al daily-summary (8am) — un único mensaje diario
-    console.log(`[reactivation] OK — ${leads.length} leads fríos (notificación vía daily-summary)`);
+    const TARGET = TELEGRAM_ABM_ID || TELEGRAM_CEO_ID;
+    await sendMessage(TELEGRAM_BOT_TOKEN, TARGET, header);
+
+    // Genera todos los mensajes en paralelo y envía las cards simultáneamente
+    const sugerencias = await Promise.allSettled(leads.map(l => generateReactivationMessage(l)));
+
+    await Promise.all(leads.map(async (lead, i) => {
+      const nombre       = getProp(lead, 'Nombre y Cargo') || 'Sin nombre';
+      const empresa      = getProp(lead, 'Empresa')        || '';
+      const score        = getProp(lead, 'Score')          || 'MEDIO';
+      const estado       = getProp(lead, 'Estado')         || 'Nuevo';
+      const email        = getProp(lead, 'Email')          || '';
+      const diasInactivo = Math.floor(
+        (Date.now() - new Date(lead.created_time).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const sugerencia = sugerencias[i].status === 'fulfilled' ? sugerencias[i].value : null;
+
+      let card = `${SCORE_EMOJI[score] || '·'} *${nombre}*\n`;
+      if (empresa)    card += `🏢 ${empresa}\n`;
+      if (email)      card += `📧 ${email}\n`;
+      card += `📌 ${estado} · _inactivo ${diasInactivo} días_\n`;
+      if (sugerencia) card += `\n💬 *Sugerencia:*\n\`\`\`\n${sugerencia}\n\`\`\``;
+
+      return sendMessage(TELEGRAM_BOT_TOKEN, TARGET, card);
+    }));
+
+    console.log(`[reactivation] OK — ${leads.length} sugerencias enviadas`);
     return res.status(200).json({ success: true, reactivados: leads.length });
 
   } catch (err) {

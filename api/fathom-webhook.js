@@ -14,6 +14,7 @@
 import { NOTION }                        from './lib/constants.js';
 import { notionQuery, notionPatch, getProp } from './lib/notion.js';
 import { askClaude }                     from './lib/anthropic.js';
+import { TRANSCRIPT_ANALYSIS }          from './lib/prompts.js';
 import { sendMessage }                   from './lib/telegram.js';
 import { captureException }              from './lib/sentry.js';
 
@@ -50,8 +51,7 @@ async function analyzeTranscript({ summary, transcript, actionItems, empresa }) 
   const input = summary || transcript || '';
   if (!input || input.trim().length < 50) return null;
 
-  const system = `Eres un analista comercial de Treevü que extrae información estructurada de notas de reuniones de ventas.
-Responde SIEMPRE con JSON válido. Si no puedes determinar un campo con certeza a partir del texto, usa null — no inventes información.`;
+  const system = TRANSCRIPT_ANALYSIS;
 
   const userPrompt = `Analiza estas notas de reunión comercial con ${empresa || 'un prospecto'} y extrae los puntos clave:
 

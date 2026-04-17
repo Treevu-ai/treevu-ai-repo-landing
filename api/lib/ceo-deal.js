@@ -8,8 +8,10 @@
 
 import { getNotionPage, getProp, notionPatch } from './notion.js';
 import { askClaude }                            from './anthropic.js';
+import { PROPUESTA_COMERCIAL }                  from './prompts.js';
 import { getGmailToken, gmailDraft }            from './gmail.js';
 import { redisCmd }                             from './redis.js';
+import { supabaseUpsert }                       from './supabase.js';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -48,15 +50,7 @@ export async function generateProposal(leadId, chatId, send) {
     ? `S/ ${precio.mensual.toLocaleString('es-PE')}/mes (${precio.adopcion} usuarios × S/ 7 + S/ 490 base)`
     : 'a cotizar según adopción';
 
-  const system = `Eres el equipo comercial de Treevü (Perú). Generas el contenido de propuestas comerciales.
-Producto: plataforma que permite a los colaboradores acceder a su propio salario antes del día de pago — S/ 0 costo para ellos. La empresa predice la demanda con 30 días de anticipación.
-Dos beneficios centrales de la propuesta:
-1. CFO/Finanzas: reduce la reserva de caja hasta 45%, flujo predecible a 30 días, cero pasivo nuevo en el balance.
-2. CEO/RRHH: renuncias por estrés financiero −40%, alertas de rotación 3 semanas antes, retención sin aumentar sueldos.
-Cero riesgo financiero — la empresa transfiere directo al colaborador, Treevü no toca los fondos.
-Precio: S/ 7 por usuario activo/mes + S/ 490 mensual de plataforma ML.
-Escribe en español formal peruano. Sé conciso y orientado a resultados. Sin relleno corporativo.
-Responde SOLO con JSON válido, sin markdown adicional.`;
+  const system = PROPUESTA_COMERCIAL;
 
   const userPrompt = `Genera el contenido de la propuesta para:
 - Empresa: ${empresa}
@@ -299,6 +293,25 @@ export async function triggerCierre(leadId, chatId, send) {
   } catch (err) {
     console.warn('[ceo-deal/cierre] Notion read error:', err.message);
   }
+
+  // Auto-provision company in Supabase (product database)
+  supabaseUpsert('companies', {
+    name:                   empresa   || 'Sin nombre',
+    ruc:                    null,
+    country:                'PE',
+    ewa_limit_pct:          50,
+    ewa_max_pct:            75,
+    max_advances_per_month: 2,
+    payroll_cycle:          'monthly',
+    payroll_start_day:      1,
+    payroll_end_day:        30,
+    ewa_enabled:            true,
+    active:                 true,
+  }, 'name').catch(err => console.error('[ceo-deal/cierre] Supabase provision:', err.message));
+
+  // Mark lead as closed in Supabase CRM
+  supabaseUpsert('leads', { email: email || undefined, estado: 'Cerrado', notion_id: leadId }, 'notion_id')
+    .catch(() => {});
 
   if (email && CRON_SECRET) {
     fetch('https://gettreevu.com/api/onboarding', {

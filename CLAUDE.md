@@ -25,9 +25,9 @@ The repo has two distinct runtime environments:
 | `api/submit.js` | `POST /api/submit` | Lead form handler — scores with Claude AI, saves to Notion, sends Telegram alert, creates Gmail draft |
 | `api/chat.js` | `POST /api/chat` | Powers the Vü chatbot on the landing page (Claude Haiku) |
 | `api/lead.js` | `POST /api/lead` | Unified CRM intake — all channels write here → Notion. Protected by `x-webhook-secret` |
-| `api/abm-bot.js` | `POST /api/abm-bot` | ABM outbound automation bot |
+| `api/abm-bot.js` | `POST /api/abm-bot` | ABM outbound automation bot — gestión de pipeline y cadencias |
 | `api/abm-notify.js` | — | Shared helper for ABM notifications (imported by other handlers) |
-| `api/telegram.js` | `POST /api/telegram` | Webhook for public @treevubot Telegram bot |
+| `api/telegram.js` | `POST /api/vu-bot` | Webhook for public @treevubot Telegram bot |
 | `api/daily-summary.js` | `GET /api/daily-summary` | Cron — sends daily pipeline digest to Telegram |
 | `api/followup.js` | `GET /api/followup` | Cron — triggers follow-up sequences |
 | `api/calendly-webhook.js` | `POST /api/calendly-webhook` | Handles Calendly booking events |
@@ -37,7 +37,8 @@ The repo has two distinct runtime environments:
 | `api/sdr-agent.js` | `POST /api/sdr-agent` | SDR outbound — busca prospectos en LinkedIn vía Tavily, genera outreach con Claude, guarda en Notion |
 | `api/twitter-agent.js` | `POST /api/twitter-agent` | Genera/pulea tweets con Claude y los publica vía API de X |
 | `api/apollo-enricher.js` | `POST /api/apollo-enricher` | Enriquece leads SDR con email y teléfono usando Apollo |
-| `api/router.js` | `POST /api/router` | Unified Telegram webhook — dispatches to CEO vs ABM bot by chat_id |
+| `api/bot-router.js` | `POST /api/bot-router` | Unified Telegram webhook — dispatches to CEO/ABM/VU bot by pathname |
+| `api/setup-webhook.js` | `GET /api/setup-webhook` | Configura webhooks para CEO/ABM/VU bots |
 | `api/primera-reunion.js` | `POST /api/primera-reunion` | Pre/post-meeting automation — briefing generation, follow-up emails |
 | `api/pandadoc-webhook.js` | `POST /api/pandadoc-webhook` | Contract signature webhook → CRM status update |
 | `api/fathom-webhook.js` | `POST /api/fathom-webhook` | Call transcription (Fathom) → Notion update |
@@ -55,6 +56,15 @@ The repo has two distinct runtime environments:
 | `api/ceo-bot.js` | State machine Redis, keyboards inline, router de callbacks y comandos (~200 líneas) |
 | `api/lib/ceo-deal.js` | `generateProposal`, `sendToPandaDoc`, `triggerCierre`, `completarPostMeeting` |
 | `api/lib/ceo-commands.js` | `handleHelp`, `handlePipeline`, `handleFollowup`, `handleSDR`, `handleBriefing`, `handlePost`, `handleTweet`, `handleEnrich`, `handleQA` |
+
+## ABM Bot — Módulos
+
+`api/abm-bot.js` fue dividido en módulos para facilitar el mantenimiento:
+
+| Módulo | Responsabilidad |
+|--------|----------------|
+| `api/abm-bot.js` | State machine Redis, keyboards inline, router de callbacks y comandos |
+| `api/lib/abm-commands.js` | `handleHoy`, `handleManana`, `handleAgenda`, `handleMensaje`, `handlePipeline`, `handleHelp` |
 
 ## Data Flow
 
@@ -79,15 +89,16 @@ The repo has two distinct runtime environments:
 | `OPENCLAW_TOKEN` | all Claude calls via `api/lib/anthropic.js` (OpenClaw gateway) |
 | `ANTHROPIC_API_KEY` | unused — kept for legacy reference |
 | `NOTION_API_KEY` / `NOTION_TOKEN` | all API files |
-| `TELEGRAM_BOT_TOKEN` | `submit.js`, `lead.js`, `daily-summary.js`, `followup.js` |
-| `TELEGRAM_CHAT_ID` | `submit.js` (personal alerts) |
-| `TELEGRAM_ABM_CHAT_ID` | `lead.js`, `daily-summary.js`, `abm-bot.js` (ABM team channel) |
+| `TELEGRAM_CEO_BOT_TOKEN` | `ceo-bot.js` (CEO personal bot) |
+| `TELEGRAM_CEO_CHAT_ID` | `ceo-bot.js` (CEO personal chat) |
+| `TELEGRAM_ABM_BOT_TOKEN` | `abm-bot.js` (ABM team bot) |
+| `TELEGRAM_ABM_CHAT_ID` | `abm-bot.js` (ABM team chat) |
+| `TELEGRAM_VU_BOT_TOKEN` | `telegram.js` (@treevubot público) |
 | `LEAD_WEBHOOK_SECRET` | authenticates calls to `/api/lead` |
 | `CRON_SECRET` | allows manual trigger of cron endpoints |
 | `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` | Gmail draft creation in `submit.js` |
 | `GMAIL_FROM` | sender address (default: `hello@gettreevu.com`) |
 | `CALENDLY_TOKEN` | `calendly-webhook.js`, `setup-calendly.js`, `daily-summary.js` |
-| `TELEGRAM_VU_BOT_TOKEN` | `telegram.js` (@treevubot público — diferente al bot del CEO) |
 | `TAVILY_API_KEY` | `sdr-agent.js`, `primera-reunion.js` (búsqueda de prospectos y research de empresa) |
 | `APOLLO_API_KEY` | `apollo-enricher.js` (enriquecimiento de leads con email/teléfono) |
 | `PANDADOC_API_KEY` | `ceo-bot.js` → `ceo-deal.js` (firma electrónica de propuestas) |
@@ -97,6 +108,13 @@ The repo has two distinct runtime environments:
 | `PEXELS_API_KEY` | `lib/pexels.js` (imágenes para posts Instagram) |
 | `FATHOM_WEBHOOK_SECRET` | `fathom-webhook.js` (verificación de firma) |
 | `FIRECRAWL_API_KEY` | `lib/firecrawl.js` (scraping de sitios para briefings) |
+
+### Variables antiguas (deprecated)
+| Variable | Estado |
+|----------|--------|
+| `TELEGRAM_BOT_TOKEN` | Deprecated (reemplazado por TELEGRAM_CEO_BOT_TOKEN y TELEGRAM_ABM_BOT_TOKEN) |
+| `TELEGRAM_CHAT_ID` | Deprecated (reemplazado por TELEGRAM_CEO_CHAT_ID) |
+| `TELEGRAM_ABM_CHAT_ID` | Deprecated (reemplazado por TELEGRAM_ABM_CHAT_ID) |
 
 ### WhatsApp service (`whatsapp-service/`)
 | Variable | Purpose |

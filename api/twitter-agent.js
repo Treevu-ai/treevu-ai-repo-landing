@@ -10,6 +10,7 @@
 
 import { askClaude }   from './lib/anthropic.js';
 import { postTweet }   from './lib/twitter.js';
+import { TWITTER_DRAFT } from './lib/prompts.js';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -32,17 +33,7 @@ function weekTema() {
 async function generateDraft(rawText) {
   // Si hay texto del CEO → Claude lo pule para Twitter
   // Si no → Claude genera desde cero sobre el tema de la semana
-  const system =
-    `Eres el equipo de contenido de Treevü (startup B2B EWA, Perú).\n` +
-    `Producto: plataforma que permite a trabajadores retirar su salario ganado antes del día de pago, sin costo para ellos ni riesgo para la empresa.\n\n` +
-    `Reglas de tweet (siempre obligatorias):\n` +
-    `- Máximo 270 caracteres\n` +
-    `- Primera línea = gancho que detiene el scroll\n` +
-    `- Cierra con dato concreto o pregunta\n` +
-    `- Tono directo, peruano, B2B — audiencia: gerentes RRHH y CEOs de 200-2000 personas\n` +
-    `- Sin hashtags genéricos (#RRHH #Peru prohibidos)\n` +
-    `- Máximo 1 emoji si aporta\n` +
-    `- Responde SOLO con el texto del tweet, sin comillas ni explicaciones`;
+  const system = TWITTER_DRAFT;
 
   const userPrompt = rawText
     ? `Pule este tweet del CEO para que sea más directo, con gancho en la primera línea y cierre con una pregunta o dato concreto:\n\n"${rawText}"`
@@ -55,7 +46,12 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const auth = req.headers.authorization || '';
-  if (!auth.includes(CRON_SECRET)) return res.status(401).json({ error: 'Unauthorized' });
+  console.log('[twitter-agent] Auth recibido:', auth.substring(0, 20) + '...');
+  console.log('[twitter-agent] CRON_SECRET:', CRON_SECRET ? CRON_SECRET.substring(0, 20) + '...' : 'no configurada');
+  if (!auth.includes(CRON_SECRET)) {
+    console.error('[twitter-agent] Unauthorized - auth no incluye CRON_SECRET');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   const { action, text } = req.body || {};
 

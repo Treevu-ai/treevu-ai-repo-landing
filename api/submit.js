@@ -4,6 +4,8 @@ import { NOTION, SECTOR_MAP, OBJ_MAP, SCORE_EMOJI, checkEnvVars } from './lib/co
 checkEnvVars(['NOTION_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'LEAD_WEBHOOK_SECRET', 'OPENCLAW_TOKEN'], 'submit');
 import { sendMessage, escapeMd }            from './lib/telegram.js';
 import { askClaude }                        from './lib/anthropic.js';
+import { SCORING_LEADS }                    from './lib/prompts.js';
+import { calcRenuncias }                    from './lib/sector-intel.js';
 import { detectGender, calcScore } from './lib/validators.js';
 import { captureException }                 from './lib/sentry.js';
 import { getGmailToken, gmailDraft }        from './lib/gmail.js';
@@ -16,37 +18,6 @@ const TELEGRAM_CHAT_ID    = process.env.TELEGRAM_CHAT_ID;
 
 // ── Claude scoring ────────────────────────────────────────────────────────────
 async function scoreWithClaude({ nombre, empresa, sector, colaboradores, objetivo, problema }) {
-  const systemPrompt = `Eres el sistema de calificación de leads de Treevü, plataforma de acceso anticipado al salario con inteligencia predictiva de nómina para empresas en Perú.
-
-PRODUCTO:
-- Los colaboradores acceden a su propio salario antes del día de pago — S/ 0 costo para ellos, sin deuda
-- La empresa predice cuánto van a pedir con 30 días de anticipación (94% precisión) → reduce la reserva de caja hasta 45%
-- El adelanto se descuenta del siguiente pago — cero pasivo nuevo, cero riesgo financiero para la empresa
-- Treevü no toca los fondos: la empresa transfiere directo al colaborador vía Yape, Plin o CCE
-- Precio piloto: S/ 7/colaborador activo/mes meses 1-2, luego S/ 490/mes dashboard ML + S/ 7/usuario activo
-- ICP: empresas peruanas 100-5000 colaboradores, sectores retail/manufactura/banca/servicios/construcción/tecnología
-- Decisores objetivo: CFO, CEO, Directores RRHH — en ese orden de prioridad
-- Dolor CFO: reserva de caja sobredimensionada, flujo impredecible, costo de capital ocioso
-- Dolor CEO/RRHH: rotación laboral (S/ 8,000+ por reemplazo), estrés financiero del equipo, renuncias sorpresivas
-- Diferenciador: 5 modelos ML predictivos, alerta de renuncia 3 semanas antes, predicción de demanda a 30 días
-
-SCORING:
-- ALTO (prob > 65%): empresa 200-5000 colab + sector prioritario + objetivo rotación/bienestar + urgencia o detalle específico en el reto
-- MEDIO (prob 35-65%): empresa 100-500 colab + sector compatible + objetivo parcialmente alineado
-- BAJO (prob < 35%): empresa <100 colab o sector no prioritario o objetivo poco alineado al producto
-
-Si algún campo está vacío, en blanco o es "No especificado", aplica el criterio más conservador para ese factor — no inventes datos faltantes.
-
-Responde SOLO con JSON válido, sin texto ni markdown adicional:
-{
-  "score": "ALTO|MEDIO|BAJO",
-  "probabilidad": <número 0-100>,
-  "razon": "<1-2 oraciones con análisis concreto del lead>",
-  "accion": "<acción específica recomendada al equipo de ventas>",
-  "señales_positivas": ["<señal>"],
-  "señales_negativas": ["<señal>"],
-  "mensaje_personalizado": "<oración de apertura personalizada para el primer contacto>"
-}`;
 
   const userPrompt = `Lead a calificar:
 - Nombre y cargo: ${nombre}
@@ -57,7 +28,7 @@ Responde SOLO con JSON válido, sin texto ni markdown adicional:
 - Reto declarado: ${problema || 'No especificado'}`;
 
   try {
-    const raw = await askClaude(userPrompt, { system: systemPrompt, maxTokens: 380 });
+    const raw = await askClaude(userPrompt, { system: SCORING_LEADS, maxTokens: 380 });
     if (!raw) return null;
     const clean = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
     const parsed = JSON.parse(clean);
@@ -91,12 +62,8 @@ async function createGmailDraft({ nombre, email, empresa, sector, colaboradores,
     ? mensajePersonalizado
     : `Vi que ${empresa} opera en el sector ${SECTOR_MAP[sector] || sector} con ${colaboradores} colaboradores — un perfil donde Treevü genera impacto directo en retención y productividad.`;
 
-  const ROTACION_SECTOR = { retail: 0.20, manufactura: 0.18, construccion: 0.22, banca: 0.12, servicios: 0.15, salud: 0.16, tecnologia: 0.13, educacion: 0.14 };
-  const tasaRotacion    = ROTACION_SECTOR[sector] || 0.15;
-  const colabNum        = parseInt(colaboradores.split('-')[0].replace('+','')) || 200;
-  const rotacionEstimada = Math.round(colabNum * tasaRotacion);
-  const costoEstimado   = (rotacionEstimada * 8000).toLocaleString('es-PE');
-  const pctRotacion     = Math.round(tasaRotacion * 100);
+  const { renuncias: rotacionEstimada, tasa, costoStr: costoEstimado } = calcRenuncias(sector, colaboradores);
+  const pctRotacion = Math.round(tasa * 100);
 
   const bodyHtml = `
 <p>Hola ${primerNombre}, ${estimado}.</p>
@@ -160,7 +127,7 @@ async function handler(req, res) {
   }
 
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '';
-  const rl = checkRateLimit(ip);
+  const rl = await checkRateLimit(ip);
   if (!rl.allowed) {
     logRateLimit(ip, '/api/submit');
     res.setHeader('Retry-After', String(rl.retryAfter));

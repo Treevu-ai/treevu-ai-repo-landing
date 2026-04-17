@@ -1,5 +1,7 @@
 // api/lib/pexels.js — Busca imágenes en Pexels para Instagram
 
+import { fetchWithRetry } from './fetch-utils.js';
+
 const API_KEY = () => process.env.PEXELS_API_KEY;
 
 /**
@@ -18,9 +20,11 @@ export async function searchPhoto(query, orientation = 'portrait') {
     locale:      'es-ES',
   });
 
-  const res = await fetch(`https://api.pexels.com/v1/search?${params}`, {
-    headers: { 'Authorization': API_KEY() },
-  });
+  const res = await fetchWithRetry(
+    `https://api.pexels.com/v1/search?${params}`,
+    { headers: { 'Authorization': API_KEY() } },
+    { timeoutMs: 8_000 }
+  );
 
   if (!res.ok) return null;
 

@@ -6,6 +6,10 @@
 
 import { notionQuery, getProp } from './notion.js';
 import { askClaude }            from './anthropic.js';
+import {
+  PIPELINE_ACCIONES, CIERRE_VENTAS, OBJECION_RESPUESTA,
+  DEMO_SCRIPT, ROI_CALCULO, QA_PIPELINE,
+} from './prompts.js';
 import { redisCmd }             from './redis.js';
 import { postLinkedIn }         from './linkedin.js';
 import { postInstagram }        from './instagram.js';
@@ -13,8 +17,48 @@ import { searchPhoto, buildPhotoQuery } from './pexels.js';
 import { scrapeCompany }        from './firecrawl.js';
 import { NOTION }               from './constants.js';
 import { getSectorIntel }       from './sector-intel.js';
+import { escapeMd }             from './telegram.js';
+import { getPipelineSummary, getPipelineActions } from './pipeline.js';
 
 const CRON_SECRET = process.env.CRON_SECRET;
+
+// ── Personas y ángulos para variedad de contenido ────────────────────────────
+const PERSONAS = [
+  {
+    rol:      'CEO',
+    emoji:    '👔',
+    contexto: 'Escribís desde la mirada del CEO: visión estratégica, cultura organizacional, ventaja competitiva, retención del talento clave para el crecimiento del negocio.',
+    audiencia: 'CEOs y directores generales de empresas peruanas de 200–2000 colaboradores',
+    tono:     'visionario pero directo, con urgencia estratégica. Corto y contundente.',
+  },
+  {
+    rol:      'CFO',
+    emoji:    '💰',
+    contexto: 'Escribís desde la mirada del CFO: costo total de la rotación en S/, ROI del beneficio EWA, impacto en el flujo de caja de la empresa, eficiencia de nómina vs. adelantos informales.',
+    audiencia: 'CFOs, directores financieros y gerentes de administración de empresas peruanas medianas',
+    tono:     'analítico, orientado a datos. Números en S/ cuando sea posible. Riguroso pero accesible.',
+  },
+  {
+    rol:      'CHRO',
+    emoji:    '🧑‍🤝‍🧑',
+    contexto: 'Escribís desde la mirada del CHRO o Gerente de RRHH: bienestar financiero del colaborador, engagement, clima laboral, people analytics, retención y reducción de rotación.',
+    audiencia: 'directores y gerentes de Recursos Humanos de empresas peruanas medianas',
+    tono:     'empático y cercano, con datos de respaldo. Voz humana, no corporativa.',
+  },
+];
+
+const ANGULOS = [
+  'estadística + implicancia práctica que el lector no esperaba',
+  'historia real de una empresa (sin nombrarla) + la lección que aprendieron',
+  'afirmación contrarian que rompe un mito muy extendido en el sector',
+  'pregunta incómoda que el lector debería hacerse pero evita',
+  'comparación concreta: antes y después de implementar EWA en una empresa similar',
+];
+
+function pickPersona(weekNum, dayNum, forzada) {
+  if (forzada) return PERSONAS.find(p => p.rol.toLowerCase() === forzada) || PERSONAS[0];
+  return PERSONAS[(weekNum + Math.floor(dayNum / 2)) % PERSONAS.length];
+}
 
 // ── /help ────────────────────────────────────────────────────────────────────
 export async function handleHelp(chatId, send) {
@@ -37,7 +81,8 @@ export async function handleHelp(chatId, send) {
     `🧠 /cto <pregunta> — CTO Virtual: Piloto vs API, tiempos, arquitectura\n` +
     `   _/cto reset — limpia el contexto_\n\n` +
     `*Contenido:*\n` +
-    `📲 /post [linkedin|instagram] — genera post algoritmo-aware\n` +
+    `📲 /post [linkedin|instagram] [ceo|cfo|chro] — genera post algoritmo-aware\n` +
+    `   _Ej: /post linkedin cfo · /post instagram chro · /post ceo_\n` +
     `🐦 /tweet [texto] — genera o pule un tweet con confirmación\n\n` +
     `*Modo Q&A:*\nEscribí cualquier pregunta sobre el pipeline y te respondo con contexto real del CRM.\n` +
     `_Ej: "¿qué leads están calientes?" · "¿cuántos deals en propuesta?"_`,
@@ -49,67 +94,16 @@ export async function handleHelp(chatId, send) {
 export async function handlePipeline(chatId, send) {
   await send(chatId, '_Consultando pipeline en Notion..._');
 
-  const ESTADO_EMOJI = { Nuevo: '🔵', Contactado: '🟡', Reunion: '🟠', Propuesta: '🔴', Cerrado: '✅' };
-  let pages = [];
   try {
-    const res = await notionQuery(NOTION.CRM_DB, {
-      property: 'Estado',
-      select: { does_not_equal: 'Descartado' },
-    }, 100, [{ property: 'Estado', direction: 'ascending' }]);
-    pages = res.results || [];
+    const msg = await getPipelineSummary({ showDetails: true, showActions: false });
+    await send(chatId, msg, { parse_mode: 'Markdown' });
+
+    // Acciones IA
+    const acciones = await getPipelineActions();
+    if (acciones) await send(chatId, acciones, { parse_mode: 'Markdown' });
   } catch (err) {
     await send(chatId, `❌ Error consultando Notion: ${err.message}`);
-    return;
   }
-
-  const grupos = {};
-  for (const p of pages) {
-    const estado = getProp(p, 'Estado') || 'Sin estado';
-    if (!grupos[estado]) grupos[estado] = [];
-    grupos[estado].push(p);
-  }
-
-  const ordenEstados = ['Nuevo', 'Contactado', 'Reunion', 'Propuesta', 'Cerrado'];
-  const total = pages.length;
-  let msg = `*Pipeline Treevü* 📊\n_${total} lead${total !== 1 ? 's' : ''} activos_\n\n`;
-
-  for (const estado of ordenEstados) {
-    const items = grupos[estado] || [];
-    if (!items.length) continue;
-    const emoji = ESTADO_EMOJI[estado] || '•';
-    msg += `${emoji} *${estado}* (${items.length})\n`;
-    items.slice(0, 3).forEach(p => {
-      const empresa    = getProp(p, 'Empresa') || getProp(p, 'Name') || '—';
-      const score      = getProp(p, 'Score')   || '';
-      const scoreEmoji = score === 'ALTO' ? '🔥' : score === 'MEDIO' ? '🟡' : '';
-      msg += `   ${scoreEmoji} ${empresa}\n`;
-    });
-    if (items.length > 3) msg += `   _...y ${items.length - 3} más_\n`;
-    msg += '\n';
-  }
-
-  for (const [estado, items] of Object.entries(grupos)) {
-    if (!ordenEstados.includes(estado)) msg += `• *${estado}* (${items.length})\n`;
-  }
-
-  await send(chatId, msg, { parse_mode: 'Markdown' });
-
-  // Acciones IA
-  try {
-    const resumen = pages.map(p => {
-      const empresa = getProp(p, 'Empresa') || getProp(p, 'Name') || '—';
-      const estado  = getProp(p, 'Estado')  || '—';
-      const score   = getProp(p, 'Score')   || '—';
-      const dias    = Math.floor((Date.now() - new Date(p.last_edited_time)) / 864e5);
-      return `${empresa} | ${estado} | Score:${score} | ${dias}d sin actividad`;
-    }).join('\n');
-
-    const acciones = await askClaude(resumen, {
-      system: `Eres el asesor de ventas del CEO de Treevü (EWA B2B, Perú). Analizás el pipeline y decís exactamente qué hacer hoy para avanzar deals. Sé directo y específico — nombra empresas reales del pipeline. Formato: 3 bullets numerados, máx 15 palabras cada uno.`,
-      maxTokens: 150,
-    });
-    if (acciones) await send(chatId, `*🎯 3 acciones para hoy:*\n${acciones}`, { parse_mode: 'Markdown' });
-  } catch { /* skip si Claude falla */ }
 }
 
 // ── /followup ─────────────────────────────────────────────────────────────────
@@ -289,9 +283,12 @@ _[Qué hace la empresa en 1 línea]_
 }
 
 // ── /post ────────────────────────────────────────────────────────────────────
-export async function handlePost(chatId, platform, send, edit) {
+export async function handlePost(chatId, platform, personaArg, send, edit) {
+  console.log('[ceo-commands/post] Iniciando handlePost', { chatId, platform, personaArg });
   const now     = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
   const weekNum = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 864e5));
+  const dayNum  = now.getDay();
+  console.log('[ceo-commands/post] Fecha calculada', { now, weekNum, dayNum });
 
   const TEMAS_LI = [
     'el costo real de tener dinero parado en la reserva de nómina',
@@ -303,12 +300,36 @@ export async function handlePost(chatId, platform, send, edit) {
     'acceso anticipado al salario: la decisión que cambia dos estados financieros',
     'casos reales: empresas que redujeron renuncias y optimizaron su caja a la vez',
   ];
-  const tema = TEMAS_LI[weekNum % TEMAS_LI.length];
+  const tema    = TEMAS_LI[weekNum % TEMAS_LI.length];
+  const persona = pickPersona(weekNum, dayNum, personaArg);
+  const angulo  = ANGULOS[(weekNum * 2 + dayNum) % ANGULOS.length];
 
-  const genLinkedIn = () => askClaude(
-    `Eres el equipo de contenido de Treevü, startup B2B de EWA en Perú.\n\nEscribe un post de LinkedIn sobre: "${tema}"\n\nREGLAS (obligatorias):\n- Primera línea = gancho. Dato concreto, pregunta incómoda o afirmación contrarian.\n- Salto de línea cada 1-2 oraciones.\n- Números reales: %, S/, días.\n- Ángulo insider: "lo que nadie dice sobre...", "lo aprendí con X empresas..."\n- Cierra con UNA pregunta abierta.\n- Sin links en el cuerpo. Sin hashtags genéricos. Máx 3 hashtags nicho.\n- 150-250 palabras. Tono experto pero humano.\n\nDevuelve SOLO el texto del post.`,
-    { maxTokens: 400 }
-  );
+  const genLinkedIn = () => {
+    console.log('[ceo-commands/post] genLinkedIn iniciando');
+    return askClaude(
+      `Escribe un post de LinkedIn sobre: ${tema}
+
+Perspectiva: ${persona.rol}
+Tono: ${persona.tono}
+
+REGLAS:
+- Máximo 150 palabras
+- Primera línea = gancho impactante
+- Salto de línea cada 1-2 oraciones
+- Cierra con 1 pregunta abierta
+- Sin links en el cuerpo
+- Máximo 3 hashtags nicho al final
+
+Devuelve SOLO el texto del post.`,
+      { maxTokens: 300 }
+    ).then(result => {
+      console.log('[ceo-commands/post] genLinkedIn completado, longitud:', result?.length || 0);
+      return result;
+    }).catch(err => {
+      console.error('[ceo-commands/post] genLinkedIn error:', err);
+      throw err;
+    });
+  };
 
   const genInstagram = (tipo) => {
     if (tipo === 'carousel') {
@@ -326,49 +347,72 @@ export async function handlePost(chatId, platform, send, edit) {
   const doLinkedIn = !platform || platform === 'linkedin' || platform === 'li';
   const doIG       = !platform || platform === 'instagram' || platform === 'ig';
   const igTipo     = now.getDay() === 3 ? 'reel' : 'carousel';
+  console.log('[ceo-commands/post] Plataformas', { doLinkedIn, doIG, igTipo });
 
   await send(chatId, `_✍️ Generando contenido${doLinkedIn && doIG ? ' para LinkedIn e Instagram' : doLinkedIn ? ' para LinkedIn' : ' para Instagram'}..._`);
+  console.log('[ceo-commands/post] Mensaje de "generando" enviado');
 
-  if (doLinkedIn) {
-    const li = await genLinkedIn().catch(() => null);
-    if (li) {
-      const key = `li:draft:${chatId}:${Date.now()}`;
-      await redisCmd('SET', key, li, 'EX', 300);
-      await send(chatId,
-        `💼 *LinkedIn — draft listo*\n_Tema: ${tema}_\n\n${li}\n\n💡 _El link va en el primer comentario._`,
-        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[
-          { text: '✅ Publicar en LinkedIn', callback_data: `li_ok:${key}` },
-          { text: '📋 Solo copiar',          callback_data: 'li_cancel' },
-        ]] } }
-      );
+  try {
+    if (doLinkedIn) {
+      console.log('[ceo-commands/post] Generando LinkedIn...');
+      const li = await genLinkedIn().catch(err => {
+        console.error('[ceo-commands/post] genLinkedIn error:', err);
+        return null;
+      });
+      if (li) {
+        const key = `li:draft:${chatId}:${Date.now()}`;
+        await redisCmd('SET', key, li, 'EX', 300);
+        // Escapar backticks en el contenido para evitar romper el bloque de código
+        const liEscapado = li.replace(/`/g, "'");
+        await send(chatId,
+          `💼 *LinkedIn — draft listo* _(${persona.rol} ${persona.emoji})_\n_Tema: ${tema}_\n\n\`\`\`\n${liEscapado}\n\`\`\`\n\n💡 _El link va en el primer comentario._`,
+          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[
+            { text: '✅ Publicar en LinkedIn', callback_data: `li_ok:${key}` },
+            { text: '📋 Solo copiar',          callback_data: 'li_cancel' },
+          ]] } }
+        );
+      } else {
+        console.error('[ceo-commands/post] genLinkedIn retornó null');
+        await send(chatId, '❌ Error generando el post de LinkedIn. Intentá de nuevo.');
+      }
     }
-  }
 
-  if (doIG) {
-    const ig = await genInstagram(igTipo).catch(() => null);
-    if (ig) {
-      const label = igTipo === 'carousel' ? '🖼 Carrusel Instagram' : '🎬 Reel Instagram';
-      if (igTipo === 'carousel') {
-        const photo = await searchPhoto(buildPhotoQuery(tema)).catch(() => null);
-        if (photo) {
-          const captionMatch = ig.match(/Caption:\s*(.+?)(?:\n|$)/s);
-          const caption = captionMatch ? captionMatch[1].trim() : ig.slice(0, 500);
-          const igKey   = `ig:draft:${chatId}:${Date.now()}`;
-          await redisCmd('SET', igKey, JSON.stringify({ imageUrl: photo.url, caption }), 'EX', 300);
-          await send(chatId,
-            `${label} — *draft listo*\n\n🖼 Imagen: [ver foto](${photo.pageUrl}) _(${photo.photographer})_\n\n📝 Caption:\n${caption.slice(0, 400)}`,
-            { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[
-              { text: '✅ Publicar en Instagram', callback_data: `ig_ok:${igKey}` },
-              { text: '📋 Solo copiar',           callback_data: 'ig_cancel' },
-            ]] } }
-          );
+    if (doIG) {
+      console.log('[ceo-commands/post] Generando Instagram...');
+      const ig = await genInstagram(igTipo).catch(err => {
+        console.error('[ceo-commands/post] genInstagram error:', err);
+        return null;
+      });
+      if (ig) {
+        const label = igTipo === 'carousel' ? '🖼 Carrusel Instagram' : '🎬 Reel Instagram';
+        if (igTipo === 'carousel') {
+          const photo = await searchPhoto(buildPhotoQuery(tema)).catch(() => null);
+          if (photo) {
+            const captionMatch = ig.match(/Caption:\s*(.+?)(?:\n|$)/s);
+            const caption = captionMatch ? captionMatch[1].trim() : ig.slice(0, 500);
+            const igKey   = `ig:draft:${chatId}:${Date.now()}`;
+            await redisCmd('SET', igKey, JSON.stringify({ imageUrl: photo.url, caption }), 'EX', 300);
+            await send(chatId,
+              `${label} — *draft listo*\n\n🖼 Imagen: [ver foto](${photo.pageUrl}) _(${photo.photographer})_\n\n📝 Caption:\n${caption.slice(0, 400)}`,
+              { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[
+                { text: '✅ Publicar en Instagram', callback_data: `ig_ok:${igKey}` },
+                { text: '📋 Solo copiar',           callback_data: 'ig_cancel' },
+              ]] } }
+            );
+          } else {
+            await send(chatId, `${label} — *guión listo*\n\n${ig}`, { parse_mode: 'Markdown' });
+          }
         } else {
           await send(chatId, `${label} — *guión listo*\n\n${ig}`, { parse_mode: 'Markdown' });
         }
       } else {
-        await send(chatId, `${label} — *guión listo*\n\n${ig}`, { parse_mode: 'Markdown' });
+        console.error('[ceo-commands/post] genInstagram retornó null');
+        await send(chatId, '❌ Error generando el contenido de Instagram. Intentá de nuevo.');
       }
     }
+  } catch (err) {
+    console.error('[ceo-commands/post] Error inesperado:', err);
+    await send(chatId, `❌ Error inesperado: ${err.message}`);
   }
 }
 
@@ -469,8 +513,7 @@ export async function handleCierre(chatId, empresa, send) {
 
   const intel = crmData ? getSectorIntel(crmData.sector, crmData.colaboradores) : getSectorIntel('—', '100');
 
-  const system = `Eres el asesor de ventas del CEO de Treevü (EWA B2B para empresas peruanas).
-Generás mensajes de cierre personalizados, concisos y de alto impacto. Tono: profesional, directo, sin presión. Perú B2B.`;
+  const system = CIERRE_VENTAS;
 
   const user = `Empresa: ${empresa}
 ${crmData ? `Sector: ${crmData.sector} | Colaboradores: ${crmData.colaboradores} | Dolor registrado: ${crmData.dolor}` : ''}
@@ -501,9 +544,7 @@ export async function handleObjecion(chatId, texto, send) {
 
   await send(chatId, '_🧠 Analizando objeción..._');
 
-  const system = `Eres el asesor de ventas del CEO de Treevü (EWA B2B para empresas peruanas).
-Das respuestas a objeciones de prospectos. Tono: empático, consultivo, nunca agresivo. Perú B2B.
-Contexto: Treevü es EWA — el colaborador retira su salario devengado, no es préstamo. La empresa no adelanta fondos. Costo S/ 7/activo/mes.`;
+  const system = OBJECION_RESPUESTA;
 
   const user = `Objeción del prospecto: "${texto}"
 
@@ -548,8 +589,7 @@ export async function handleDemo(chatId, empresa, send) {
 
   const intel = crmData ? getSectorIntel(crmData.sector, crmData.colaboradores) : getSectorIntel('—', '100');
 
-  const system = `Eres el asesor de ventas del CEO de Treevü (EWA B2B para empresas peruanas).
-Generás scripts de demo personalizados. Tono conversacional — guía práctica para el CEO durante la reunión.`;
+  const system = DEMO_SCRIPT;
 
   const user = `Empresa: ${empresa}
 ${crmData ? `Sector: ${crmData.sector} | Colaboradores: ${crmData.colaboradores} | Decisor: ${crmData.contacto} | Dolor: ${crmData.dolor}` : ''}
@@ -613,8 +653,7 @@ export async function handleROI(chatId, empresa, send) {
   const ahorroAnual = intel.renuncias * 8000;
   const roi         = costoAnual > 0 ? Math.round((ahorroAnual - costoAnual) / costoAnual * 100) : 0;
 
-  const system = `Eres el asesor financiero del CEO de Treevü (EWA B2B para empresas peruanas).
-Presentás el ROI de forma clara para un CFO o CEO. Usás los números exactos que te dan. Sin exagerar.`;
+  const system = ROI_CALCULO;
 
   const user = `Empresa: ${empresa} | Sector: ${sector} | Colaboradores: ${colabs}
 Rotación del sector: ${intel.rotacion}
@@ -673,10 +712,7 @@ export async function handleQA(chatId, pregunta, send) {
     contexto = '(no se pudo obtener el pipeline)';
   }
 
-  const system = `Eres el asesor de ventas del CEO de Treevü, startup EWA peruana B2B. El CEO te hace preguntas sobre su pipeline.
-Responde de forma directa, concisa y accionable. Usa bullet points cuando ayude. Máximo 5 líneas.
-Pipeline actual:
-${contexto}`;
+  const system = QA_PIPELINE(contexto);
 
   const respuesta = await askClaude(pregunta, { system, maxTokens: 400 });
   await send(chatId, respuesta || '❌ No pude procesar tu pregunta. Intentá de nuevo.');

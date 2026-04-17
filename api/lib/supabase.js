@@ -94,6 +94,48 @@ export async function supabaseUpsert(table, row, onConflict = 'email') {
   }
 }
 
+// Select rows with optional filters. filters: [{ column, op, value }]
+// op: eq | neq | lt | lte | gt | gte | like | ilike | is
+export async function supabaseSelect(table, { filters = [], columns = '*', limit = 100, order } = {}) {
+  if (!isConfigured()) return [];
+  try {
+    const params = new URLSearchParams({ select: columns });
+    for (const { column, op, value } of filters) {
+      params.append(`${column}`, `${op}.${value}`);
+    }
+    if (limit)  params.append('limit', limit);
+    if (order)  params.append('order', order);
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+      headers: headers('return=representation'),
+    });
+    if (!res.ok) {
+      console.error(`[supabase] select ${table} ${res.status}:`, await res.text());
+      return [];
+    }
+    return res.json();
+  } catch (err) {
+    console.error(`[supabase] select ${table}:`, err.message);
+    return [];
+  }
+}
+
+// Count rows matching a filter. Returns number.
+export async function supabaseCount(table, filters = []) {
+  if (!isConfigured()) return 0;
+  try {
+    const params = new URLSearchParams({ select: 'id' });
+    for (const { column, op, value } of filters) params.append(`${column}`, `${op}.${value}`);
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+      headers: { ...headers('return=representation'), 'Prefer': 'count=exact' },
+    });
+    const count = parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
+    return isNaN(count) ? 0 : count;
+  } catch (err) {
+    console.error(`[supabase] count ${table}:`, err.message);
+    return 0;
+  }
+}
+
 // Patch (update) rows matching a filter. filter: { column, value }
 export async function supabasePatch(table, filter, updates) {
   if (!isConfigured()) return null;

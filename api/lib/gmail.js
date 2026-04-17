@@ -1,5 +1,7 @@
 // api/lib/gmail.js — Gmail OAuth2 + send/draft centralizado
 
+import { fetchWithTimeout, fetchWithRetry } from './fetch-utils.js';
+
 const GMAIL_FROM = process.env.GMAIL_FROM || 'hello@gettreevu.com';
 
 export async function getGmailToken() {
@@ -8,14 +10,11 @@ export async function getGmailToken() {
   const ref = process.env.GMAIL_REFRESH_TOKEN;
   if (!id || !sec || !ref) return null;
   try {
-    const res = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: id, client_secret: sec,
-        refresh_token: ref, grant_type: 'refresh_token',
-      }),
-    });
+    const res = await fetchWithRetry(
+      'https://oauth2.googleapis.com/token',
+      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: id, client_secret: sec, refresh_token: ref, grant_type: 'refresh_token' }) },
+      { timeoutMs: 8_000 }
+    );
     if (!res.ok) return null;
     const { access_token } = await res.json();
     return access_token;
@@ -35,11 +34,11 @@ function buildMime({ to, subject, bodyHtml }) {
 export async function gmailSend(token, { to, subject, bodyHtml }) {
   if (!token || !to) return null;
   try {
-    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw: buildMime({ to, subject, bodyHtml }) }),
-    });
+    const res = await fetchWithTimeout(
+      'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+      { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: buildMime({ to, subject, bodyHtml }) }) },
+      12_000
+    );
     if (!res.ok) { console.error('[gmail] send error:', await res.text()); return null; }
     const msg = await res.json();
     console.log(`[gmail] sent OK: ${msg.id}`);
@@ -50,11 +49,11 @@ export async function gmailSend(token, { to, subject, bodyHtml }) {
 export async function gmailDraft(token, { to, subject, bodyHtml }) {
   if (!token || !to) return null;
   try {
-    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: { raw: buildMime({ to, subject, bodyHtml }) } }),
-    });
+    const res = await fetchWithTimeout(
+      'https://gmail.googleapis.com/gmail/v1/users/me/drafts',
+      { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: { raw: buildMime({ to, subject, bodyHtml }) } }) },
+      12_000
+    );
     if (!res.ok) { console.error('[gmail] draft error:', await res.text()); return null; }
     const draft = await res.json();
     console.log(`[gmail] draft OK: ${draft.id}`);

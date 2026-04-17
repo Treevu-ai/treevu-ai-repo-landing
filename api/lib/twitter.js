@@ -1,6 +1,7 @@
 // api/lib/twitter.js — Twitter API v2 helper con OAuth 1.0a
 
 import crypto from 'crypto';
+import { fetchWithTimeout } from './fetch-utils.js';
 
 const API_KEY    = () => process.env.TWITTER_API_KEY;
 const API_SECRET = () => process.env.TWITTER_API_SECRET;
@@ -69,14 +70,11 @@ export async function postTweet(text) {
   const body   = { text };
   const auth   = buildAuthHeader('POST', url, {}); // Twitter v2 usa JSON body, no form params en firma
 
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: {
-      'Authorization': auth,
-      'Content-Type':  'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  const res = await fetchWithTimeout(
+    url,
+    { method: 'POST', headers: { 'Authorization': auth, 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    12_000
+  );
 
   if (!res.ok) {
     const err = await res.text();

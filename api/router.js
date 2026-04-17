@@ -24,9 +24,13 @@ export default async function handler(req, res) {
     ''
   );
 
+  console.log('[router] Mensaje recibido', { chatId, CEO_CHAT_ID, isCEO: chatId === String(CEO_CHAT_ID) });
+
   if (chatId && chatId === String(CEO_CHAT_ID)) {
+    console.log('[router] Despachando a ceo-bot.js');
     return ceoHandler(req, res);
   }
 
+  console.log('[router] Despachando a abm-bot.js');
   return abmHandler(req, res);
 }

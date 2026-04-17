@@ -8,7 +8,7 @@ import { detectGender }                                                       fr
 import { tg as _tg, sendMessage as _sendMsg, answerCallback as _answerCb,
          editMessage as _editMsg, sendTyping as _sendTyping }                 from './lib/telegram.js';
 import { askClaude as _askClaudeLib }                                         from './lib/anthropic.js';
-import { PROGRAMA, checkEnvVars }                                             from './lib/constants.js';
+import { PROGRAMA, CONFIG, checkEnvVars }                                     from './lib/constants.js';
 import { estimarCostoRotacion, feedbackTamano, feedbackObjetivo,
          calcIcpScore, shouldShowCTA }                                        from './lib/telegram-utils.js';
 
@@ -16,7 +16,7 @@ checkEnvVars(['TELEGRAM_VU_BOT_TOKEN', 'LEAD_WEBHOOK_SECRET'], 'telegram-bot');
 import { captureException }                                                   from './lib/sentry.js';
 import { redisCmd }                                                           from './lib/redis.js';
 
-const BOT_TOKEN      = process.env.TELEGRAM_VU_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+const BOT_TOKEN      = CONFIG.TELEGRAM_VU_BOT_TOKEN;
 const WEBHOOK_SECRET = process.env.LEAD_WEBHOOK_SECRET;
 const FUNNEL_URL     = 'https://gettreevu.com/api/lead';
 

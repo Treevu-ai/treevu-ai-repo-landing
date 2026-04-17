@@ -2,11 +2,11 @@
 
 import { NOTION } from './constants.js';
 
-const NOTION_HEADERS = () => ({
+const NOTION_HEADERS = {
   'Authorization':  `Bearer ${NOTION.TOKEN}`,
   'Content-Type':   'application/json',
   'Notion-Version': '2022-06-28',
-});
+};
 
 // Retry con backoff exponencial para 429 y 5xx
 // Delays: 500ms → 1500ms (max 2 reintentos adicionales = 3 intentos total)
@@ -72,7 +72,7 @@ export async function notionQuery(dbId, filter, pageSize = 100, sorts = null, st
   if (startCursor) body.start_cursor = startCursor;
   const res = await fetchWithRetry(`https://api.notion.com/v1/databases/${dbId}/query`, {
     method:  'POST',
-    headers: NOTION_HEADERS(),
+    headers: NOTION_HEADERS,
     body:    JSON.stringify(body),
   });
   return res.json();
@@ -82,7 +82,7 @@ export async function notionQuery(dbId, filter, pageSize = 100, sorts = null, st
 export async function notionPatch(pageId, properties) {
   const res = await fetchWithRetry(`https://api.notion.com/v1/pages/${pageId}`, {
     method:  'PATCH',
-    headers: NOTION_HEADERS(),
+    headers: NOTION_HEADERS,
     body:    JSON.stringify({ properties }),
   });
   return res.json();
@@ -91,7 +91,7 @@ export async function notionPatch(pageId, properties) {
 // Obtiene una página por su ID
 export async function getNotionPage(pageId) {
   const res = await fetchWithRetry(`https://api.notion.com/v1/pages/${pageId}`, {
-    headers: NOTION_HEADERS(),
+    headers: NOTION_HEADERS,
   });
   return res.json();
 }
@@ -100,7 +100,7 @@ export async function getNotionPage(pageId) {
 export async function notionCreate(dbId, properties) {
   const res = await fetchWithRetry('https://api.notion.com/v1/pages', {
     method:  'POST',
-    headers: NOTION_HEADERS(),
+    headers: NOTION_HEADERS,
     body:    JSON.stringify({ parent: { database_id: dbId }, properties }),
   });
   return res.json();

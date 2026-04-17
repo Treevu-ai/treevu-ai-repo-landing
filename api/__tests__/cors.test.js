@@ -8,33 +8,34 @@ let testIpCounter = 0;
 function freshIp() { return `10.0.test.${++testIpCounter}`; }
 
 // ── checkRateLimit ────────────────────────────────────────────────────────────
-test('checkRateLimit: permite las primeras N peticiones', () => {
+// Redis no está configurado en tests → usa fallback en memoria automáticamente.
+test('checkRateLimit: permite las primeras N peticiones', async () => {
   const ip = freshIp();
-  const r1 = checkRateLimit(ip);
+  const r1 = await checkRateLimit(ip);
   assert.ok(r1.allowed);
   assert.equal(r1.remaining, 9);
 });
 
-test('checkRateLimit: bloquea cuando se supera el límite', () => {
+test('checkRateLimit: bloquea cuando se supera el límite', async () => {
   const ip = freshIp();
-  for (let i = 0; i < 10; i++) checkRateLimit(ip);
-  const blocked = checkRateLimit(ip);
+  for (let i = 0; i < 10; i++) await checkRateLimit(ip);
+  const blocked = await checkRateLimit(ip);
   assert.equal(blocked.allowed,    false);
   assert.equal(blocked.remaining,  0);
   assert.ok(blocked.retryAfter > 0);
 });
 
-test('checkRateLimit: IPs distintas no se afectan entre sí', () => {
+test('checkRateLimit: IPs distintas no se afectan entre sí', async () => {
   const ip1 = freshIp();
   const ip2 = freshIp();
-  for (let i = 0; i < 10; i++) checkRateLimit(ip1);
-  const r = checkRateLimit(ip2);
+  for (let i = 0; i < 10; i++) await checkRateLimit(ip1);
+  const r = await checkRateLimit(ip2);
   assert.ok(r.allowed, 'ip2 no debe verse afectada por ip1');
 });
 
-test('checkRateLimit: ip vacía no lanza error', () => {
-  assert.doesNotThrow(() => checkRateLimit(''));
-  assert.doesNotThrow(() => checkRateLimit(null));
+test('checkRateLimit: ip vacía no lanza error', async () => {
+  await assert.doesNotReject(() => checkRateLimit(''));
+  await assert.doesNotReject(() => checkRateLimit(null));
 });
 
 // ── isOriginAllowed ───────────────────────────────────────────────────────────

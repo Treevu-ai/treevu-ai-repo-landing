@@ -21,6 +21,7 @@ import { NOTION, SECTOR_MAP }                          from './lib/constants.js'
 import { notionCreate, notionQuery, getProp }           from './lib/notion.js';
 import { sendMessage }                                  from './lib/telegram.js';
 import { askClaude }                                    from './lib/anthropic.js';
+import { OUTREACH_LINKEDIN }                            from './lib/prompts.js';
 import { redisCmd }                                     from './lib/redis.js';
 
 const TAVILY_KEY     = process.env.TAVILY_API_KEY;
@@ -235,18 +236,7 @@ async function generateOutreach(lead, strategy = 'intro') {
   const firstName   = (name || 'equipo').split(/[\s,]+/)[0];
   const strat       = STRATEGIES[strategy] || STRATEGIES.intro;
 
-  const system =
-    `Eres el equipo de ventas de Treevü (Perú). Redactas mensajes de outreach en LinkedIn.\n` +
-    `Producto: plataforma que permite a los colaboradores acceder a su propio salario antes del día de pago — S/ 0 costo para ellos, cero riesgo para la empresa.\n` +
-    `Dos ángulos según el rol del prospecto: si es CFO/Finanzas → "predice la caja 30 días antes, reduce la reserva hasta 45%"; si es RRHH/CEO → "renuncias por estrés financiero −40%, alertas de rotación 3 semanas antes".\n\n` +
-    `Estrategia activa (${strat.label}): ${strat.instruction}\n\n` +
-    `Reglas de formato (siempre):\n` +
-    `- Máximo 4 líneas en total\n` +
-    `- Tono directo y humano, no corporativo\n` +
-    `- Sin emojis ni saludos formales como "Estimado"\n` +
-    `- Español peruano natural\n` +
-    `- No repitas información obvia del perfil\n` +
-    `- Responde SOLO con el mensaje, sin etiquetas ni explicaciones`;
+  const system = OUTREACH_LINKEDIN(strat);
 
   const userPrompt =
     `Prospecto: ${firstName}, ${role || 'líder'} de ${company || 'la empresa'}\n` +

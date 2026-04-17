@@ -3,6 +3,8 @@
 // n8n maneja el OAuth de Instagram. Treevu solo envía { imageUrl, caption }.
 // Webhook URL → Vercel env var: N8N_INSTAGRAM_WEBHOOK
 
+import { fetchWithTimeout } from './fetch-utils.js';
+
 /**
  * Publica una imagen en Instagram enviando los datos al workflow de n8n.
  * @param {string} imageUrl — URL pública de la imagen (Pexels)
@@ -13,11 +15,11 @@ export async function postInstagram(imageUrl, caption) {
   const webhookUrl = process.env.N8N_INSTAGRAM_WEBHOOK;
   if (!webhookUrl) throw new Error('N8N_INSTAGRAM_WEBHOOK no configurado en Vercel');
 
-  const res = await fetch(webhookUrl, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ imageUrl, caption }),
-  });
+  const res = await fetchWithTimeout(
+    webhookUrl,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl, caption }) },
+    15_000
+  );
 
   if (!res.ok) {
     const err = await res.text();

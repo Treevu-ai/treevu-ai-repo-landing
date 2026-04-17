@@ -1,5 +1,7 @@
 // api/lib/linkedin.js — LinkedIn Posts API v2 helper
 
+import { fetchWithTimeout } from './fetch-utils.js';
+
 const TOKEN  = () => process.env.LINKEDIN_ACCESS_TOKEN;
 const AUTHOR = () => process.env.LINKEDIN_AUTHOR_URN; // urn:li:organization:xxx o urn:li:person:xxx
 
@@ -25,16 +27,20 @@ export async function postLinkedIn(text) {
     isReshareDisabledByAuthor:   false,
   };
 
-  const res = await fetch('https://api.linkedin.com/rest/posts', {
-    method:  'POST',
-    headers: {
-      'Authorization':              `Bearer ${TOKEN()}`,
-      'Content-Type':               'application/json',
-      'X-Restli-Protocol-Version':  '2.0.0',
-      'LinkedIn-Version':           '202504',
+  const res = await fetchWithTimeout(
+    'https://api.linkedin.com/rest/posts',
+    {
+      method:  'POST',
+      headers: {
+        'Authorization':             `Bearer ${TOKEN()}`,
+        'Content-Type':              'application/json',
+        'X-Restli-Protocol-Version': '2.0.0',
+        'LinkedIn-Version':          '202504',
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    12_000
+  );
 
   if (!res.ok) {
     const err = await res.text();

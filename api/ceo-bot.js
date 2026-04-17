@@ -1,4 +1,4 @@
-// api/ceo-bot.js — Bot interno CEO (TELEGRAM_BOT_TOKEN)
+// api/ceo-bot.js — Bot interno CEO (TELEGRAM_CEO_BOT_TOKEN)
 //
 // Responsabilidades de este archivo:
 //   - State machine del flujo post-reunión (Redis)
@@ -11,9 +11,11 @@
 
 import { sendMessage, answerCallback, editMessage } from './lib/telegram.js';
 import { redisCmd }                                  from './lib/redis.js';
-import { NOTION, ESTADO_EMOJI, checkEnvVars }         from './lib/constants.js';
+import { NOTION, ESTADO_EMOJI, CONFIG, checkEnvVars } from './lib/constants.js';
+import { getState as _getState, setState as _setState, clearState as _clearState } from './lib/state.js';
+import { kbSiguiente, kbInteres, kbPropuesta } from './lib/telegram-keyboards.js';
 
-checkEnvVars(['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'CRON_SECRET'], 'ceo-bot');
+checkEnvVars(['TELEGRAM_CEO_BOT_TOKEN', 'TELEGRAM_CEO_CHAT_ID', 'CRON_SECRET'], 'ceo-bot');
 import { handleCTO, clearCTOContext }                from './cto-bot.js';
 import { postLinkedIn }                              from './lib/linkedin.js';
 import { postInstagram }                             from './lib/instagram.js';
@@ -30,21 +32,14 @@ import {
   handleCierre, handleObjecion, handleDemo, handleROI,
 } from './lib/ceo-commands.js';
 
-const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
-const CEO_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const CRON_SECRET = process.env.CRON_SECRET;
+const BOT_TOKEN   = CONFIG.TELEGRAM_CEO_BOT_TOKEN;
+const CEO_CHAT_ID = CONFIG.TELEGRAM_CEO_CHAT_ID;
+const CRON_SECRET = CONFIG.CRON_SECRET;
 
-// ── State ─────────────────────────────────────────────────────────────────────
-async function getState(chatId) {
-  const raw = await redisCmd('GET', `ceobot:${chatId}`);
-  try { return raw ? JSON.parse(raw) : null; } catch { return null; }
-}
-async function setState(chatId, state) {
-  await redisCmd('SET', `ceobot:${chatId}`, JSON.stringify(state), 'EX', 3600);
-}
-async function clearState(chatId) {
-  await redisCmd('DEL', `ceobot:${chatId}`);
-}
+// ── State (via lib/state.js, prefix 'ceobot') ─────────────────────────────────
+const getState   = (chatId)        => _getState('ceobot', chatId);
+const setState   = (chatId, state) => _setState('ceobot', chatId, state);
+const clearState = (chatId)        => _clearState('ceobot', chatId);
 
 // ── Telegram helpers ──────────────────────────────────────────────────────────
 const send   = (id, text, extra = {}) => sendMessage(BOT_TOKEN, id, text, extra);
@@ -55,45 +50,14 @@ const edit   = (id, mid, text, ex={}) => editMessage(BOT_TOKEN, id, mid, text, e
 const SIG_MAP   = { d: 'diagnostico', n: 'nda', s: 'seguimiento', f: 'no_fit', c: 'cerrado' };
 const SIG_LABEL = { d: '🟢 Diagnóstico', n: '🔵 NDA', s: '🟡 Seguimiento', f: '❌ No fit', c: '✅ Cerrado' };
 
-function kbSiguiente(leadId) {
-  return {
-    inline_keyboard: [
-      [{ text: '🟢 Diagnóstico', callback_data: `pm_sig:d:${leadId}` },
-       { text: '🔵 NDA',         callback_data: `pm_sig:n:${leadId}` }],
-      [{ text: '🟡 Seguimiento', callback_data: `pm_sig:s:${leadId}` },
-       { text: '❌ No fit',      callback_data: `pm_sig:f:${leadId}` }],
-      [{ text: '✅ Cerrado',     callback_data: `pm_sig:c:${leadId}` }],
-    ],
-  };
-}
-
-function kbInteres(leadId) {
-  return {
-    inline_keyboard: [[
-      { text: '1 😐', callback_data: `pm_int:1:${leadId}` },
-      { text: '2 🙂', callback_data: `pm_int:2:${leadId}` },
-      { text: '3 😊', callback_data: `pm_int:3:${leadId}` },
-      { text: '4 🤩', callback_data: `pm_int:4:${leadId}` },
-      { text: '5 🔥', callback_data: `pm_int:5:${leadId}` },
-    ]],
-  };
-}
-
-function kbPropuesta(leadId) {
-  return {
-    inline_keyboard: [[
-      { text: '📄 Generar propuesta', callback_data: `pm_prop:${leadId}` },
-      { text: '⏭ Omitir',            callback_data: `pm_skip:${leadId}` },
-    ]],
-  };
-}
-
 // ── Handler principal ─────────────────────────────────────────────────────────
 export default async function handler(req, res) {
+  console.log('[ceo-bot] Handler iniciado');
   res.setHeader('Content-Type', 'application/json');
   if (req.method !== 'POST') return res.status(200).json({ ok: true });
 
   const body = req.body || {};
+  console.log('[ceo-bot] Body recibido', { hasMessage: !!body.message, hasCallback: !!body.callback_query });
 
   try {
     // ── Callback query (botones inline) ──────────────────────────────────────
@@ -170,51 +134,72 @@ export default async function handler(req, res) {
 
       // ── Flujo post-meeting ────────────────────────────────────────────────
       if (data.startsWith('pm_start:')) {
-        const lead_id = data.slice(9);
-        await setState(chatId, { step: 'awaiting_siguiente', lead_id });
-        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_✏️ Registrando resultado..._');
-        await send(chatId, '*¿Cuál fue el resultado de la reunión?*', { reply_markup: kbSiguiente(lead_id) });
+        try {
+          const lead_id = data.slice(9);
+          await setState(chatId, { step: 'awaiting_siguiente', lead_id });
+          await edit(chatId, msgId, (cq.message.text || '') + '\n\n_✏️ Registrando resultado..._');
+          await send(chatId, '*¿Cuál fue el resultado de la reunión?*', { reply_markup: kbSiguiente(lead_id) });
+        } catch (err) {
+          console.error('[ceo-bot] pm_start error:', err.message);
+          await send(chatId, `❌ Error al iniciar registro: ${err.message}`);
+        }
         return res.status(200).json({ ok: true });
       }
 
       if (data.startsWith('pm_sig:')) {
-        const parts    = data.split(':');
-        const sigAbrev = parts[1];
-        const lead_id  = parts.slice(2).join(':');
-        const sig      = SIG_MAP[sigAbrev] || 'seguimiento';
-        const sigLabel = SIG_LABEL[sigAbrev] || sig;
-        await setState(chatId, { step: 'awaiting_dolor', lead_id, siguiente_paso: sig });
-        await edit(chatId, msgId, `*Resultado: ${sigLabel}* ✓`);
-        await send(chatId, `¿Cuál fue el *dolor principal* que mencionaron?\n_(Ej: "rotación 30%, piden adelantos al supervisor")_`);
+        try {
+          const parts    = data.split(':');
+          const sigAbrev = parts[1];
+          const lead_id  = parts.slice(2).join(':');
+          const sig      = SIG_MAP[sigAbrev] || 'seguimiento';
+          const sigLabel = SIG_LABEL[sigAbrev] || sig;
+          await setState(chatId, { step: 'awaiting_dolor', lead_id, siguiente_paso: sig });
+          await edit(chatId, msgId, `*Resultado: ${sigLabel}* ✓`);
+          await send(chatId, `¿Cuál fue el *dolor principal* que mencionaron?\n_(Ej: "rotación 30%, piden adelantos al supervisor")_`);
+        } catch (err) {
+          console.error('[ceo-bot] pm_sig error:', err.message);
+          await send(chatId, `❌ Error al registrar resultado: ${err.message}`);
+        }
         return res.status(200).json({ ok: true });
       }
 
       if (data.startsWith('pm_int:')) {
-        const parts   = data.split(':');
-        const interes = parseInt(parts[1]) || 3;
-        const lead_id = parts.slice(2).join(':');
-        const state   = await getState(chatId);
-        if (!state) return res.status(200).json({ ok: true });
+        try {
+          const parts   = data.split(':');
+          const interes = parseInt(parts[1]) || 3;
+          const lead_id = parts.slice(2).join(':');
+          const state   = await getState(chatId);
+          if (!state) return res.status(200).json({ ok: true });
 
-        const needsFecha = ['diagnostico', 'nda'].includes(state.siguiente_paso);
-        const nextStep   = needsFecha ? 'awaiting_fecha' : 'complete';
-        await setState(chatId, { ...state, step: nextStep, interes });
-        await edit(chatId, msgId, `*Interés: ${interes}/5* ✓`);
+          const needsFecha = ['diagnostico', 'nda'].includes(state.siguiente_paso);
+          const nextStep   = needsFecha ? 'awaiting_fecha' : 'complete';
+          await setState(chatId, { ...state, step: nextStep, interes });
+          await edit(chatId, msgId, `*Interés: ${interes}/5* ✓`);
 
-        if (needsFecha) {
-          await send(chatId, `¿Cuándo es el próximo paso?\n_(Ej: "miércoles 2 de abril" — o /skip)_`);
-        } else {
-          await clearState(chatId);
-          await completarPostMeeting(chatId, { ...state, interes }, send, kbPropuesta, SIG_LABEL, SIG_MAP);
+          if (needsFecha) {
+            await send(chatId, `¿Cuándo es el próximo paso?\n_(Ej: "miércoles 2 de abril" — o /skip)_`);
+          } else {
+            await clearState(chatId);
+            await completarPostMeeting(chatId, { ...state, interes }, send, kbPropuesta, SIG_LABEL, SIG_MAP);
+          }
+        } catch (err) {
+          console.error('[ceo-bot] pm_int error:', err.message);
+          await send(chatId, `❌ Error al registrar interés: ${err.message}`);
         }
         return res.status(200).json({ ok: true });
       }
 
       if (data.startsWith('pm_prop:')) {
-        const lead_id = data.slice(8);
-        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📄 Generando propuesta..._');
-        res.status(200).json({ ok: true });
-        await generateProposal(lead_id, chatId, send);
+        try {
+          const lead_id = data.slice(8);
+          await edit(chatId, msgId, (cq.message.text || '') + '\n\n_📄 Generando propuesta..._');
+          res.status(200).json({ ok: true });
+          await generateProposal(lead_id, chatId, send);
+        } catch (err) {
+          console.error('[ceo-bot] pm_prop error:', err.message);
+          await send(chatId, `❌ Error al generar propuesta: ${err.message}`);
+          res.status(200).json({ ok: true });
+        }
         return;
       }
 
@@ -224,10 +209,16 @@ export default async function handler(req, res) {
       }
 
       if (data.startsWith('pm_sign:')) {
-        const lead_id = data.slice(8);
-        await edit(chatId, msgId, (cq.message.text || '') + '\n\n_✍️ Enviando a PandaDoc..._');
-        res.status(200).json({ ok: true });
-        await sendToPandaDoc(lead_id, chatId, send);
+        try {
+          const lead_id = data.slice(8);
+          await edit(chatId, msgId, (cq.message.text || '') + '\n\n_✍️ Enviando a PandaDoc..._');
+          res.status(200).json({ ok: true });
+          await sendToPandaDoc(lead_id, chatId, send);
+        } catch (err) {
+          console.error('[ceo-bot] pm_sign error:', err.message);
+          await send(chatId, `❌ Error al enviar a PandaDoc: ${err.message}`);
+          res.status(200).json({ ok: true });
+        }
         return;
       }
 
@@ -247,6 +238,7 @@ export default async function handler(req, res) {
     if (chatId !== String(CEO_CHAT_ID)) return res.status(200).json({ ok: true });
 
     const text = message.text.trim();
+    console.log('[ceo-bot] Texto recibido:', text);
 
     // ── Comandos ──────────────────────────────────────────────────────────────
     if (text === '/help' || text === '/start') { await handleHelp(chatId, send);                                     return res.status(200).json({ ok: true }); }
@@ -256,7 +248,15 @@ export default async function handler(req, res) {
     if (text === '/enrich') { await handleEnrich(chatId, send);                                                      return res.status(200).json({ ok: true }); }
     if (text.startsWith('/tweet')) { await handleTweet(chatId, text.slice(6).trim(), send);                          return res.status(200).json({ ok: true }); }
     if (text.startsWith('/briefing')) { await handleBriefing(chatId, text.slice(9).trim(), send);                    return res.status(200).json({ ok: true }); }
-    if (text.startsWith('/post'))     { await handlePost(chatId, text.slice(5).trim().toLowerCase() || null, send, edit); return res.status(200).json({ ok: true }); }
+    if (text.startsWith('/post')) {
+      console.log('[ceo-bot] Comando /post detectado');
+      const args     = text.slice(5).trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const platform = args.find(a => ['linkedin', 'instagram', 'li', 'ig'].includes(a)) || null;
+      const persona  = args.find(a => ['ceo', 'cfo', 'chro'].includes(a)) || null;
+      console.log('[ceo-bot] Llamando handlePost', { chatId, platform, persona });
+      await handlePost(chatId, platform, persona, send, edit);
+      return res.status(200).json({ ok: true });
+    }
     if (text.startsWith('/cierre'))   { await handleCierre(chatId, text.slice(7).trim(), send);                           return res.status(200).json({ ok: true }); }
     if (text.startsWith('/objecion')) { await handleObjecion(chatId, text.slice(9).trim(), send);                         return res.status(200).json({ ok: true }); }
     if (text.startsWith('/demo'))     { await handleDemo(chatId, text.slice(5).trim(), send);                             return res.status(200).json({ ok: true }); }

@@ -3,7 +3,7 @@
 // Configurar en vercel.json: { "crons": [{ "path": "/api/daily-summary", "schedule": "0 13 * * *" }] }
 // También puede llamarse manualmente con ?secret=CRON_SECRET
 
-import { NOTION, PROGRAMA, SCORE_EMOJI } from './lib/constants.js';
+import { NOTION, PROGRAMA, SCORE_EMOJI, CONFIG } from './lib/constants.js';
 import { getProp, notionQuery }           from './lib/notion.js';
 import { sendMessage }                    from './lib/telegram.js';
 import { captureException }               from './lib/sentry.js';
@@ -11,9 +11,9 @@ import { getGmailToken }                  from './lib/gmail.js';
 
 const NOTION_DATABASE_ID  = NOTION.CRM_DB;
 const NOTION_EJECUCION_DB = NOTION.EJECUCION_DB;
-const TELEGRAM_BOT_TOKEN  = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID    = process.env.TELEGRAM_ABM_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
-const CRON_SECRET         = process.env.CRON_SECRET;
+const TELEGRAM_BOT_TOKEN  = CONFIG.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID    = CONFIG.TELEGRAM_ABM_CHAT_ID || CONFIG.TELEGRAM_CHAT_ID;
+const CRON_SECRET         = CONFIG.CRON_SECRET;
 const CUPOS_TOTALES       = PROGRAMA.CUPOS_TOTAL;
 
 // Helper local: query al CRM DB con paginación completa

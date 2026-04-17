@@ -3,10 +3,11 @@
 // re-engagement de sesiones abandonadas, y reactivación semanal (lunes).
 // Schedule: "0 14 * * *" (9am Lima, 14:00 UTC)
 
-import { NOTION, PROGRAMA, SCORE_EMOJI } from './lib/constants.js';
+import { NOTION, PROGRAMA, SCORE_EMOJI, CONFIG } from './lib/constants.js';
 import { getProp, notionQuery, notionPatch } from './lib/notion.js';
 import { sendMessage }       from './lib/telegram.js';
 import { askClaude }         from './lib/anthropic.js';
+import { REACTIVACION }      from './lib/prompts.js';
 import { detectGender }      from './lib/validators.js';
 import { captureException }  from './lib/sentry.js';
 import { redisCmd }          from './lib/redis.js';
@@ -14,9 +15,9 @@ import { getGmailToken, gmailSend } from './lib/gmail.js';
 
 const NOTION_DATABASE_ID  = NOTION.CRM_DB;
 const NOTION_EJECUCION_DB = NOTION.EJECUCION_DB;
-const TELEGRAM_BOT_TOKEN  = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID    = process.env.TELEGRAM_ABM_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
-const CRON_SECRET = process.env.CRON_SECRET;
+const TELEGRAM_BOT_TOKEN  = CONFIG.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID    = CONFIG.TELEGRAM_ABM_CHAT_ID || CONFIG.TELEGRAM_CHAT_ID;
+const CRON_SECRET         = CONFIG.CRON_SECRET;
 
 const DIAS_REACTIVACION = 45;
 const MAX_REACTIVACION  = 5;
@@ -109,15 +110,14 @@ async function getBriefReunionesHoy() {
 
 async function sendBriefReuniones(reuniones) {
   if (!reuniones.length) return;
+  const hoyLocal = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
 
-  for (const lead of reuniones) {
+  await Promise.all(reuniones.map(lead => {
     const empresa  = lead.properties?.['Empresa']?.title?.[0]?.plain_text     || 'Sin empresa';
     const decisor  = lead.properties?.['Decisor']?.rich_text?.[0]?.plain_text || '';
     const sector   = lead.properties?.['Sector']?.select?.name                || '';
     const score    = lead.properties?.['Score ICP']?.number                   ?? '';
     const notas    = lead.properties?.['Notas']?.rich_text?.[0]?.plain_text   || '';
-    const hoyLocal = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
-    const hora     = lead.properties?.['Fecha Reunión']?.date?.start          || hoyLocal;
     const email    = lead.properties?.['Email Decisor']?.email                || '';
     const telefono = lead.properties?.['Teléfono']?.phone_number              || '';
 
@@ -135,8 +135,8 @@ async function sendBriefReuniones(reuniones) {
     msg += `· "¿Qué costo tiene reemplazar a uno?"\n\n`;
     msg += `Cuando termines: \`/resultado ${empresa}\``;
 
-    await sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg);
-  }
+    return sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, msg);
+  }));
 }
 
 // ── #4: Cadencia vencida (D7 pasó, sin reunión) ───────────────────────────────
@@ -225,7 +225,7 @@ async function runReactivation() {
       const sugerencia = await askClaude(
         `Lead a reactivar:\n- Nombre: ${firstName}\n- Empresa: ${empresa || 'su empresa'}\n- Sector: ${sector || 'no indicado'}\n- Objetivo: ${objetivo || 'no especificado'}\n- Inactivo: ${dias} días\n- Estado anterior: ${estado}`,
         {
-          system: `Eres el equipo de ventas de Treevü (EWA B2B2E, Perú), redactando en nombre del fundador. Genera un mensaje de reactivación directo y cálido. Treevü reduce rotación 30%. Máximo 3 líneas, español peruano, cierra con pregunta. Solo el mensaje, sin explicaciones.`,
+          system: REACTIVACION,
           maxTokens: 200,
         }
       );

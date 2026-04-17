@@ -19,6 +19,7 @@ import { getSectorIntel }                               from './lib/sector-intel
 checkEnvVars(['NOTION_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'CRON_SECRET', 'OPENCLAW_TOKEN'], 'primera-reunion');
 import { notionPatch, getProp, getNotionPage } from './lib/notion.js';
 import { askClaude }                      from './lib/anthropic.js';
+import { BRIEFING_PREMEETING, FOLLOWUP_POSTMEETING } from './lib/prompts.js';
 import { sendMessage }                    from './lib/telegram.js';
 import { captureException }               from './lib/sentry.js';
 import { supabasePatch }                  from './lib/supabase.js';
@@ -119,44 +120,7 @@ async function researchCompany(empresa, sector) {
 async function generarBriefing(lead, researchContext) {
   const intel = getSectorIntel(lead.sector, lead.colaboradores);
 
-  const system = `Eres el asistente estratégico del CEO de Treevü, plataforma de acceso anticipado al salario con inteligencia predictiva de nómina para empresas peruanas.
-Tu rol: preparar al CEO para una primera reunión de presentación con un empleador prospecto.
-
-Contexto clave de Treevü:
-- Dos ángulos de valor que debes adaptar según el perfil del prospecto:
-  · CFO/Finanzas: predice la demanda 30 días antes (94% precisión) → reserva de caja −45%, flujo predecible, cero pasivo nuevo
-  · CEO/RRHH: colaboradores acceden a su propio salario → renuncias por estrés −40%, alertas de rotación 3 semanas antes
-- La empresa transfiere directo al colaborador — Treevü no toca los fondos (cero riesgo financiero)
-- Opera bajo supervisión SBS (sandbox regulatorio) — resuelve objeción legal antes de que la hagan
-- Pioneers Program: ${PROGRAMA.CUPOS_TOTAL} cupos hasta ${PROGRAMA.FECHA_CIERRE} — urgencia real
-- Piloto desde S/ 7/colaborador activo/mes
-- Integra con Buk y Mandü sin carga para TI
-
-Inteligencia sectorial (${lead.sector || 'sector general'}, Peru):
-- Rotación típica: ${intel.rotacion}
-- Dolor más frecuente: ${intel.dolor}
-- Objeción más probable: ${intel.objecion} → respuesta: ${intel.respuesta}
-- Perfil decisor habitual: ${intel.perfil_decisor}
-- Tip específico para esta reunión: ${intel.tip}
-- Ahorro estimado si evitan ${intel.renuncias} renuncias/año: S/ ${intel.ahorroEstimado}
-
-Genera un briefing operativo. Responde SOLO con JSON válido, sin markdown:
-{
-  "apertura": "<guion 30 segundos personalizado, primera persona, incluye dato sectorial>",
-  "preguntas": [
-    "<pregunta 1 — dolor específico del sector>",
-    "<pregunta 2 — adelantos informales (¿cuántos al mes?)>",
-    "<pregunta 3 — proceso de decisión y stakeholders>",
-    "<pregunta 4 — condiciones para decir sí al piloto>",
-    "<pregunta 5 — mayor preocupación o riesgo percibido>"
-  ],
-  "objeciones": [
-    { "objecion": "${intel.objecion}", "respuesta": "<respuesta adaptada a este lead>" },
-    { "objecion": "<segunda objeción probable>", "respuesta": "<respuesta concisa>" }
-  ],
-  "cierre": "<frase de cierre con urgencia Founders, natural no agresiva, menciona el ahorro de S/ ${intel.ahorroEstimado}>",
-  "alerta": "<punto sensible específico de este sector/empresa a manejar con cuidado, o null si no aplica ninguno>"
-}`;
+  const system = BRIEFING_PREMEETING(intel, PROGRAMA, lead.sector);
 
   const user = `Lead para preparar:
 - Empresa: ${lead.empresa || 'N/A'}
@@ -278,21 +242,7 @@ Comparto la agenda para aprovechar al máximo los 30–45 minutos:</p>
 // ═══════════════════════════════════════════════════════════════════════════════
 
 async function generarFollowUp(lead, notas) {
-  const system = `Eres el asistente de ventas de Treevü, plataforma EWA B2B para empresas peruanas.
-Genera un correo de follow-up post-reunión: profesional, conciso, en español peruano de negocios.
-Responde SOLO con JSON válido:
-{
-  "asunto": "<asunto del correo — máx 70 caracteres>",
-  "bullets": [
-    "<bullet 1: dolor identificado>",
-    "<bullet 2: objetivo acordado>",
-    "<bullet 3: cómo Treevü ayuda — específico>",
-    "<bullet 4: alcance tentativo del piloto>",
-    "<bullet 5: riesgo mencionado y cómo se resuelve>"
-  ],
-  "llamada_accion": "<frase de cierre con el siguiente paso concreto acordado, o null si no hay paso claro>",
-  "incluir_nda": "<true si el siguiente paso es NDA o se mencionó revisión legal, false en caso contrario>"
-}`;
+  const system = FOLLOWUP_POSTMEETING;
 
   const user = `Reunión realizada con:
 - Empresa: ${lead.empresa || 'N/A'} (${lead.sector || 'N/A'} · ${lead.colaboradores || 'N/A'} colaboradores)

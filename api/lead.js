@@ -10,7 +10,8 @@
  * Protegido por x-webhook-secret (LEAD_WEBHOOK_SECRET)
  */
 
-import { NOTION, PROGRAMA, SCORE_EMOJI, calcScore } from './lib/constants.js';
+import { NOTION, PROGRAMA, SCORE_EMOJI, calcScore, CONFIG } from './lib/constants.js';
+import { calcRenuncias } from './lib/sector-intel.js';
 import { notionCreate, notionQuery }                from './lib/notion.js';
 import { sendMessage, escapeMd }                    from './lib/telegram.js';
 import { supabaseUpsert }                           from './lib/supabase.js';
@@ -19,18 +20,15 @@ import { redisCmd }                                 from './lib/redis.js';
 import { getGmailToken, gmailSend }                 from './lib/gmail.js';
 import { sendWhatsApp, normalizePhone }             from './lib/whatsapp.js';
 
-const WEBHOOK_SECRET   = process.env.LEAD_WEBHOOK_SECRET;
-const TELEGRAM_TOKEN   = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_ABM_CHAT_ID;
+const WEBHOOK_SECRET   = CONFIG.LEAD_WEBHOOK_SECRET;
+const TELEGRAM_TOKEN   = CONFIG.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = CONFIG.TELEGRAM_ABM_CHAT_ID;
 
 // ── Nurturing MEDIO ───────────────────────────────────────────────────────────
 function buildNurturingD0(name, email, company, sector, employees, objetivo) {
-  const firstName   = (name || 'equipo').split(/[\s,\-]+/)[0];
-  const PROMEDIOS   = { '50-200': 125, '200-500': 350, '500-1000': 750, '1000-5000': 2500, '5000+': 7000 };
-  const colabs      = PROMEDIOS[employees] || 125;
-  const renuncias   = Math.round(colabs * 0.18);
-  const costo       = (renuncias * 8000).toLocaleString('es-PE');
-  const diasCierre  = Math.ceil((new Date(PROGRAMA.FECHA_CIERRE) - new Date()) / 864e5);
+  const firstName  = (name || 'equipo').split(/[\s,\-]+/)[0];
+  const { costoStr: costo } = calcRenuncias(sector, employees);
+  const diasCierre = Math.ceil((new Date(PROGRAMA.FECHA_CIERRE) - new Date()) / 864e5);
 
   return {
     to: email,

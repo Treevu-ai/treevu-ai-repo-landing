@@ -53,20 +53,20 @@ test('getSectorIntel: los sectores conocidos tienen contenido distinto al fallba
 
 // ── cálculo de renuncias y ahorro ───────────────────────────────────────────
 
-test('getSectorIntel: renuncias = round(colabs * 0.25) con rango "200-500"', () => {
+test('getSectorIntel: renuncias = round(PROMEDIO * tasa) con rango "200-500" + Manufactura', () => {
   const r = getSectorIntel('Manufactura', '200-500');
-  // parseInt('200') = 200 → round(200 * 0.25) = 50
-  assert.equal(r.renuncias, 50);
+  // PROMEDIOS_EMPLEADOS['200-500'] = 350, tasa Manufactura = 0.18 → round(350 * 0.18) = 63
+  assert.equal(r.renuncias, 63);
 });
 
-test('getSectorIntel: renuncias = round(500 * 0.25) = 125 con "500-1000"', () => {
+test('getSectorIntel: renuncias = round(750 * 0.20) = 150 con "500-1000" + Retail', () => {
   const r = getSectorIntel('Retail y consumo', '500-1000');
-  assert.equal(r.renuncias, 125);
+  // PROMEDIOS_EMPLEADOS['500-1000'] = 750, tasa Retail = 0.20 → round(750 * 0.20) = 150
+  assert.equal(r.renuncias, 150);
 });
 
 test('getSectorIntel: ahorroEstimado = renuncias * 8000 (formateado)', () => {
   const r = getSectorIntel('Salud', '200-500');
-  // renuncias = 50 → 50 * 8000 = 400,000 → '400,000' (locale es-PE)
   const expected = (r.renuncias * 8000).toLocaleString('es-PE');
   assert.equal(r.ahorroEstimado, expected);
 });
@@ -76,13 +76,14 @@ test('getSectorIntel: employees se pasa tal cual al retorno', () => {
   assert.equal(r.employees, '1000-5000');
 });
 
-test('getSectorIntel: employees vacío → renuncias = 0', () => {
+test('getSectorIntel: employees vacío → fallback a 200 colaboradores', () => {
   const r = getSectorIntel('Manufactura', '');
-  // parseInt('') → 0 → round(0 * 0.25) = 0
-  assert.equal(r.renuncias, 0);
+  // parseInt('') = NaN → fallback 200, tasa 0.18 → round(200 * 0.18) = 36
+  assert.equal(r.renuncias, 36);
 });
 
-test('getSectorIntel: employees undefined → renuncias = 0', () => {
+test('getSectorIntel: employees undefined → fallback a 200 colaboradores', () => {
   const r = getSectorIntel('Salud');
-  assert.equal(r.renuncias, 0);
+  // fallback 200, tasa Salud 0.16 → round(200 * 0.16) = 32
+  assert.equal(r.renuncias, 32);
 });

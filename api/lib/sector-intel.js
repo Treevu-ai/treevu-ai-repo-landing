@@ -1,5 +1,58 @@
-// api/lib/sector-intel.js — Pure sector intelligence data for primera-reunion
-// Extracted here so it can be unit-tested without importing heavy runtime deps.
+// api/lib/sector-intel.js — Inteligencia sectorial + cálculos de ROI
+// Fuente única de verdad para tasas de rotación y costo estimado de renuncias.
+// Importar calcRenuncias() en lugar de definir tasas locales en cada handler.
+
+// Tasa de rotación anual por sector (para cálculos de ROI)
+export const ROTACION_RATES = {
+  'Retail y consumo':     0.20,
+  'Manufactura':          0.18,
+  'Construccion/Mineria': 0.22,
+  'Banca y finanzas':     0.12,
+  'Servicios':            0.15,
+  'Salud':                0.16,
+  'Tecnologia':           0.13,
+  'Educacion':            0.14,
+};
+
+// Mapa de keys del formulario → nombre de sector normalizado
+const SECTOR_KEY_MAP = {
+  retail:       'Retail y consumo',
+  manufactura:  'Manufactura',
+  construccion: 'Construccion/Mineria',
+  banca:        'Banca y finanzas',
+  servicios:    'Servicios',
+  salud:        'Salud',
+  tecnologia:   'Tecnologia',
+  educacion:    'Educacion',
+};
+
+// Mapa de rango de empleados → número representativo para cálculos
+const PROMEDIOS_EMPLEADOS = {
+  '50-200':    125,
+  '200-500':   350,
+  '500-1000':  750,
+  '1000-5000': 2500,
+  '5000+':     7000,
+};
+
+const COSTO_REEMPLAZO = 8000; // S/ por renuncia (costo directo de reemplazo)
+
+/**
+ * Calcula renuncias estimadas y costo anual de rotación para un lead.
+ * @param {string} sectorKey — key del formulario (ej: 'retail') o nombre normalizado
+ * @param {string} employees — rango de empleados (ej: '200-500') o número
+ * @returns {{ renuncias: number, tasa: number, costo: number, costoStr: string }}
+ */
+export function calcRenuncias(sectorKey, employees) {
+  const sectorName = SECTOR_KEY_MAP[sectorKey] || sectorKey;
+  const tasa       = ROTACION_RATES[sectorName] || 0.15;
+  const colabs     = PROMEDIOS_EMPLEADOS[employees]
+    || parseInt((employees || '').split('-')[0].replace('+', ''))
+    || 200;
+  const renuncias  = Math.round(colabs * tasa);
+  const costo      = renuncias * COSTO_REEMPLAZO;
+  return { renuncias, tasa, costo, costoStr: costo.toLocaleString('es-PE') };
+}
 
 export function getSectorIntel(sector, employees) {
   const intel = {
@@ -62,9 +115,7 @@ export function getSectorIntel(sector, employees) {
     tip: 'Preguntar cuántos colaboradores pidieron adelanto este mes',
   };
 
-  const colabs        = parseInt((employees || '').split('-')[0]) || 0;
-  const renuncias     = Math.round(colabs * 0.25);
-  const ahorroEstimado = (renuncias * 8000).toLocaleString('es-PE');
+  const { renuncias, costoStr } = calcRenuncias(sector, employees);
 
-  return { ...data, renuncias, ahorroEstimado, employees };
+  return { ...data, renuncias, ahorroEstimado: costoStr, employees };
 }

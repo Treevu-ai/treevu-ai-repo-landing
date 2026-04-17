@@ -34,38 +34,78 @@ const LINKEDIN_TEMAS = [
   'casos reales: empresas peruanas que redujeron rotación con beneficios financieros',
 ];
 
+// Perspectivas rotativas (CEO, CFO, CHRO) para variar la voz de cada post
+const PERSONAS = [
+  {
+    rol:      'CEO',
+    emoji:    '👔',
+    contexto: 'Escribís desde la mirada del CEO: visión estratégica, cultura organizacional, ventaja competitiva, retención del talento clave para el crecimiento del negocio.',
+    audiencia: 'CEOs y directores generales de empresas peruanas de 200–2000 colaboradores',
+    tono:     'visionario pero directo, con urgencia estratégica. Corto y contundente.',
+  },
+  {
+    rol:      'CFO',
+    emoji:    '💰',
+    contexto: 'Escribís desde la mirada del CFO: costo total de la rotación en S/, ROI del beneficio EWA, impacto en el flujo de caja de la empresa, eficiencia de nómina vs. adelantos informales.',
+    audiencia: 'CFOs, directores financieros y gerentes de administración de empresas peruanas medianas',
+    tono:     'analítico, orientado a datos. Números en S/ cuando sea posible. Riguroso pero accesible.',
+  },
+  {
+    rol:      'CHRO',
+    emoji:    '🧑‍🤝‍🧑',
+    contexto: 'Escribís desde la mirada del CHRO o Gerente de RRHH: bienestar financiero del colaborador, engagement, clima laboral, people analytics, retención y reducción de rotación.',
+    audiencia: 'directores y gerentes de Recursos Humanos de empresas peruanas medianas',
+    tono:     'empático y cercano, con datos de respaldo. Voz humana, no corporativa.',
+  },
+];
+
+const ANGULOS = [
+  'estadística + implicancia práctica que el lector no esperaba',
+  'historia real de una empresa (sin nombrarla) + la lección que aprendieron',
+  'afirmación contrarian que rompe un mito muy extendido en el sector',
+  'pregunta incómoda que el lector debería hacerse pero evita',
+  'comparación concreta: antes y después de implementar EWA en una empresa similar',
+];
+
 // ── Generación con Claude ─────────────────────────────────────────────────────
 
 async function generarContenido(tipo, weekNum) {
-  const tema = LINKEDIN_TEMAS[weekNum % LINKEDIN_TEMAS.length];
+  const tema    = LINKEDIN_TEMAS[weekNum % LINKEDIN_TEMAS.length];
+  const persona = PERSONAS[weekNum % PERSONAS.length];
+  const angulo  = ANGULOS[(weekNum * 2 + 4) % ANGULOS.length]; // día 4 = jueves (LinkedIn day)
 
   const prompts = {
     // ── LINKEDIN ─────────────────────────────────────────────────────────────
     // Algoritmo 2026: dwell time es la señal #1. Hook → tiempo de lectura → comentario.
     // Sin links en el cuerpo (matan alcance). Sin "me complace compartir". Una sola pregunta al final.
-    '💼 LinkedIn': `Eres el equipo de contenido de Treevü, startup B2B de EWA (acceso al salario devengado) en Perú.
+    '💼 LinkedIn': `Sos un experto en beneficios laborales y EWA en Perú, escribiendo un post de LinkedIn DESDE LA PERSPECTIVA DEL ${persona.rol} ${persona.emoji}.
 
-Escribe un post de LinkedIn sobre: "${tema}"
+${persona.contexto}
+
+Audiencia: ${persona.audiencia}
+Tono: ${persona.tono}
+Tema del post: "${tema}"
+Ángulo: ${angulo}
 
 REGLAS DE ALGORITMO (obligatorias):
 - Primera línea = gancho que corta el scroll. Dato concreto, pregunta incómoda o afirmación contrarian. Sin saludos.
-- Salto de línea después de cada 1-2 oraciones (el algoritmo premia el dwell time; los párrafos cortos hacen leer más).
-- Usa números reales cuando puedas: %, S/, días, personas.
-- Ángulo personal o de insider: "lo que nadie dice sobre...", "lo aprendí trabajando con X empresas..."
-- Cierra con UNA sola pregunta abierta (genera comentarios = señal de engagement).
-- NO pongas links (reducen alcance; van en el primer comentario).
-- Sin hashtags genéricos (#RRHH #Peru). Máximo 3 hashtags nicho al final si aportan.
-- 150-250 palabras. Tono experto pero humano. Sin bullets con guión largo.
+- Salto de línea después de cada 1-2 oraciones.
+- Números reales cuando puedas: %, S/, días, personas.
+- Ángulo personal o insider: "lo que nadie dice sobre...", "trabajando con X empresas en Lima..."
+- Cierra con UNA sola pregunta abierta (genera comentarios).
+- NO pongas links en el cuerpo.
+- Sin hashtags genéricos (#RRHH #Peru). Máximo 3 hashtags nicho al final.
+- 150-250 palabras. Sin bullets con guión largo.
 
-EJEMPLO DE TONO Y ESTRUCTURA (no copies el tema, solo el estilo):
+EJEMPLO DE TONO (no copies el tema, solo el estilo):
 ---
 Reemplazar a un operario en Perú cuesta entre S/ 6,000 y S/ 12,000.
 
-No es solo el reclutamiento. Es el tiempo de onboarding, la productividad perdida los primeros 60 días, el estrés del equipo que cubre el puesto vacío.
+No es solo el reclutamiento. Es el onboarding, la productividad perdida 60 días, el estrés del equipo que cubre el hueco.
 
-Lo que casi nadie mide: el 40% de esas renuncias ocurren porque el colaborador necesitaba S/ 200 antes de quincena y no tuvo a quién pedírselos.
+Lo que casi nadie mide: el 40% de esas renuncias ocurren porque el colaborador necesitaba S/ 200 antes de quincena.
 
-Trabajando con empresas de manufactura en Lima, vemos el mismo patrón: la deuda emocional de pedir adelantos al jefe es la primera grieta que termina en renuncia.
+Trabajando con empresas de manufactura en Lima, veo el mismo patrón: la deuda emocional de pedir adelantos al jefe es la primera grieta que termina en renuncia.
 
 ¿Tu empresa ya mide cuánto le cuesta esa grieta al año?
 
@@ -260,7 +300,8 @@ export default async function handler(req, res) {
     if (diaSemana === 4 && section.length > 0) {
       const draft = await generarContenido('💼 LinkedIn', weekNum);
       if (draft) {
-        msg += `\n\n${div}\n💼 *Draft LinkedIn (IA):*\n${draft.trim()}`;
+        const p = PERSONAS[weekNum % PERSONAS.length];
+        msg += `\n\n${div}\n💼 *Draft LinkedIn (IA) — ${p.rol} ${p.emoji}:*\n${draft.trim()}`;
       }
     }
 
